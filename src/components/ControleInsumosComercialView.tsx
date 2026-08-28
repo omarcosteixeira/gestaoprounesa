@@ -50,7 +50,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { ROLES } from "../App";
+import { ROLES } from "../types";
 import * as XLSX from "xlsx";
 
 interface ControleInsumosComercialViewProps {

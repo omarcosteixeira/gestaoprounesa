@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 // We should import ROLES from App.tsx or redefine. Since App.tsx has it:
-import { ROLES } from "../App";
+import { ROLES } from "../types";
 import * as XLSX from "xlsx";
 
 export const exportToExcel = (data: any[], fileName: string) => {

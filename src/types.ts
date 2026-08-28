@@ -749,3 +749,24 @@ export interface Tarefa {
   servidor?: string;
   createdAt?: any;
 }
+
+export const ROLES: Record<string, UserRole> = {
+  ADMIN_MASTER: "Admin Master",
+  PROMOTOR: "Promotor",
+  FDV: "FDV",
+  SALA_MATRICULA: "Sala de Matrícula",
+  QG: "QG",
+  LIDER_FDV: "Líder/FDV",
+  SSA: "SSA",
+  GESTOR_UNIDADE: "Gestor Unidade",
+  GESTOR_COMERCIAL: "Gestor Comercial",
+  ACADEMICO: "Acadêmico",
+  PROMOTOR_RUA: "Promotor/rua",
+  GESTOR_COMERCIAL_COMERCIAL: "Gerente Comercial (Comercial)",
+  FDV_COMERCIAL: "FDV (Comercial)",
+  FINANCEIRO: "Financeiro",
+  TECNICO: "Técnico",
+  REGIONAL: "Regional",
+  LIDER_SM: "Líder SM",
+  GESTOR: "Gestor",
+};

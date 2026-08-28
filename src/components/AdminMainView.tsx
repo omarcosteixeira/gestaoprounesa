@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { UserProfile, UnidadeRegional, FuncionarioSM, Tarefa, UserRole } from "../types";
-import { ROLES } from "../App";
+import { ROLES } from "../types";
 import { db, secondaryAuth, COLLECTIONS } from "../firebase";
 import { doc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { createUserWithEmailAndPassword, updateProfile, signOut } from "firebase/auth";
