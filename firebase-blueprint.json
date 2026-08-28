@@ -1,0 +1,387 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information and role",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "chavePix": { "type": "string" },
+        "role": { "type": "string", "enum": ["Promotor", "FDV", "Sala de Matrícula", "QG", "Líder/FDV", "SSA", "Gestor Unidade", "Gestor Comercial", "Acadêmico", "Gerente Comercial (Comercial)", "FDV (Comercial)", "Promotor/rua", "Financeiro", "Técnico", "Admin Master"] },
+        "unidade": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "dashboardWidgets": {
+          "type": "object",
+          "properties": {
+            "stats": { "type": "boolean" },
+            "links": { "type": "boolean" },
+            "planner": { "type": "boolean" },
+            "campanhas": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["uid", "email", "name", "role"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Lead information",
+      "type": "object",
+      "properties": {
+        "acao": { "type": "string" },
+        "nome": { "type": "string" },
+        "telefone": { "type": "string" },
+        "cpf": { "type": "string" },
+        "cursoInteresse": { "type": "string" },
+        "converted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "promotorId": { "type": "string" },
+        "promotorName": { "type": "string" }
+      },
+      "required": ["acao", "nome", "telefone", "converted", "promotorId"]
+    },
+    "BaseEntry": {
+      "title": "BaseEntry",
+      "description": "Entry in a sales base",
+      "type": "object",
+      "properties": {
+        "nomeBase": { "type": "string" },
+        "nome": { "type": "string" },
+        "telefone": { "type": "string" },
+        "cpf": { "type": "string" },
+        "curso": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pendente", "Interessado", "Convertido"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nomeBase", "nome", "telefone", "status"]
+    },
+    "GapEntry": {
+      "title": "GapEntry",
+      "description": "Academic gap tracking",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "telefone": { "type": "string" },
+        "matAcad": { "type": "boolean" },
+        "documentos": {
+          "type": "object",
+          "properties": {
+            "rg": { "type": "boolean" },
+            "cpf": { "type": "boolean" },
+            "diploma": { "type": "boolean" },
+            "enem": { "type": "boolean" },
+            "historico": { "type": "boolean" },
+            "planoEnsino": { "type": "boolean" },
+            "contrato": { "type": "boolean" },
+            "carta": { "type": "boolean" }
+          }
+        }
+      },
+      "required": ["nome", "telefone", "matAcad"]
+    },
+    "PlannerTask": {
+      "title": "PlannerTask",
+      "description": "Weekly planning task",
+      "type": "object",
+      "properties": {
+        "dayOfWeek": { "type": "string" },
+        "atendenteName": { "type": "string" },
+        "baseName": { "type": "string" }
+      },
+      "required": ["dayOfWeek", "atendenteName", "baseName"]
+    },
+    "LinkUtil": {
+      "title": "LinkUtil",
+      "description": "Useful link",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }
+      },
+      "required": ["nome", "url"]
+    },
+    "FiesProuniEntry": {
+      "title": "FiesProuniEntry",
+      "description": "Fies/Prouni tracking entry",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "cpf": { "type": "string" },
+        "telefone": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["FIES", "PROUNI"] },
+        "bolsa": { "type": "string", "enum": ["Parcial", "Total"] },
+        "metodologia": { "type": "string" },
+        "curso": { "type": "string" },
+        "inscricaoSales": { "type": "string" },
+        "numeroMatricula": { "type": "string" },
+        "tcbAssinado": { "type": "boolean" },
+        "digitalizaStatus": { "type": "string", "enum": ["Não Postado", "Em Análise", "Concluído", "Documento reprovado"] },
+        "documentosEntregues": { "type": "array", "items": { "type": "string" } },
+        "docsEntreguesStatus": { "type": "string", "enum": ["Sim", "Parcial", "Pendente", "Não compareceu"] },
+        "sisprouniStatus": { "type": "string", "enum": ["Pendente", "Aprovado", "Reprovado"] },
+        "observacao": { "type": "string" },
+        "periodo": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pendente", "Aprovado", "Reprovado", "Em Análise", "Desistente", "Não compareceu"] }
+      },
+      "required": ["nome", "cpf", "tipo", "bolsa", "curso"]
+    },
+    "Campanha": {
+      "title": "Campanha",
+      "description": "Marketing campaign",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "dataInicio": { "type": "string", "format": "date" },
+        "dataFim": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Ativa", "Pausada", "Finalizada"] },
+        "objetivo": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "dataInicio", "dataFim", "status"]
+    },
+    "BomDiaCaptacao": {
+      "title": "BomDiaCaptacao",
+      "description": "Morning capture greeting",
+      "type": "object",
+      "properties": {
+        "mensagem": { "type": "string" },
+        "data": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["mensagem", "data"]
+    },
+    "ForecastCaptacao": {
+      "title": "ForecastCaptacao",
+      "description": "Capture forecast",
+      "type": "object",
+      "properties": {
+        "meta": { "type": "number" },
+        "realizado": { "type": "number" },
+        "projetado": { "type": "number" },
+        "mes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["meta", "realizado", "projetado", "mes"]
+    },
+    "EmpresaParceira": {
+      "title": "EmpresaParceira",
+      "description": "Partner company information",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "responsavel": { "type": "string" },
+        "telefone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "endereco": { "type": "string" },
+        "linkMaps": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "responsavel", "telefone"]
+    },
+    "WhatsAppMessage": {
+      "title": "WhatsAppMessage",
+      "description": "Default WhatsApp messages",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string", "enum": ["historico", "bases", "gap", "fiesProuni"] },
+        "mensagem": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tipo", "mensagem"]
+    },
+    "MetaDia": {
+      "title": "MetaDia",
+      "description": "Meta dia control",
+      "type": "object",
+      "properties": {
+        "data": { "type": "string", "format": "date" },
+        "aaPresencial": { "type": "number" },
+        "ytdPresencial": { "type": "number" },
+        "realizadoPresencial": { "type": "number" },
+        "aaSemipresencial": { "type": "number" },
+        "ytdSemipresencial": { "type": "number" },
+        "realizadoSemipresencial": { "type": "number" },
+        "aaDigital": { "type": "number" },
+        "ytdDigital": { "type": "number" },
+        "realizadoDigital": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["data"]
+    },
+    "SolicitacaoFolga": {
+      "title": "SolicitacaoFolga",
+      "description": "Time off and vacation requests",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "solicitanteId": { "type": "string" },
+        "solicitanteNome": { "type": "string" },
+        "solicitanteEmail": { "type": "string" },
+        "solicitanteRole": { "type": "string" },
+        "dataInicio": { "type": "string", "format": "date" },
+        "dataFim": { "type": "string", "format": "date" },
+        "tipo": { "type": "string", "enum": ["Folga", "Férias"] },
+        "status": { "type": "string", "enum": ["Pendente", "Aprovado", "Recusado"] },
+        "aprovadoPorId": { "type": "string" },
+        "aprovadoPorNome": { "type": "string" },
+        "justificativa": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["solicitanteId", "solicitanteNome", "dataInicio", "dataFim", "tipo", "status"]
+    },
+    "IsencaoEntry": {
+      "title": "IsencaoEntry",
+      "description": "Exemptions tracking and follow-up",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "cpf": { "type": "string" },
+        "telefone": { "type": "string" },
+        "numeroOportunidade": { "type": "string" },
+        "curso": { "type": "string" },
+        "inseridoDigitaliza": { "type": "string", "enum": ["Sim", "Não"] },
+        "status": { "type": "string", "enum": ["Pendente", "Solicitado", "Deferido"] },
+        "boletoPago": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "cpf", "telefone", "curso", "inseridoDigitaliza", "status", "boletoPago"]
+    },
+    "EvasaoRecord": {
+      "title": "EvasaoRecord",
+      "description": "Evasao tracking record",
+      "type": "object",
+      "properties": {
+        "atendimento": { "type": "string" },
+        "tipoAtendimento": { "type": "string" },
+        "horario": { "type": "string" },
+        "unidade": { "type": "string" },
+        "modalidade": { "type": "string" },
+        "matricula": { "type": "string" },
+        "curso": { "type": "string" },
+        "safra": { "type": "string" },
+        "nome": { "type": "string" },
+        "contato": { "type": "string" },
+        "status": { "type": "string" },
+        "pendencia": { "type": "string" },
+        "resultado": { "type": "string" },
+        "trancamentoCancelamento": { "type": "string" },
+        "periodo": { "type": "string" },
+        "tipoSolicitacao": { "type": "string" },
+        "observacao": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["atendimento", "tipoAtendimento", "unidade", "modalidade", "matricula", "curso", "safra", "nome", "contato", "status", "trancamentoCancelamento"]
+    },
+    "CalendarioAcao": {
+      "title": "CalendarioAcao",
+      "description": "Team action and event planning",
+      "type": "object",
+      "properties": {
+        "nome": { "type": "string" },
+        "dataInicio": { "type": "string", "format": "date" },
+        "dataFim": { "type": "string", "format": "date" },
+        "local": { "type": "string" },
+        "observacao": { "type": "string" },
+        "status": { "type": "string", "enum": ["Não iniciada", "Em andamento", "Concluído", "Cancelado"] },
+        "concluida": { "type": "boolean" },
+        "unidade": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorRole": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "fotos": { "type": "array", "items": { "type": "string" } },
+        "metaBoletos": { "type": "number" },
+        "metaInscritos": { "type": "number" },
+        "precisaPromotor": { "type": "boolean" },
+        "promotoresSelecionados": { "type": "array", "items": { "type": "string" } },
+        "valorPromotor": { "type": "number" },
+        "valorOrcado": { "type": "number" },
+        "colaboradorId": { "type": "string" },
+        "colaboradorNome": { "type": "string" },
+        "colaboradoresIds": { "type": "array", "items": { "type": "string" } },
+        "colaboradoresNomes": { "type": "array", "items": { "type": "string" } },
+        "tipoAtividade": { "type": "string" },
+        "empresaParceiraId": { "type": "string" },
+        "empresaParceiraNome": { "type": "string" },
+        "leadsFeitos": { "type": "number" },
+        "boletosFeitos": { "type": "number" },
+        "horario": { "type": "string" }
+      },
+      "required": ["nome", "dataInicio", "dataFim", "local", "unidade", "creatorId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "artifacts/gestaopro-761e1/public/data/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "artifacts/gestaopro-761e1/public/data/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Leads data"
+    },
+    "artifacts/gestaopro-761e1/public/data/bases/{baseId}": {
+      "schema": "BaseEntry",
+      "description": "Sales bases data"
+    },
+    "artifacts/gestaopro-761e1/public/data/gap_academico/{gapId}": {
+      "schema": "GapEntry",
+      "description": "Academic gap data"
+    },
+    "artifacts/gestaopro-761e1/public/data/planner/{taskId}": {
+      "schema": "PlannerTask",
+      "description": "Weekly planner data"
+    },
+    "artifacts/gestaopro-761e1/public/data/linksUteis/{linkId}": {
+      "schema": "LinkUtil",
+      "description": "Useful links data"
+    },
+    "artifacts/gestaopro-761e1/public/data/fies_prouni/{entryId}": {
+      "schema": "FiesProuniEntry",
+      "description": "Fies and Prouni tracking data"
+    },
+    "artifacts/gestaopro-761e1/public/data/campanhas/{campanhaId}": {
+      "schema": "Campanha",
+      "description": "Marketing campaigns data"
+    },
+    "artifacts/gestaopro-761e1/public/data/bom_dia/{bomDiaId}": {
+      "schema": "BomDiaCaptacao",
+      "description": "Bom Dia Captacao data"
+    },
+    "artifacts/gestaopro-761e1/public/data/forecast/{forecastId}": {
+      "schema": "ForecastCaptacao",
+      "description": "Forecast Captacao data"
+    },
+    "artifacts/gestaopro-761e1/public/data/empresas_parceiras/{empresaId}": {
+      "schema": "EmpresaParceira",
+      "description": "Partner companies data"
+    },
+    "artifacts/gestaopro-761e1/public/data/whatsapp_messages/{messageId}": {
+      "schema": "WhatsAppMessage",
+      "description": "WhatsApp default messages data"
+    },
+    "artifacts/gestaopro-761e1/public/data/meta_dia/{id}": {
+      "schema": "MetaDia",
+      "description": "Meta Dia goals and performance entries"
+    },
+    "artifacts/gestaopro-761e1/public/data/solicitacoes_folga/{id}": {
+      "schema": "SolicitacaoFolga",
+      "description": "Time off and vacation requests data"
+    },
+    "artifacts/gestaopro-761e1/public/data/isencoes/{isencaoId}": {
+      "schema": "IsencaoEntry",
+      "description": "Exemptions tracking data"
+    },
+    "artifacts/gestaopro-761e1/public/data/evasao/{evasaoId}": {
+      "schema": "EvasaoRecord",
+      "description": "Evasion tracking data"
+    },
+    "artifacts/gestaopro-761e1/public/data/calendario_acoes/{acaoId}": {
+      "schema": "CalendarioAcao",
+      "description": "Team action and event planning data"
+    }
+  }
+}

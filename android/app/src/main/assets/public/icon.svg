@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="120" fill="#0f172a" />
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="20 10" opacity="0.3" />
+  <g transform="translate(106, 120)" fill="none" class="main-group">
+    <!-- Outer 3D-like hex box representing supply package -->
+    <path d="M 150 20 L 270 90 L 270 230 L 150 300 L 30 230 L 30 90 Z" stroke="#10b981" stroke-width="18" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="M 150 20 L 150 300" stroke="#10b981" stroke-width="12" stroke-linecap="round" />
+    <path d="M 30 90 L 150 160 L 270 90" stroke="#10b981" stroke-width="12" stroke-linejoin="round" />
+    <!-- Dynamic central leaf representing nature development ("Oeste") -->
+    <path d="M 150 160 C 190 120, 230 130, 220 70 C 160 80, 180 120, 150 160 Z" fill="#10b981" opacity="0.9" />
+    <path d="M 150 160 C 110 120, 70 130, 80 70 C 140 80, 120 120, 150 160 Z" fill="#3b82f6" opacity="0.9" />
+  </g>
+</svg>

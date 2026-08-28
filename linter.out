@@ -1,0 +1,7 @@
+
+> react-example@0.0.0 lint
+> tsc --noEmit
+
+src/App.tsx(21138,25): error TS2304: Cannot find name 'showToast'.
+src/components/RelatoriosView.tsx(481,16): error TS2448: Block-scoped variable 'metaDiaDataInicio' used before its declaration.
+src/components/RelatoriosView.tsx(481,35): error TS2448: Block-scoped variable 'metaDiaDataFim' used before its declaration.

@@ -1,0 +1,1 @@
+sed -i '/match \/artifacts\/gestaopro-761e1\/public\/data\/campanhas\/{id} {/i \    match /artifacts/gestaopro-761e1/public/data/qg_ligacoes/{id} {\n      allow read, write: if isPrincipal() || isComercial();\n    }\n    match /artifacts/gestaopro-761e1/public/data/controle_concorrencia/{id} {\n      allow read, write: if isPrincipal() || isComercial();\n    }\n' firestore.rules

@@ -1,0 +1,13 @@
+include ':app'
+include ':capacitor-cordova-android-plugins'
+project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins/')
+
+apply from: 'capacitor.settings.gradle'
+
+if (!project(':capacitor-android').projectDir.exists()) {
+    throw new GradleException("A pasta node_modules/@capacitor/android/capacitor não foi encontrada!\n" +
+            "Para gerar o aplicativo Android, você precisa primeiro rodar os comandos no terminal na pasta raiz do projeto:\n" +
+            "1. npm install\n" +
+            "2. npx cap sync android\n" +
+            "Depois disso, tente sincronizar o projeto no Android Studio novamente.")
+}
