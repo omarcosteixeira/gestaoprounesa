@@ -12,6 +12,7 @@ import html2canvas from "html2canvas";
 import { AdminMainView } from "./components/AdminMainView";
 import { ChecklistView } from "./components/ChecklistView";
 import { AcompanhamentoTarefasView } from "./components/AcompanhamentoTarefasView";
+import { ClubeLocalView } from "./components/ClubeLocalView";
 import { jsPDF } from "jspdf";
 import { initializeApp, getApp } from "firebase/app";
 import {
@@ -121,6 +122,8 @@ import {
   Hash,
   ListChecks,
   ClipboardList,
+  Gift,
+  Ticket,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -151,6 +154,8 @@ import {
   FuncionarioSM,
   Tarefa,
   UserProfile,
+  ClubeParceiro,
+  ClubeResgate,
   SalesContact,
   WhatsContact,
   MalaDiretaContact,
@@ -802,6 +807,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR
   ],
   solicitacaoManutencao: Object.values(ROLES),
+  clubeLocal: Object.values(ROLES),
   controleInsumos: [
     ROLES.ADMIN_MASTER,
     ROLES.ACADEMICO,
@@ -4573,6 +4579,8 @@ export default function App() {
   const [insumosEstoqueComercial, setInsumosEstoqueComercial] = useState<
     InsumoEstoqueComercial[]
   >([]);
+  const [clubeParceiros, setClubeParceiros] = useState<ClubeParceiro[]>([]);
+  const [clubeResgates, setClubeResgates] = useState<ClubeResgate[]>([]);
   const [botConfig, setBotConfig] = useState<BotConfig>({
     url: "",
     active: false,
@@ -6409,6 +6417,99 @@ export default function App() {
         ),
     );
 
+    const unsubClubeParceiros = onSnapshot(
+      collection(db, COLLECTIONS.CLUBE_PARCEIROS),
+      async (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ClubeParceiro);
+        if (list.length === 0) {
+          // Seed demo vouchers if collection is empty
+          try {
+            const seedDemo = [
+              {
+                nomeEmpresa: "Smart Fit",
+                categoria: "Saúde & Fitness" as const,
+                descontoBadge: "25% OFF na Mensalidade",
+                descricao: "Desconto exclusivo de 25% no plano Black para todos os alunos e colaboradores Estácio.",
+                codigoVoucher: "SMART25ESTACIO",
+                instrucoesUso: "Apresente o comprovante de matrícula na recepção ou insira o cupom no cadastro online.",
+                imagemUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=500&auto=format&fit=crop&q=80",
+                bannerUrl: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=1200&auto=format&fit=crop&q=80",
+                destaqueBanner: true,
+                unidade: "Todas as Unidades",
+                validade: "31/12/2026",
+                ativo: true,
+                totalResgates: 142,
+              },
+              {
+                nomeEmpresa: "Cinemark",
+                categoria: "Lazer & Entretenimento" as const,
+                descontoBadge: "50% OFF no Ingressos",
+                descricao: "Meia-entrada garantida em qualquer sessão de cinema de segunda a domingo.",
+                codigoVoucher: "CINEMA50ESTACIO",
+                instrucoesUso: "Apresente sua carteirinha digital no caixa ou escolha meia-estudante no aplicativo.",
+                imagemUrl: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=80",
+                bannerUrl: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&auto=format&fit=crop&q=80",
+                destaqueBanner: true,
+                unidade: "Todas as Unidades",
+                validade: "31/12/2026",
+                ativo: true,
+                totalResgates: 210,
+              },
+              {
+                nomeEmpresa: "Hamburgueria Artesanal",
+                categoria: "Alimentação" as const,
+                descontoBadge: "20% OFF no Total da Conta",
+                descricao: "20% de desconto no cardápio de hambúrgueres artesanais e bebidas.",
+                codigoVoucher: "BURGER20ESTACIO",
+                instrucoesUso: "Apresente o cupom na hora de fechar a conta no restaurante.",
+                imagemUrl: "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=500&auto=format&fit=crop&q=80",
+                bannerUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&auto=format&fit=crop&q=80",
+                destaqueBanner: false,
+                unidade: "Todas as Unidades",
+                validade: "30/11/2026",
+                ativo: true,
+                totalResgates: 89,
+              },
+              {
+                nomeEmpresa: "Cultura Inglesa",
+                categoria: "Educação & Cursos" as const,
+                descontoBadge: "30% OFF em Cursos de Idiomas",
+                descricao: "Bolsa de 30% em cursos presenciais e online de inglês e espanhol.",
+                codigoVoucher: "IDIOMAS30",
+                instrucoesUso: "Informe o cupom no ato da matrícula presencial ou online.",
+                imagemUrl: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=500&auto=format&fit=crop&q=80",
+                bannerUrl: "",
+                destaqueBanner: false,
+                unidade: "Todas as Unidades",
+                validade: "31/12/2026",
+                ativo: true,
+                totalResgates: 45,
+              },
+            ];
+
+            for (const item of seedDemo) {
+              await addDoc(collection(db, COLLECTIONS.CLUBE_PARCEIROS), {
+                ...item,
+                createdAt: serverTimestamp(),
+              });
+            }
+          } catch (e) {
+            console.warn("Could not seed demo vouchers:", e);
+          }
+        }
+        setClubeParceiros(list);
+      },
+      (err) => handleFirestoreError(err, OperationType.LIST, COLLECTIONS.CLUBE_PARCEIROS)
+    );
+
+    const unsubClubeResgates = onSnapshot(
+      collection(db, COLLECTIONS.CLUBE_RESGATES),
+      (snap) => {
+        setClubeResgates(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ClubeResgate));
+      },
+      (err) => handleFirestoreError(err, OperationType.LIST, COLLECTIONS.CLUBE_RESGATES)
+    );
+
     return () => {
       unsubUsers();
       unsubPlanner();
@@ -6446,6 +6547,8 @@ export default function App() {
       unsubInsumosEstoqueComercial();
       unsubInsumosBaixas();
       unsubLigacoes();
+      unsubClubeParceiros();
+      unsubClubeResgates();
     };
   }, [user, profile]);
 
@@ -7104,6 +7207,7 @@ export default function App() {
               },
                             { id: "checklist", label: "Check list", icon: ListChecks },
               { id: "acompanhamentoTarefas", label: "Acompanhamento de Tarefas", icon: ClipboardList },
+              { id: "clubeLocal", label: "Clube Local", icon: Gift },
               { id: "admin", label: "Administração", icon: Settings },
             ].map(
               (item) =>
@@ -7527,6 +7631,14 @@ export default function App() {
                   onToast={showToast}
                 />
               )}
+              {currentView === "clubeLocal" && (
+                <ClubeLocalView
+                  parceiros={clubeParceiros}
+                  resgates={clubeResgates}
+                  profile={profile}
+                  onToast={showToast}
+                />
+              )}
               {currentView === "admin" && (
                 <AdminMainView
                   profile={profile!}
@@ -7534,6 +7646,8 @@ export default function App() {
                   unidadesRegional={unidadesRegional}
                   funcionariosSM={funcionariosSM}
                   tarefas={tarefas}
+                  clubeParceiros={clubeParceiros}
+                  clubeResgates={clubeResgates}
                   onToast={showToast}
                 />
               )}

@@ -1,6 +1,6 @@
 {
   "name": "Remix Gestão de Leads Pro Oficial att",
-  "description": "Sistema completo de gestão de leads, acompanhamento acadêmico e planejamento para equipes de vendas.",
+  "description": "Sistema completo de gestão de leads, acompanhamento acadêmico, planejamento de vendas e Clube Local de Vouchers e Benefícios.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

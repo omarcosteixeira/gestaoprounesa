@@ -750,6 +750,41 @@ export interface Tarefa {
   createdAt?: any;
 }
 
+export interface ClubeParceiro {
+  id?: string;
+  nomeEmpresa: string;
+  categoria: 'Alimentação' | 'Saúde & Fitness' | 'Educação & Cursos' | 'Lazer & Entretenimento' | 'Moda & Beleza' | 'Serviços & Tecnologia' | 'Outros';
+  descontoBadge: string;
+  descricao: string;
+  codigoVoucher: string;
+  instrucoesUso: string;
+  imagemUrl?: string;
+  bannerUrl?: string;
+  destaqueBanner?: boolean;
+  linkParceiro?: string;
+  whatsappContact?: string;
+  endereco?: string;
+  unidade?: string;
+  validade?: string;
+  ativo: boolean;
+  totalResgates?: number;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface ClubeResgate {
+  id?: string;
+  parceiroId: string;
+  nomeEmpresa: string;
+  codigoVoucher: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userUnidade?: string;
+  codigoUnicoResgate: string;
+  dataResgate: any;
+}
+
 export const ROLES: Record<string, UserRole> = {
   ADMIN_MASTER: "Admin Master",
   PROMOTOR: "Promotor",

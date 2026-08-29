@@ -118,6 +118,8 @@ export const COLLECTIONS = new Proxy({} as any, {
       TAREFAS: `artifacts/${currentProjectId}/public/data/tarefas`,
       FUNCIONARIOS_SM: `artifacts/${currentProjectId}/public/data/funcionarios_sm`,
       UNIDADES_REGIONAL: `artifacts/${currentProjectId}/public/data/unidades_regional`,
+      CLUBE_PARCEIROS: `artifacts/${currentProjectId}/public/data/clube_parceiros`,
+      CLUBE_RESGATES: `artifacts/${currentProjectId}/public/data/clube_resgates`,
     };
     return paths[prop];
   }

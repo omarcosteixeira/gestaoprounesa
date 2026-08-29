@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { UserProfile, UnidadeRegional, FuncionarioSM, Tarefa, UserRole } from "../types";
+import { UserProfile, UnidadeRegional, FuncionarioSM, Tarefa, UserRole, ClubeParceiro, ClubeResgate } from "../types";
 import { ROLES } from "../types";
 import { db, secondaryAuth, COLLECTIONS } from "../firebase";
 import { doc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -9,6 +9,7 @@ import {
   Building2,
   UserCheck,
   CheckSquare,
+  Gift,
   Plus,
   Search,
   Lock,
@@ -19,6 +20,7 @@ import {
 import { UnidadesRegionalView } from "./UnidadesRegionalView";
 import { CadastroSmRegionalView } from "./CadastroSmRegionalView";
 import { CadastroTarefasView } from "./CadastroTarefasView";
+import { AdminClubeLocalView } from "./AdminClubeLocalView";
 
 interface Props {
   profile: UserProfile;
@@ -26,6 +28,8 @@ interface Props {
   unidadesRegional: UnidadeRegional[];
   funcionariosSM: FuncionarioSM[];
   tarefas: Tarefa[];
+  clubeParceiros?: ClubeParceiro[];
+  clubeResgates?: ClubeResgate[];
   onToast: (msg: string, type?: "success" | "error") => void;
 }
 
@@ -57,10 +61,12 @@ export function AdminMainView({
   unidadesRegional,
   funcionariosSM,
   tarefas,
+  clubeParceiros = [],
+  clubeResgates = [],
   onToast,
 }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<
-    "usuarios" | "unidades" | "cadastroSm" | "tarefas"
+    "usuarios" | "unidades" | "cadastroSm" | "tarefas" | "clubeLocal"
   >("usuarios");
 
   // User Management States
@@ -229,6 +235,18 @@ export function AdminMainView({
           <CheckSquare size={16} />
           <span>Cadastro de Tarefas</span>
         </button>
+
+        <button
+          onClick={() => setActiveSubTab("clubeLocal")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+            activeSubTab === "clubeLocal"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Gift size={16} />
+          <span>Clube Local (Vouchers & Banners)</span>
+        </button>
       </div>
 
       {/* Sub-Tab Content */}
@@ -247,6 +265,16 @@ export function AdminMainView({
       {activeSubTab === "tarefas" && (
         <CadastroTarefasView
           tarefas={tarefas}
+          unidades={unidadesRegional}
+          profile={profile}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "clubeLocal" && (
+        <AdminClubeLocalView
+          parceiros={clubeParceiros}
+          resgates={clubeResgates}
           unidades={unidadesRegional}
           profile={profile}
           onToast={onToast}
