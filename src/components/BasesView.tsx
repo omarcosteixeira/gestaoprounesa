@@ -1,3 +1,5 @@
+import { ROLES } from "../types";
+import { exportToExcel, exportToCSV, importFromExcel, replaceMessageVariables } from "../App";
 import { EmpresasParceirasView } from "./EmpresasParceirasView";
 import { CalendarioAcoesView } from "./CalendarioAcoesView";
 import { ControlePagamentosView } from "./ControlePagamentosView";
@@ -11,7 +13,209 @@ import { ChecklistView } from "./ChecklistView";
 import { AcompanhamentoTarefasView } from "./AcompanhamentoTarefasView";
 import { jsPDF } from "jspdf";
 import { initializeApp, getApp } from "firebase/app";
-import { ROLES, UserRole, BotConfig } from "../types";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updatePassword,
+  updateProfile,
+  getAuth,
+  User,
+} from "firebase/auth";
+import {
+  collection,
+  query,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+  serverTimestamp,
+  where,
+  or,
+  limit,
+  orderBy,
+  getDoc,
+  setDoc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import {
+  LayoutDashboard,
+  UserPlus,
+  History,
+  Database,
+  GraduationCap,
+  Settings,
+  LogOut,
+  Plus,
+  Trash2,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Phone,
+  Search,
+  Users,
+  User as UserIcon,
+  TrendingUp,
+  Calendar,
+  Download,
+  Upload,
+  Menu,
+  X,
+  Check,
+  ChevronRight,
+  AlertCircle,
+  FileText,
+  Clock,
+  Calculator,
+  LayoutGrid,
+  List,
+  ShieldCheck,
+  Megaphone,
+  Sun,
+  Edit2,
+  Share2,
+  Edit,
+  Save,
+  MapPin,
+  Lock,
+  Unlock,
+  Circle,
+  KeyRound,
+  Building2,
+  MessageSquare,
+  PhoneOutgoing,
+  Mail,
+  Globe,
+  Copy,
+  Bot,
+  Send,
+  Bell,
+  Monitor,
+  Maximize,
+  Cloud,
+  RefreshCw,
+  Play,
+  Pause,
+  ChevronUp,
+  ChevronDown,
+  Target,
+  Cake,
+  CheckSquare,
+  Square,
+  Coins,
+  BookOpen,
+  Briefcase,
+  Boxes,
+  Smartphone,
+  Chrome,
+  BarChart3,
+  Eye,
+  EyeOff,
+  UserMinus,
+  Wrench,
+  Hash,
+  ListChecks,
+  ClipboardList,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  auth,
+  db,
+  COLLECTIONS,
+  handleFirestoreError,
+  OperationType,
+  secondaryAuth,
+  firebaseConfigPrincipal,
+  firebaseConfigComercial,
+  firebaseConfigUnesa,
+} from "../firebase";
+import {
+  cn,
+  formatPhone,
+  getWhatsAppUrl,
+  validateCPF,
+  formatCPF,
+} from "../lib/utils";
+import * as XLSX from "xlsx";
+import { EmailMarketingView } from "./EmailMarketingView";
+import { RelatoriosView } from "./RelatoriosView";
+import { ControleConcorrenciaView } from "./ControleConcorrenciaView";
+import Mapa3D from "./Mapa3D";
+import {
+  UnidadeRegional,
+  FuncionarioSM,
+  Tarefa,
+  UserProfile,
+  SalesContact,
+  WhatsContact,
+  MalaDiretaContact,
+  Lead,
+  BaseEntry,
+  GapEntry,
+  PlannerTask,
+  LinkUtil,
+  UserRole,
+  FiesProuniEntry,
+  FiesProuniVaga,
+  Campanha,
+  BomDiaCaptacao,
+  ForecastCaptacao,
+  BomDiaMetrics,
+  PeriodoCaptacao,
+  CalendarioAcao,
+  EmpresaParceira,
+  WhatsAppMessage,
+  MapaoAcademicoEntry,
+  BaseDisparoEntry,
+  BotConfig,
+  MetaDia,
+  MetaSM,
+  MetaCurso,
+  QgLigacao,
+  SolicitacaoFolga,
+  CursoDisponivel,
+  InsumoPedido,
+  InsumoEstoque,
+  InsumoBaixa,
+  InsumoPedidoComercial,
+  InsumoEstoqueComercial,
+  IsencaoEntry,
+  ControleConcorrencia,
+  PedidoCursoEntry,
+  Ligacao,
+  AnalysisScheme,
+  PeriodAnalysis,
+  SolicitacaoManutencao
+} from "../types";
+import { OPENROUTER_MODELS } from "../ai-config";
+import CrescimentoAnualAdmin from "./CrescimentoAnualAdmin";
+import { ProfileModal } from "./ProfileModal";
+import { PublicRegistrationForm } from "./PublicRegistrationForm";
+import { FormulariosView } from "./FormulariosView";
+import { PublicCustomForm } from "./PublicCustomForm";
+import { PublicInsumoForm } from "./PublicInsumoForm";
+import { PublicMaintenanceForm } from "./PublicMaintenanceForm";
+import { PublicPedidoCursoForm } from "./PublicPedidoCursoForm";
+import { MessageTemplateModal } from "./MessageTemplateModal";
+import { CursosDisponiveisView } from "./CursosDisponiveisView";
+import { ControleInsumosView } from "./ControleInsumosView";
+import { SolicitacoesManutencaoView } from "./SolicitacoesManutencaoView";
+import { ControleInsumosComercialView } from "./ControleInsumosComercialView";
+import { WhatsAppMessageEditor } from "./WhatsAppMessageEditor";
+import { AdminFuncionariosView } from "./AdminFuncionariosView";
+import { IsencoesView } from "./IsencoesView";
+import { WhatsAppMessageSelector } from "./WhatsAppMessageSelector";
+import { MultiSelect } from "./MultiSelect";
+import { EvasaoView } from "./EvasaoView";
+import NovasOportunidadesView from "./NovasOportunidadesView";
+import ControleLigacoesView from "./ControleLigacoesView";
+import CRMView from "./CRMView";
+import MetaSMView from "./MetaSMView";
+import MetaCursosView from "./MetaCursosView";
 
 export function BasesView({
   bases,

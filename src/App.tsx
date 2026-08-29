@@ -1,4 +1,5 @@
 import { BasesView } from "./components/BasesView";
+import { ROLES } from "./types";
 ﻿import { AdminView } from "./components/AdminView";
 import { EmpresasParceirasView } from "./components/EmpresasParceirasView";
 import { CalendarioAcoesView } from "./components/CalendarioAcoesView";
@@ -255,14 +256,14 @@ export const replaceMessageVariables = (
   return text;
 };
 
-const exportToExcel = (data: any[], fileName: string) => {
+export const exportToExcel = (data: any[], fileName: string) => {
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Dados");
   XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
 
-const exportToCSV = (data: any[], fileName: string) => {
+export const exportToCSV = (data: any[], fileName: string) => {
   if (data.length === 0) return;
   const headers = Object.keys(data[0]);
   const csvContent = [
@@ -283,7 +284,7 @@ const exportToCSV = (data: any[], fileName: string) => {
   document.body.removeChild(link);
 };
 
-const importFromExcel = (file: File, callback: (data: any[]) => void) => {
+export const importFromExcel = (file: File, callback: (data: any[]) => void) => {
   const reader = new FileReader();
   reader.onload = (e) => {
     const bstr = e.target?.result;

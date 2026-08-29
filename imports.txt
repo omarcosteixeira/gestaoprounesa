@@ -1,0 +1,217 @@
+import { BasesView } from "./components/BasesView";
+import { EmpresasParceirasView } from "./components/EmpresasParceirasView";
+import { CalendarioAcoesView } from "./components/CalendarioAcoesView";
+import { ControlePagamentosView } from "./components/ControlePagamentosView";
+import { CalculoRemuneracaoView } from "./components/CalculoRemuneracaoView";
+import { BasesRenovacaoView } from "./components/BasesRenovacaoView";
+import { GapView } from "./components/GapView";
+import React, { useState, useEffect, useMemo } from "react";
+import html2canvas from "html2canvas";
+import { AdminMainView } from "./components/AdminMainView";
+import { ChecklistView } from "./components/ChecklistView";
+import { AcompanhamentoTarefasView } from "./components/AcompanhamentoTarefasView";
+import { jsPDF } from "jspdf";
+import { initializeApp, getApp } from "firebase/app";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  updatePassword,
+  updateProfile,
+  getAuth,
+  User,
+} from "firebase/auth";
+import {
+  collection,
+  query,
+  onSnapshot,
+  addDoc,
+  updateDoc,
+  doc,
+  deleteDoc,
+  serverTimestamp,
+  where,
+  or,
+  limit,
+  orderBy,
+  getDoc,
+  setDoc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import {
+  LayoutDashboard,
+  UserPlus,
+  History,
+  Database,
+  GraduationCap,
+  Settings,
+  LogOut,
+  Plus,
+  Trash2,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Phone,
+  Search,
+  Users,
+  User as UserIcon,
+  TrendingUp,
+  Calendar,
+  Download,
+  Upload,
+  Menu,
+  X,
+  Check,
+  ChevronRight,
+  AlertCircle,
+  FileText,
+  Clock,
+  Calculator,
+  LayoutGrid,
+  List,
+  ShieldCheck,
+  Megaphone,
+  Sun,
+  Edit2,
+  Share2,
+  Edit,
+  Save,
+  MapPin,
+  Lock,
+  Unlock,
+  Circle,
+  KeyRound,
+  Building2,
+  MessageSquare,
+  PhoneOutgoing,
+  Mail,
+  Globe,
+  Copy,
+  Bot,
+  Send,
+  Bell,
+  Monitor,
+  Maximize,
+  Cloud,
+  RefreshCw,
+  Play,
+  Pause,
+  ChevronUp,
+  ChevronDown,
+  Target,
+  Cake,
+  CheckSquare,
+  Square,
+  Coins,
+  BookOpen,
+  Briefcase,
+  Boxes,
+  Smartphone,
+  Chrome,
+  BarChart3,
+  Eye,
+  EyeOff,
+  UserMinus,
+  Wrench,
+  Hash,
+  ListChecks,
+  ClipboardList,
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  auth,
+  db,
+  COLLECTIONS,
+  handleFirestoreError,
+  OperationType,
+  secondaryAuth,
+  firebaseConfigPrincipal,
+  firebaseConfigComercial,
+  firebaseConfigUnesa,
+} from "./firebase";
+import {
+  cn,
+  formatPhone,
+  getWhatsAppUrl,
+  validateCPF,
+  formatCPF,
+} from "./lib/utils";
+import * as XLSX from "xlsx";
+import { EmailMarketingView } from "./components/EmailMarketingView";
+import { RelatoriosView } from "./components/RelatoriosView";
+import { ControleConcorrenciaView } from "./components/ControleConcorrenciaView";
+import Mapa3D from "./components/Mapa3D";
+import {
+  UnidadeRegional,
+  FuncionarioSM,
+  Tarefa,
+  UserProfile,
+  SalesContact,
+  WhatsContact,
+  MalaDiretaContact,
+  Lead,
+  BaseEntry,
+  GapEntry,
+  PlannerTask,
+  LinkUtil,
+  UserRole,
+  FiesProuniEntry,
+  FiesProuniVaga,
+  Campanha,
+  BomDiaCaptacao,
+  ForecastCaptacao,
+  BomDiaMetrics,
+  PeriodoCaptacao,
+  CalendarioAcao,
+  EmpresaParceira,
+  WhatsAppMessage,
+  MapaoAcademicoEntry,
+  BaseDisparoEntry,
+  BotConfig,
+  MetaDia,
+  MetaSM,
+  MetaCurso,
+  QgLigacao,
+  SolicitacaoFolga,
+  CursoDisponivel,
+  InsumoPedido,
+  InsumoEstoque,
+  InsumoBaixa,
+  InsumoPedidoComercial,
+  InsumoEstoqueComercial,
+  IsencaoEntry,
+  ControleConcorrencia,
+  PedidoCursoEntry,
+  Ligacao,
+  AnalysisScheme,
+  PeriodAnalysis,
+  SolicitacaoManutencao
+} from "./types";
+import { OPENROUTER_MODELS } from "./ai-config";
+import CrescimentoAnualAdmin from "./components/CrescimentoAnualAdmin";
+import { ProfileModal } from "./components/ProfileModal";
+import { PublicRegistrationForm } from "./components/PublicRegistrationForm";
+import { FormulariosView } from "./components/FormulariosView";
+import { PublicCustomForm } from "./components/PublicCustomForm";
+import { PublicInsumoForm } from "./components/PublicInsumoForm";
+import { PublicMaintenanceForm } from "./components/PublicMaintenanceForm";
+import { PublicPedidoCursoForm } from "./components/PublicPedidoCursoForm";
+import { MessageTemplateModal } from "./components/MessageTemplateModal";
+import { CursosDisponiveisView } from "./components/CursosDisponiveisView";
+import { ControleInsumosView } from "./components/ControleInsumosView";
+import { SolicitacoesManutencaoView } from "./components/SolicitacoesManutencaoView";
+import { ControleInsumosComercialView } from "./components/ControleInsumosComercialView";
+import { WhatsAppMessageEditor } from "./components/WhatsAppMessageEditor";
+import { AdminFuncionariosView } from "./components/AdminFuncionariosView";
+import { IsencoesView } from "./components/IsencoesView";
+import { WhatsAppMessageSelector } from "./components/WhatsAppMessageSelector";
+import { MultiSelect } from "./components/MultiSelect";
+import { EvasaoView } from "./components/EvasaoView";
+import NovasOportunidadesView from "./components/NovasOportunidadesView";
+import ControleLigacoesView from "./components/ControleLigacoesView";
+import CRMView from "./components/CRMView";
+import MetaSMView from "./components/MetaSMView";
+import MetaCursosView from "./components/MetaCursosView";
