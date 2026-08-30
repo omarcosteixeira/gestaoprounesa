@@ -7656,6 +7656,16 @@ export default function App() {
                   onDeleteAnalysisScheme={handleDeleteAnalysisScheme}
                   whatsappMessages={whatsappMessages}
                   botConfig={botConfig}
+                  bomDia={bomDia}
+                  forecast={forecast}
+                  periodos={periodos}
+                  qgLigacoes={qgLigacoes}
+                  planner={planner}
+                  links={links}
+                  botStatuses={botStatuses}
+                  setBotStatuses={setBotStatuses}
+                  callBotApi={callBotApi}
+                  setShowInjectModal={setShowInjectModal}
                   onToast={showToast}
                 />
               )}

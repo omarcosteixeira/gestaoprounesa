@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   UserProfile,
   UnidadeRegional,
@@ -12,6 +12,13 @@ import {
   AnalysisScheme,
   WhatsAppMessage,
   BotConfig,
+  SolicitacaoFolga,
+  BomDiaCaptacao,
+  ForecastCaptacao,
+  QgLigacao,
+  PlannerTask,
+  PeriodoCaptacao,
+  LinkUtil,
 } from "../types";
 import { ROLES } from "../types";
 import { db, secondaryAuth, COLLECTIONS } from "../firebase";
@@ -22,6 +29,7 @@ import {
   setDoc,
   addDoc,
   deleteDoc,
+  onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
 import { createUserWithEmailAndPassword, updateProfile, signOut } from "firebase/auth";
@@ -45,6 +53,16 @@ import {
   Bot,
   Trash2,
   Sparkles,
+  CalendarDays,
+  Sun,
+  PhoneCall,
+  Calendar,
+  CalendarRange,
+  BrainCircuit,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  FileText,
+  Shield,
 } from "lucide-react";
 import { UnidadesRegionalView } from "./UnidadesRegionalView";
 import { CadastroSmRegionalView } from "./CadastroSmRegionalView";
@@ -55,6 +73,18 @@ import MetaSMView from "./MetaSMView";
 import MetaCursosView from "./MetaCursosView";
 import CrescimentoAnualAdmin from "./CrescimentoAnualAdmin";
 import { WhatsAppMessageEditor } from "./WhatsAppMessageEditor";
+import { AdminFolgasView } from "./AdminFolgasView";
+import { AdminBomDiaView } from "./AdminBomDiaView";
+import { AdminForecastView } from "./AdminForecastView";
+import { AdminQgLigacoesView } from "./AdminQgLigacoesView";
+import { AdminPlannerView } from "./AdminPlannerView";
+import { AdminPeriodoCaptacaoView } from "./AdminPeriodoCaptacaoView";
+import { AdminWhatsappApiView } from "./AdminWhatsappApiView";
+import { AdminTreinamentoBotView } from "./AdminTreinamentoBotView";
+import { AdminLinksUteisView } from "./AdminLinksUteisView";
+import { AdminLogotipoLoginView } from "./AdminLogotipoLoginView";
+import { AdminFormulariosView } from "./AdminFormulariosView";
+import { AdminBackupSegurancaView } from "./AdminBackupSegurancaView";
 
 interface Props {
   profile: UserProfile;
@@ -72,6 +102,17 @@ interface Props {
   onDeleteAnalysisScheme?: (id: string) => Promise<void>;
   whatsappMessages?: WhatsAppMessage[];
   botConfig?: BotConfig;
+  folgas?: SolicitacaoFolga[];
+  bomDia?: BomDiaCaptacao[];
+  forecast?: ForecastCaptacao[];
+  qgLigacoes?: QgLigacao[];
+  planner?: PlannerTask[];
+  periodos?: PeriodoCaptacao[];
+  links?: LinkUtil[];
+  botStatuses?: Record<string, any>;
+  setBotStatuses?: React.Dispatch<React.SetStateAction<any>>;
+  callBotApi?: (path: string, options?: any) => Promise<any>;
+  setShowInjectModal?: (show: boolean) => void;
   onToast: (msg: string, type?: "success" | "error") => void;
 }
 
@@ -113,6 +154,17 @@ export function AdminMainView({
   onDeleteAnalysisScheme,
   whatsappMessages = [],
   botConfig,
+  folgas: folgasProp,
+  bomDia: bomDiaProp,
+  forecast: forecastProp,
+  qgLigacoes: qgLigacoesProp,
+  planner: plannerProp,
+  periodos: periodosProp,
+  links: linksProp,
+  botStatuses = {},
+  setBotStatuses,
+  callBotApi,
+  setShowInjectModal,
   onToast,
 }: Props) {
   const [activeSubTab, setActiveSubTab] = useState<
@@ -125,8 +177,99 @@ export function AdminMainView({
     | "metaSM"
     | "metaCursos"
     | "crescimento"
-    | "mensagens"
+    | "folgas"
+    | "bomDia"
+    | "forecast"
+    | "qgLigacoes"
+    | "planner"
+    | "periodos"
+    | "gestaoWhatsapp"
+    | "treinamento"
+    | "linksUteis"
+    | "logotipo"
+    | "formularios"
+    | "backup"
   >("usuarios");
+
+  // Local fallback states populated by onSnapshot if props not passed
+  const [localFolgas, setLocalFolgas] = useState<SolicitacaoFolga[]>([]);
+  const [localBomDia, setLocalBomDia] = useState<BomDiaCaptacao[]>([]);
+  const [localForecast, setLocalForecast] = useState<ForecastCaptacao[]>([]);
+  const [localQgLigacoes, setLocalQgLigacoes] = useState<QgLigacao[]>([]);
+  const [localPlanner, setLocalPlanner] = useState<PlannerTask[]>([]);
+  const [localPeriodos, setLocalPeriodos] = useState<PeriodoCaptacao[]>([]);
+  const [localLinks, setLocalLinks] = useState<LinkUtil[]>([]);
+
+  useEffect(() => {
+    if (!folgasProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.SOLICITACAO_FOLGA), (s) => {
+        setLocalFolgas(s.docs.map((d) => ({ id: d.id, ...d.data() }) as SolicitacaoFolga));
+      });
+      return () => unsub();
+    }
+  }, [folgasProp]);
+
+  useEffect(() => {
+    if (!bomDiaProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.BOM_DIA), (s) => {
+        setLocalBomDia(s.docs.map((d) => ({ id: d.id, ...d.data() }) as BomDiaCaptacao));
+      });
+      return () => unsub();
+    }
+  }, [bomDiaProp]);
+
+  useEffect(() => {
+    if (!forecastProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.FORECAST), (s) => {
+        setLocalForecast(s.docs.map((d) => ({ id: d.id, ...d.data() }) as ForecastCaptacao));
+      });
+      return () => unsub();
+    }
+  }, [forecastProp]);
+
+  useEffect(() => {
+    if (!qgLigacoesProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.QG_LIGACOES), (s) => {
+        setLocalQgLigacoes(s.docs.map((d) => ({ id: d.id, ...d.data() }) as QgLigacao));
+      });
+      return () => unsub();
+    }
+  }, [qgLigacoesProp]);
+
+  useEffect(() => {
+    if (!plannerProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.PLANNER), (s) => {
+        setLocalPlanner(s.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerTask));
+      });
+      return () => unsub();
+    }
+  }, [plannerProp]);
+
+  useEffect(() => {
+    if (!periodosProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.PERIODO_CAPTACAO), (s) => {
+        setLocalPeriodos(s.docs.map((d) => ({ id: d.id, ...d.data() }) as PeriodoCaptacao));
+      });
+      return () => unsub();
+    }
+  }, [periodosProp]);
+
+  useEffect(() => {
+    if (!linksProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.LINKS), (s) => {
+        setLocalLinks(s.docs.map((d) => ({ id: d.id, ...d.data() }) as LinkUtil));
+      });
+      return () => unsub();
+    }
+  }, [linksProp]);
+
+  const activeFolgas = folgasProp || localFolgas;
+  const activeBomDia = bomDiaProp || localBomDia;
+  const activeForecast = forecastProp || localForecast;
+  const activeQgLigacoes = qgLigacoesProp || localQgLigacoes;
+  const activePlanner = plannerProp || localPlanner;
+  const activePeriodos = periodosProp || localPeriodos;
+  const activeLinks = linksProp || localLinks;
 
   // User Management States
   const [searchTerm, setSearchTerm] = useState("");
@@ -311,7 +454,18 @@ export function AdminMainView({
     { id: "metaSM", label: "Metas SM", icon: Target },
     { id: "metaCursos", label: "Metas Cursos", icon: BookOpen },
     { id: "crescimento", label: "Crescimento Anual", icon: TrendingUp },
-    { id: "mensagens", label: "Mensagens WhatsApp", icon: MessageSquare },
+    { id: "folgas", label: "Folgas e Férias", icon: CalendarDays },
+    { id: "bomDia", label: "Bom Dia Captação", icon: Sun },
+    { id: "forecast", label: "Forecast", icon: TrendingUp },
+    { id: "qgLigacoes", label: "QG de Ligação", icon: PhoneCall },
+    { id: "planner", label: "Planner da Semana", icon: Calendar },
+    { id: "periodos", label: "Período da Captação", icon: CalendarRange },
+    { id: "gestaoWhatsapp", label: "Gestão do WhatsApp", icon: MessageSquare },
+    { id: "treinamento", label: "Treinamento do Boot", icon: BrainCircuit },
+    { id: "linksUteis", label: "Links Úteis", icon: LinkIcon },
+    { id: "logotipo", label: "Logotipo do Login", icon: ImageIcon },
+    { id: "formularios", label: "Formulários", icon: FileText },
+    { id: "backup", label: "Backup e Segurança", icon: Shield },
   ];
 
   return (
@@ -325,13 +479,13 @@ export function AdminMainView({
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isActive
                   ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }`}
             >
-              <Icon size={16} />
+              <Icon size={15} />
               <span>{tab.label}</span>
             </button>
           );
@@ -339,6 +493,97 @@ export function AdminMainView({
       </div>
 
       {/* Sub-Tab Content */}
+      {activeSubTab === "folgas" && (
+        <AdminFolgasView
+          profile={profile}
+          users={users}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "bomDia" && (
+        <AdminBomDiaView
+          bomDia={activeBomDia}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "forecast" && (
+        <AdminForecastView
+          forecast={activeForecast}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "qgLigacoes" && (
+        <AdminQgLigacoesView
+          qgLigacoes={activeQgLigacoes}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "planner" && (
+        <AdminPlannerView
+          planner={activePlanner}
+          users={users}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "periodos" && (
+        <AdminPeriodoCaptacaoView
+          periodos={activePeriodos}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "gestaoWhatsapp" && (
+        <AdminWhatsappApiView
+          botConfig={botConfig}
+          whatsappMessages={whatsappMessages}
+          botStatuses={botStatuses}
+          setBotStatuses={setBotStatuses}
+          callBotApi={callBotApi}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "treinamento" && (
+        <AdminTreinamentoBotView
+          botConfig={botConfig}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "linksUteis" && (
+        <AdminLinksUteisView
+          links={activeLinks}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "logotipo" && (
+        <AdminLogotipoLoginView
+          botConfig={botConfig}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "formularios" && (
+        <AdminFormulariosView
+          profile={profile}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "backup" && (
+        <AdminBackupSegurancaView
+          profile={profile}
+          setShowInjectModal={setShowInjectModal}
+          onToast={onToast}
+        />
+      )}
+
       {activeSubTab === "unidades" && (
         <UnidadesRegionalView unidades={unidadesRegional} onToast={onToast} />
       )}
@@ -391,117 +636,6 @@ export function AdminMainView({
           onSave={onSaveAnalysisScheme || (async () => {})}
           onDelete={onDeleteAnalysisScheme || (async () => {})}
         />
-      )}
-
-      {activeSubTab === "mensagens" && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <MessageSquare className="text-blue-600" size={24} />
-                Gestão de Mensagens WhatsApp
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Configure os modelos de mensagens utilizados nos disparos automáticos e contatos manuais.
-              </p>
-            </div>
-
-            <button
-              onClick={() => setIsAddMsgModalOpen(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>Novo Modelo de Mensagem</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {whatsappMessages.length === 0 ? (
-              <div className="col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-100 p-8 text-slate-400">
-                <MessageSquare className="mx-auto mb-3 text-slate-300" size={48} />
-                <p className="text-sm font-semibold">Nenhum modelo cadastrado no servidor.</p>
-                <p className="text-xs text-slate-400 mt-1">Clique em "Novo Modelo de Mensagem" para adicionar.</p>
-              </div>
-            ) : (
-              whatsappMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between"
-                >
-                  <WhatsAppMessageEditor
-                    msgId={msg.id}
-                    initialText={msg.texto}
-                    label={msg.tipo ? `Tipo: ${msg.tipo}` : "Mensagem Padrão"}
-                    onUpdate={(newTxt) => handleUpdateWhatsappMsg(msg.id, newTxt)}
-                    onDelete={() => handleDeleteWhatsappMsg(msg.id)}
-                  />
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Modal Novo Modelo de Mensagem */}
-      {isAddMsgModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <MessageSquare className="text-blue-600" size={20} />
-              Adicionar Modelo de Mensagem
-            </h3>
-            <form onSubmit={handleCreateWhatsappMsg} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">
-                  Tipo / Categoria
-                </label>
-                <input
-                  type="text"
-                  value={newMsgTipo}
-                  onChange={(e) => setNewMsgTipo(e.target.value)}
-                  placeholder="Ex: Geral, Cobrança, Matrícula, Retenção..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">
-                  Texto da Mensagem
-                </label>
-                <textarea
-                  rows={5}
-                  value={newMsgTexto}
-                  onChange={(e) => setNewMsgTexto(e.target.value)}
-                  placeholder="Olá [nome], tudo bem? Vimos seu interesse no curso [curso]..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Variáveis disponíveis: <code className="bg-slate-100 px-1 rounded">[nome]</code>,{" "}
-                  <code className="bg-slate-100 px-1 rounded">[curso]</code>,{" "}
-                  <code className="bg-slate-100 px-1 rounded">[unidade]</code>,{" "}
-                  <code className="bg-slate-100 px-1 rounded">[saudacao]</code>,{" "}
-                  <code className="bg-slate-100 px-1 rounded">[data_contato]</code>
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddMsgModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md cursor-pointer"
-                >
-                  Salvar Modelo
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       {activeSubTab === "usuarios" && (
