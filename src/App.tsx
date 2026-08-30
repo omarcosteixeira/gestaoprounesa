@@ -7648,6 +7648,14 @@ export default function App() {
                   tarefas={tarefas}
                   clubeParceiros={clubeParceiros}
                   clubeResgates={clubeResgates}
+                  uniqueUnidades={uniqueUnidades}
+                  metaSM={metaSM}
+                  metaCursos={metaCursos}
+                  analysisSchemes={analysisSchemes}
+                  onSaveAnalysisScheme={handleSaveAnalysisScheme}
+                  onDeleteAnalysisScheme={handleDeleteAnalysisScheme}
+                  whatsappMessages={whatsappMessages}
+                  botConfig={botConfig}
                   onToast={showToast}
                 />
               )}
