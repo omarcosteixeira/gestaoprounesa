@@ -796,6 +796,9 @@ export function RelatoriosView({
             {activeTab === "ligacoes" && <Phone className="text-blue-600" />}
             {activeTab === "manutencao" && <Wrench className="text-blue-600" />}
             {activeTab === "metaDia" && <Target className="text-blue-600" />}
+            {activeTab === "metaSM" && <Target className="text-blue-600" />}
+            {activeTab === "metaCursos" && <Target className="text-blue-600" />}
+            {activeTab === "organogramaSm" && <Network className="text-blue-600" />}
             Dashboard: {activeTab === "historico" ? "Histórico de Leads" : 
                         activeTab === "bases" ? "Bases de Candidatos" :
                         activeTab === "fiesProuni" ? "Fies e Prouni" :
@@ -806,6 +809,9 @@ export function RelatoriosView({
                         activeTab === "ligacoes" ? "Controle de Ligações" :
                         activeTab === "manutencao" ? "Gestão de Manutenção" :
                         activeTab === "metaDia" ? "Meta Dia" :
+                        activeTab === "metaSM" ? "Meta SM" :
+                        activeTab === "metaCursos" ? "Meta Cursos" :
+                        activeTab === "organogramaSm" ? "Organograma da Sala de Matrícula" :
                         activeTab === "sales" ? "Contato via Sales" :
                         activeTab === "envioWhats" ? "Envio Whats" :
                         activeTab === "envioMalaDireta" ? "Envio Mala Direta" : "Pedidos de Cursos"}

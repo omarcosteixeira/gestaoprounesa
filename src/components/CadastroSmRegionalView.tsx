@@ -274,6 +274,23 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
     onToast("Cadastro SM exportado com sucesso!");
   };
 
+  const formatExcelValue = (val: any): string => {
+    if (val === undefined || val === null) return "";
+    if (typeof val === "number") {
+      // Check if it looks like an Excel serial date (between year 1970 and 2050: roughly 25569 to 55000)
+      if (val > 25569 && val < 60000) {
+        const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+        if (!isNaN(date.getTime())) {
+          const day = String(date.getUTCDate()).padStart(2, "0");
+          const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+          const year = date.getUTCFullYear();
+          return `${day}/${month}/${year}`;
+        }
+      }
+    }
+    return String(val).trim();
+  };
+
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -293,41 +310,91 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
         }
 
         let addedCount = 0;
-        for (const row of rawData) {
-          const fNome = row.Nome || row.nome || row.NOME;
-          if (fNome) {
-            const rawFuncao = String(row.Função || row.funcao || row.Cargo || row.cargo || "Lider").trim();
-            const unitName = String(row.Unidade || row.unidade || unidades[0]?.nome || "").trim();
-            const matchedUnit = unidades.find((u) => u.nome === unitName);
+        let updatedCount = 0;
 
-            await addDoc(collection(db, COLLECTIONS.FUNCIONARIOS_SM), {
+        for (const row of rawData) {
+          const fNome = row.Nome || row.nome || row.NOME || row.Colaborador || row.colaborador || row.Funcionario;
+          if (fNome) {
+            const rawFuncao = String(
+              row.Função || row.funcao || row.FUNÇÃO || row.Cargo || row.cargo || row.CARGO || row["Função SM"] || "Lider"
+            ).trim();
+            const unitName = String(
+              row.Unidade || row.unidade || row.UNIDADE || row.Campus || row.campus || row["Unidade Regional"] || unidades[0]?.nome || ""
+            ).trim();
+            const matchedUnit = unidades.find((u) => u.nome.toLowerCase() === unitName.toLowerCase());
+
+            const fCpf = formatExcelValue(row.CPF || row.cpf || row.Cpf);
+            const fMatricula = formatExcelValue(row.MATRÍCULA || row.Matrícula || row.Matricula || row.matricula || row.MATRICULA);
+            const fEmail = formatExcelValue(row["E-MAIL"] || row["E-mail"] || row.Email || row.email || row.EMAIL);
+            const fTelPrincipal = formatExcelValue(row["Telefone Principal"] || row.Telefone || row.telefone || row.TELEFONE || row.Celular || row.Contato);
+            const fTelAtendimento = formatExcelValue(row["Telefone Atendimento"] || row.telefoneAtendimento || row["Telefone Comercial"]);
+            const fPdv = formatExcelValue(row["PDV SalesForce"] || row["PDV Salesforce"] || row.pdvSalesforce || row.PDV || row.Salesforce);
+            const fBlusa = formatExcelValue(row["Tamanho Blusa"] || row.tamanhoBlusa || row.Uniforme || row.Blusa);
+            const fStatus = formatExcelValue(row.Status || row.status || row.STATUS || row.Situação || row.Situacao || "Ativo");
+            const fDtNasc = formatExcelValue(row["DT NASC"] || row["Dt Nasc"] || row["Data Nascimento"] || row.dataNascimento || row.nascimento);
+            const fAdmissaoSm = formatExcelValue(row["ADMISSÃO SM"] || row["Admissão SM"] || row["Admissao SM"] || row.admissaoSm);
+            const fAdmissaoRh = formatExcelValue(row["ADMISSÃO RH"] || row["Admissão RH"] || row["Admissao RH"] || row.admissaoRh);
+            const fDesligamento = formatExcelValue(row.DESLIGAMENTO || row.Desligamento || row.desligamento);
+
+            const payload: any = {
               nome: String(fNome).trim(),
               funcao: rawFuncao,
               cargo: rawFuncao,
               unidade: unitName,
-              marca: String(row.Marca || row.marca || matchedUnit?.marca || "").trim(),
-              regional: String(row.Regional || row.regional || matchedUnit?.regional || "").trim(),
-              nucleo: String(row.Núcleo || row.nucleo || row.Nucleo || matchedUnit?.nucleo || "").trim(),
+              marca: String(row.Marca || row.marca || row.MARCA || matchedUnit?.marca || "Estácio").trim(),
+              regional: String(row.Regional || row.regional || row.REGIONAL || matchedUnit?.regional || "Regional RJ").trim(),
+              nucleo: String(row.Núcleo || row.núcleo || row.nucleo || row.NUCLEO || row.Nucleo || matchedUnit?.nucleo || "").trim(),
               cluster: String(row.CLUSTER || row.cluster || row.Cluster || matchedUnit?.cluster || "").trim(),
-              status: String(row.Status || row.status || "Ativo").trim(),
-              cpf: String(row.CPF || row.cpf || "").trim(),
-              email: String(row["E-MAIL"] || row.Email || row.email || "").trim(),
-              matricula: String(row.MATRÍCULA || row.Matricula || row.matricula || "").trim(),
-              dataNascimento: String(row["DT NASC"] || row.dataNascimento || row["Data Nascimento"] || "").trim(),
-              admissaoSm: String(row["ADMISSÃO SM"] || row.admissaoSm || "").trim(),
-              admissaoRh: String(row["ADMISSÃO RH"] || row.admissaoRh || "").trim(),
-              desligamento: String(row.DESLIGAMENTO || row.desligamento || "").trim(),
-              tamanhoBlusa: String(row["Tamanho Blusa"] || row.tamanhoBlusa || "").trim(),
-              pdvSalesforce: String(row["PDV SalesForce"] || row.pdvSalesforce || "").trim(),
-              telefone: String(row["Telefone Principal"] || row.Telefone || row.telefone || "").trim(),
-              telefonePrincipal: String(row["Telefone Principal"] || row.Telefone || row.telefone || "").trim(),
-              telefoneAtendimento: String(row["Telefone Atendimento"] || row.telefoneAtendimento || "").trim(),
-              createdAt: serverTimestamp(),
+              status: fStatus || "Ativo",
+              cpf: fCpf,
+              email: fEmail,
+              matricula: fMatricula,
+              dataNascimento: fDtNasc,
+              admissaoSm: fAdmissaoSm,
+              admissaoRh: fAdmissaoRh,
+              desligamento: fDesligamento,
+              tamanhoBlusa: fBlusa,
+              pdvSalesforce: fPdv,
+              telefone: fTelPrincipal,
+              telefonePrincipal: fTelPrincipal,
+              telefoneAtendimento: fTelAtendimento,
+              dataAlteracao: new Date().toLocaleDateString("pt-BR"),
+              updatedAt: serverTimestamp(),
+            };
+
+            // Check if collaborator already exists to update instead of duplicate
+            const existing = funcionarios.find((f) => {
+              if (fCpf && f.cpf && f.cpf.replace(/\D/g, "") === fCpf.replace(/\D/g, "")) return true;
+              if (fMatricula && f.matricula && f.matricula.trim() === fMatricula.trim()) return true;
+              if (
+                f.nome.trim().toLowerCase() === String(fNome).trim().toLowerCase() &&
+                f.unidade.trim().toLowerCase() === unitName.toLowerCase()
+              ) {
+                return true;
+              }
+              return false;
             });
-            addedCount++;
+
+            if (existing) {
+              await updateDoc(doc(db, COLLECTIONS.FUNCIONARIOS_SM, existing.id), payload);
+              updatedCount++;
+            } else {
+              await addDoc(collection(db, COLLECTIONS.FUNCIONARIOS_SM), {
+                ...payload,
+                createdAt: serverTimestamp(),
+              });
+              addedCount++;
+            }
           }
         }
-        onToast(`${addedCount} colaboradores importados com sucesso!`);
+
+        const msg = addedCount > 0 && updatedCount > 0
+          ? `${addedCount} novos colaboradores importados e ${updatedCount} atualizados!`
+          : addedCount > 0
+          ? `${addedCount} colaboradores importados com sucesso!`
+          : `${updatedCount} colaboradores atualizados com sucesso!`;
+
+        onToast(msg);
       } catch (err: any) {
         console.error("Erro ao importar excel SM:", err);
         onToast(`Erro ao importar arquivo: ${err.message}`, "error");
