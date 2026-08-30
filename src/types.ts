@@ -36,6 +36,7 @@ export interface UserProfile {
     aniversarios?: boolean;
     metaSM?: boolean;
     metaCursos?: boolean;
+    metaUnidadeRegional?: boolean;
   };
 }
 
@@ -692,6 +693,21 @@ export interface MetaSM {
   metaFinal: number;
   realizado: number;
   createdAt?: any;
+}
+
+export interface MetaUnidadeRegional {
+  id: string;
+  unidade: string;
+  semestre: string;
+  metaAA: number;
+  metaDia: number;
+  metaFinal: number;
+  realizado: number;
+  inscritos?: MetaCursoMetrics;
+  financeiro?: MetaCursoMetrics;
+  academico?: MetaCursoMetrics;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface MetaCursoMetrics {

@@ -147,9 +147,11 @@ export function RelatoriosView({
   profile,
   onToast
 }: RelatoriosViewProps) {
+  const isRegional = profile?.role === "Regional";
+
   const [activeTab, setActiveTab] = useState<
     "historico" | "bases" | "fiesProuni" | "planoAcao" | "empresas" | "insumos" | "isencoes" | "pedidos_cursos" | "metaDia" | "ligacoes" | "crescimento" | "manutencao" | "sales" | "envioWhats" | "envioMalaDireta" | "metaSM" | "metaCursos" | "organogramaSm"
-  >("historico");
+  >(isRegional ? "organogramaSm" : "historico");
 
   const dashboardRef = useRef<HTMLDivElement>(null);
   const [metaDiaDataInicio, setMetaDiaDataInicio] = useState("");
@@ -760,7 +762,9 @@ export function RelatoriosView({
           { id: "envioWhats", label: "Envio Whats", icon: Send },
           { id: "envioMalaDireta", label: "Envio Mala Direta", icon: Mail },
           { id: "organogramaSm", label: "Organograma SM", icon: Network },
-        ].map((tab) => (
+        ]
+          .filter((tab) => !isRegional || tab.id === "organogramaSm")
+          .map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}

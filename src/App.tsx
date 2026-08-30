@@ -124,6 +124,7 @@ import {
   ClipboardList,
   Gift,
   Ticket,
+  Award,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -181,6 +182,7 @@ import {
   MetaDia,
   MetaSM,
   MetaCurso,
+  MetaUnidadeRegional,
   QgLigacao,
   SolicitacaoFolga,
   CursoDisponivel,
@@ -417,15 +419,11 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.ACADEMICO,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.FDV_COMERCIAL,
     ROLES.FINANCEIRO,
-    ROLES.TECNICO,,
+    ROLES.TECNICO,
     ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
@@ -440,8 +438,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
-    ROLES.REGIONAL,
+    ROLES.FDV_COMERCIAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -456,7 +453,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
+    ROLES.FDV_COMERCIAL,
     ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
@@ -473,13 +470,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
-    ROLES.PROMOTOR,
-    ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -493,13 +483,8 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -510,29 +495,21 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.LIDER_FDV,
     ROLES.GESTOR_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
     ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_UNIDADE,
-    ROLES.FDV,
-    ROLES.FDV_COMERCIAL,
-    ROLES.PROMOTOR,
-    ROLES.PROMOTOR_RUA,,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
-  gap: [ROLES.ADMIN_MASTER, ROLES.SALA_MATRICULA, ROLES.LIDER_FDV, ROLES.GESTOR_UNIDADE, ROLES.REGIONAL, ROLES.LIDER_SM, ROLES.GESTOR],
+  gap: [ROLES.ADMIN_MASTER, ROLES.SALA_MATRICULA, ROLES.LIDER_FDV, ROLES.GESTOR_UNIDADE, ROLES.LIDER_SM, ROLES.GESTOR],
   fiesProuni: [
     ROLES.ADMIN_MASTER,
     ROLES.SALA_MATRICULA,
     ROLES.LIDER_FDV,
     ROLES.SSA,
-    ROLES.GESTOR_UNIDADE,,
-    ROLES.REGIONAL,
+    ROLES.GESTOR_UNIDADE,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -547,15 +524,11 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.ACADEMICO,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.FDV_COMERCIAL,
     ROLES.FINANCEIRO,
-    ROLES.TECNICO,,
+    ROLES.TECNICO,
     ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
@@ -570,12 +543,8 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
     ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -589,18 +558,11 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
     ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
-    ROLES.PROMOTOR,
-    ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,
-    ROLES.QG,
     ROLES.SSA,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FINANCEIRO,
-    ROLES.TECNICO,,
-    ROLES.REGIONAL,
+    ROLES.TECNICO,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -616,12 +578,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.SSA,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
-    ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
     ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
@@ -637,16 +594,11 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.ACADEMICO,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.FDV_COMERCIAL,
     ROLES.FINANCEIRO,
-    ROLES.TECNICO,,
-    ROLES.REGIONAL,
+    ROLES.TECNICO,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -657,12 +609,11 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.QG,
     ROLES.FDV,
     ROLES.GESTOR_UNIDADE,
-    ROLES.GESTOR_COMERCIAL,,
-    ROLES.REGIONAL,
+    ROLES.GESTOR_COMERCIAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
-  basesRenovacao: [ROLES.ADMIN_MASTER, ROLES.LIDER_FDV, ROLES.SSA, ROLES.REGIONAL, ROLES.LIDER_SM, ROLES.GESTOR],
+  basesRenovacao: [ROLES.ADMIN_MASTER, ROLES.LIDER_FDV, ROLES.SSA, ROLES.LIDER_SM, ROLES.GESTOR],
   avisos: [
     ROLES.ADMIN_MASTER,
     ROLES.FDV,
@@ -673,8 +624,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.PROMOTOR,
-    ROLES.ACADEMICO,,
-    ROLES.REGIONAL,
+    ROLES.ACADEMICO,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -688,8 +638,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
-    ROLES.REGIONAL,
+    ROLES.FDV_COMERCIAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -705,14 +654,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_UNIDADE,
-    ROLES.FDV,
-    ROLES.FDV_COMERCIAL,
-    ROLES.SALA_MATRICULA,
-    ROLES.QG,
-    ROLES.PROMOTOR,
-    ROLES.PROMOTOR_RUA,
-    ROLES.FINANCEIRO,,
-    ROLES.REGIONAL,
+    ROLES.FINANCEIRO,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -733,18 +675,17 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.GESTOR_COMERCIAL,,
+    ROLES.GESTOR_COMERCIAL,
     ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
   crm: [
     ROLES.ADMIN_MASTER,
-    ROLES.LIDER_FDV,,
-    ROLES.REGIONAL,
+    ROLES.LIDER_FDV,
     ROLES.LIDER_SM,
     ROLES.GESTOR
-  , ROLES.REGIONAL, ROLES.LIDER_SM, ROLES.GESTOR],
+  ],
   controlePagamentos: [
     ROLES.ADMIN_MASTER,
     ROLES.LIDER_FDV,
@@ -756,9 +697,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.FDV_COMERCIAL,
-    ROLES.GESTOR_UNIDADE,,
-    ROLES.REGIONAL,
+    ROLES.GESTOR_UNIDADE,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -775,10 +714,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
     ROLES.LIDER_FDV,
-    ROLES.FDV,
-    ROLES.FDV_COMERCIAL,
-    ROLES.SALA_MATRICULA,,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -793,29 +728,24 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.ACADEMICO,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.FDV_COMERCIAL,
     ROLES.FINANCEIRO,
-    ROLES.TECNICO,,
+    ROLES.TECNICO,
     ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
-  solicitacaoManutencao: Object.values(ROLES),
-  clubeLocal: Object.values(ROLES),
+  solicitacaoManutencao: Object.values(ROLES).filter((r) => r !== ROLES.REGIONAL),
+  clubeLocal: Object.values(ROLES).filter((r) => r !== ROLES.REGIONAL),
   controleInsumos: [
     ROLES.ADMIN_MASTER,
     ROLES.ACADEMICO,
     ROLES.FINANCEIRO,
     ROLES.TECNICO,
     ROLES.GESTOR_UNIDADE,
-    ROLES.LIDER_FDV,,
-    ROLES.REGIONAL,
+    ROLES.LIDER_FDV,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -828,10 +758,8 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,
     ROLES.LIDER_FDV,
-    ROLES.FINANCEIRO,,
-    ROLES.REGIONAL,
+    ROLES.FINANCEIRO,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -845,12 +773,8 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
     ROLES.QG,
-    ROLES.SALA_MATRICULA,
-    ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -865,13 +789,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
     ROLES.LIDER_FDV,
-    ROLES.FDV,
-    ROLES.FDV_COMERCIAL,
-    ROLES.PROMOTOR,
-    ROLES.PROMOTOR_RUA,
-    ROLES.SALA_MATRICULA,
-    ROLES.QG,
-    ROLES.REGIONAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -4617,6 +4534,7 @@ export default function App() {
   const [metaDia, setMetaDia] = useState<MetaDia[]>([]);
   const [metaSM, setMetaSM] = useState<MetaSM[]>([]);
   const [metaCursos, setMetaCursos] = useState<MetaCurso[]>([]);
+  const [metasUnidadeRegional, setMetasUnidadeRegional] = useState<MetaUnidadeRegional[]>([]);
   const [qgLigacoes, setQgLigacoes] = useState<QgLigacao[]>([]);
   const [planner, setPlanner] = useState<PlannerTask[]>([]);
   const [periodos, setPeriodos] = useState<PeriodoCaptacao[]>([]);
@@ -6025,6 +5943,20 @@ export default function App() {
       );
     }
 
+    let unsubMetasUnidadeRegional = () => {};
+    if (profile && (VIEW_PERMISSIONS.dashboard.includes(profile.role) || VIEW_PERMISSIONS.admin.includes(profile.role))) {
+      unsubMetasUnidadeRegional = onSnapshot(
+        collection(db, COLLECTIONS.META_UNIDADE_REGIONAL),
+        (snap) => {
+          setMetasUnidadeRegional(
+            snap.docs.map((d) => ({ id: d.id, ...d.data() }) as MetaUnidadeRegional),
+          );
+        },
+        (err) =>
+          handleFirestoreError(err, OperationType.LIST, COLLECTIONS.META_UNIDADE_REGIONAL),
+      );
+    }
+
     let unsubQgLigacoes = () => {};
     if (profile && VIEW_PERMISSIONS.dashboard.includes(profile.role)) {
       unsubQgLigacoes = onSnapshot(
@@ -6612,6 +6544,7 @@ export default function App() {
       unsubMetaDia();
       unsubMetaSM();
       unsubMetaCursos();
+      unsubMetasUnidadeRegional();
       unsubQgLigacoes();
       unsubPeriodos();
       unsubCalendario();
@@ -7452,6 +7385,7 @@ export default function App() {
                   metaDia={metaDia}
                   metaSM={metaSM}
                   metaCursos={metaCursos}
+                  metasUnidadeRegional={metasUnidadeRegional}
                   qgLigacoes={qgLigacoes}
                   users={users}
                 />
@@ -7738,6 +7672,7 @@ export default function App() {
                   uniqueUnidades={uniqueUnidades}
                   metaSM={metaSM}
                   metaCursos={metaCursos}
+                  metasUnidadeRegional={metasUnidadeRegional}
                   analysisSchemes={analysisSchemes}
                   onSaveAnalysisScheme={handleSaveAnalysisScheme}
                   onDeleteAnalysisScheme={handleDeleteAnalysisScheme}
@@ -9054,6 +8989,7 @@ function DashboardView({
   metaDia,
   metaSM,
   metaCursos,
+  metasUnidadeRegional = [],
   qgLigacoes,
   users,
 }: {
@@ -9069,15 +9005,21 @@ function DashboardView({
   metaDia: MetaDia[];
   metaSM: MetaSM[];
   metaCursos: MetaCurso[];
+  metasUnidadeRegional?: MetaUnidadeRegional[];
   qgLigacoes: QgLigacao[];
   users: UserProfile[];
 }) {
+  const isRegional = profile?.role === ROLES.REGIONAL;
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [linksSearchTerm, setLinksSearchTerm] = useState("");
   const [linksFilterLocal, setLinksFilterLocal] = useState("");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
+
+  // Metas Unidade Regional ranking states
+  const [selectedSemestreRegional, setSelectedSemestreRegional] = useState<string>("todos");
+  const [selectedIndicadorRegional, setSelectedIndicadorRegional] = useState<"inscritos" | "financeiro" | "academico">("inscritos");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -9127,11 +9069,115 @@ function DashboardView({
     qgLigacoes: true,
     metaSM: true,
     metaCursos: true,
+    metaUnidadeRegional: true,
     aniversarios: true,
   };
   const widgets = profile?.dashboardWidgets
     ? { ...defaultWidgets, ...profile.dashboardWidgets }
     : defaultWidgets;
+
+  // Semestres list for Regional Metas
+  const semestresRegionalList = useMemo(() => {
+    const sList = Array.from(
+      new Set(
+        (metasUnidadeRegional || [])
+          .map((m) => m.semestre)
+          .filter(Boolean),
+      ),
+    );
+    return sList.sort().reverse();
+  }, [metasUnidadeRegional]);
+
+  // Ranked units calculation for Metas Unidade Regional
+  const rankedUnidades = useMemo(() => {
+    let list = metasUnidadeRegional || [];
+    if (selectedSemestreRegional !== "todos") {
+      list = list.filter((m) => m.semestre === selectedSemestreRegional);
+    }
+    return list
+      .map((m) => {
+        let realizado = 0;
+        let metaFinal = 0;
+        let metaDia = 0;
+        let metaAA = 0;
+
+        if (selectedIndicadorRegional === "financeiro") {
+          realizado = m.financeiro?.realizado ?? 0;
+          metaFinal = m.financeiro?.metaFinal ?? 0;
+          metaDia = m.financeiro?.metaDia ?? 0;
+          metaAA = m.financeiro?.metaAA ?? 0;
+        } else if (selectedIndicadorRegional === "academico") {
+          realizado = m.academico?.realizado ?? 0;
+          metaFinal = m.academico?.metaFinal ?? 0;
+          metaDia = m.academico?.metaDia ?? 0;
+          metaAA = m.academico?.metaAA ?? 0;
+        } else {
+          realizado = m.inscritos?.realizado ?? m.realizado ?? 0;
+          metaFinal = m.inscritos?.metaFinal ?? m.metaFinal ?? 0;
+          metaDia = m.inscritos?.metaDia ?? m.metaDia ?? 0;
+          metaAA = m.inscritos?.metaAA ?? m.metaAA ?? 0;
+        }
+
+        const conversao =
+          metaFinal > 0
+            ? (realizado / metaFinal) * 100
+            : realizado > 0
+              ? 100
+              : 0;
+        const gapFinal = realizado - metaFinal;
+        const gapDia = realizado - metaDia;
+        const gapAA = realizado - metaAA;
+
+        return {
+          ...m,
+          computedRealizado: realizado,
+          computedMetaFinal: metaFinal,
+          computedMetaDia: metaDia,
+          computedMetaAA: metaAA,
+          conversao,
+          gapFinal,
+          gapDia,
+          gapAA,
+        };
+      })
+      .sort((a, b) => {
+        if (b.conversao !== a.conversao) return b.conversao - a.conversao;
+        return b.computedRealizado - a.computedRealizado;
+      });
+  }, [metasUnidadeRegional, selectedSemestreRegional, selectedIndicadorRegional]);
+
+  const totalRegionalStats = useMemo(() => {
+    const totRealizado = rankedUnidades.reduce(
+      (acc, u) => acc + u.computedRealizado,
+      0,
+    );
+    const totMetaFinal = rankedUnidades.reduce(
+      (acc, u) => acc + u.computedMetaFinal,
+      0,
+    );
+    const totMetaDia = rankedUnidades.reduce(
+      (acc, u) => acc + u.computedMetaDia,
+      0,
+    );
+    const totMetaAA = rankedUnidades.reduce(
+      (acc, u) => acc + u.computedMetaAA,
+      0,
+    );
+    const conversaoGeral =
+      totMetaFinal > 0 ? (totRealizado / totMetaFinal) * 100 : 0;
+    const gapGeral = totRealizado - totMetaFinal;
+
+    return {
+      totRealizado,
+      totMetaFinal,
+      totMetaDia,
+      totMetaAA,
+      conversaoGeral,
+      gapGeral,
+      totalUnidades: rankedUnidades.length,
+      topUnidade: rankedUnidades[0] || null,
+    };
+  }, [rankedUnidades]);
 
   const currentMonthNum = new Date().getMonth() + 1; // 1-12
   const monthNamesPt = [
@@ -9358,7 +9404,7 @@ function DashboardView({
         </div>
       )}
 
-      {(() => {
+      {!isRegional && (() => {
         const todayDateObj = new Date(today + "T12:00:00Z");
         const dayOfWeek = todayDateObj.getUTCDay();
         const startOfWeek = new Date(todayDateObj);
@@ -9436,7 +9482,7 @@ function DashboardView({
         );
       })()}
 
-      {activeMeta && (
+      {!isRegional && activeMeta && (
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
@@ -9719,7 +9765,7 @@ function DashboardView({
       )}
 
       {/* Meta SM Dashboard Card */}
-      {widgets.metaSM && (metaSM && metaSM.length > 0) && (
+      {!isRegional && widgets.metaSM && (metaSM && metaSM.length > 0) && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center space-x-2 text-indigo-600 mb-6">
             <Target size={24} />
@@ -9791,7 +9837,7 @@ function DashboardView({
       )}
 
       {/* Meta Cursos Dashboard Card */}
-      {widgets.metaCursos && (metaCursos && metaCursos.length > 0) && (
+      {!isRegional && widgets.metaCursos && (metaCursos && metaCursos.length > 0) && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center space-x-2 text-indigo-600 mb-6">
             <Target size={24} />
@@ -9882,9 +9928,347 @@ function DashboardView({
         </section>
       )}
 
+      {/* Metas Unidade Regional Dashboard Ranking Card */}
+      {(isRegional || widgets.metaUnidadeRegional !== false) && metasUnidadeRegional && metasUnidadeRegional.length > 0 && (
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+          {/* Header & Filter Controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+            <div className="flex items-center space-x-3 text-amber-600">
+              <div className="p-2.5 bg-amber-50 rounded-2xl border border-amber-200/60 shadow-sm">
+                <Award size={24} className="text-amber-600" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Metas Unidade Regional - Ranking e Conversão
+                  </h3>
+                  <span className="px-2.5 py-0.5 bg-amber-100/80 text-amber-800 text-xs font-bold rounded-full">
+                    {totalRegionalStats.totalUnidades} {totalRegionalStats.totalUnidades === 1 ? "Unidade" : "Unidades"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-medium">
+                  Classificação do melhor para o menor aproveitamento com conversão da meta final
+                </p>
+              </div>
+            </div>
+
+            {/* Filter Pills & Semestre Selector */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Indicador Tabs */}
+              <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold text-slate-600">
+                <button
+                  onClick={() => setSelectedIndicadorRegional("inscritos")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all cursor-pointer",
+                    selectedIndicadorRegional === "inscritos"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "hover:text-slate-900 text-slate-500",
+                  )}
+                >
+                  Geral / Inscritos
+                </button>
+                <button
+                  onClick={() => setSelectedIndicadorRegional("financeiro")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all cursor-pointer",
+                    selectedIndicadorRegional === "financeiro"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "hover:text-slate-900 text-slate-500",
+                  )}
+                >
+                  Financeiro
+                </button>
+                <button
+                  onClick={() => setSelectedIndicadorRegional("academico")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all cursor-pointer",
+                    selectedIndicadorRegional === "academico"
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "hover:text-slate-900 text-slate-500",
+                  )}
+                >
+                  Acadêmico
+                </button>
+              </div>
+
+              {/* Semestre Filter */}
+              {semestresRegionalList.length > 0 && (
+                <select
+                  value={selectedSemestreRegional}
+                  onChange={(e) => setSelectedSemestreRegional(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                >
+                  <option value="todos">Todos os Semestres</option>
+                  {semestresRegionalList.map((sem) => (
+                    <option key={sem} value={sem}>
+                      Semestre {sem}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {/* Regional Summary KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                Total Realizado Regional
+              </span>
+              <div className="flex items-baseline space-x-2 mt-2">
+                <span className="text-2xl font-black text-slate-900">
+                  {totalRegionalStats.totRealizado.toLocaleString("pt-BR")}
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">
+                  / {totalRegionalStats.totMetaFinal.toLocaleString("pt-BR")} Meta
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100/60 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
+                Conversão Meta Final Geral
+              </span>
+              <div className="flex items-baseline space-x-2 mt-2">
+                <span className={cn(
+                  "text-2xl font-black",
+                  totalRegionalStats.conversaoGeral >= 100
+                    ? "text-emerald-600"
+                    : totalRegionalStats.conversaoGeral >= 70
+                    ? "text-blue-600"
+                    : "text-amber-600",
+                )}>
+                  {totalRegionalStats.conversaoGeral.toFixed(1)}%
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  {totalRegionalStats.conversaoGeral >= 100 ? "🎉 Superada" : "Em andamento"}
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-emerald-100 rounded-full h-1.5">
+                <div
+                  className="bg-emerald-500 h-1.5 rounded-full"
+                  style={{ width: `${Math.min(100, totalRegionalStats.conversaoGeral)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/60 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">
+                GAP Meta Final Geral
+              </span>
+              <div className="flex items-baseline space-x-2 mt-2">
+                <span className={cn(
+                  "text-2xl font-black",
+                  totalRegionalStats.gapGeral > 0
+                    ? "text-emerald-600"
+                    : totalRegionalStats.gapGeral < 0
+                    ? "text-rose-600"
+                    : "text-slate-600",
+                )}>
+                  {totalRegionalStats.gapGeral > 0 ? `+${totalRegionalStats.gapGeral.toLocaleString("pt-BR")}` : totalRegionalStats.gapGeral.toLocaleString("pt-BR")}
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">vs Meta Final</span>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/60 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                <span>🏆</span> 1º Lugar no Ranking
+              </span>
+              <div className="mt-1">
+                <p className="text-base font-black text-slate-800 truncate">
+                  {totalRegionalStats.topUnidade ? totalRegionalStats.topUnidade.unidade : "-"}
+                </p>
+                <p className="text-xs text-amber-700 font-bold mt-0.5">
+                  {totalRegionalStats.topUnidade
+                    ? `${totalRegionalStats.topUnidade.conversao.toFixed(1)}% de conversão (${totalRegionalStats.topUnidade.computedRealizado} real)`
+                    : "Sem registros"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Ranking Leaderboard Table */}
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
+                <tr>
+                  <th className="py-3 px-4 text-center w-16">Posição</th>
+                  <th className="py-3 px-4 text-left">Unidade</th>
+                  <th className="py-3 px-4 text-center">Semestre</th>
+                  <th className="py-3 px-4 text-center">Realizado</th>
+                  <th className="py-3 px-4 text-center">Meta Final</th>
+                  <th className="py-3 px-4 text-left min-w-[160px]">Conversão Meta Final</th>
+                  <th className="py-3 px-4 text-center">GAP Final</th>
+                  <th className="py-3 px-4 text-center">Meta Dia</th>
+                  <th className="py-3 px-4 text-center">GAP Dia</th>
+                  <th className="py-3 px-4 text-center">Ano Ant.</th>
+                  <th className="py-3 px-4 text-center">GAP A.A</th>
+                  <th className="py-3 px-4 text-right">Atualização</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rankedUnidades.map((item, index) => {
+                  const rankNumber = index + 1;
+                  const isTop1 = rankNumber === 1;
+                  const isTop2 = rankNumber === 2;
+                  const isTop3 = rankNumber === 3;
+
+                  let rankBadge = (
+                    <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-black text-xs flex items-center justify-center mx-auto">
+                      {rankNumber}º
+                    </span>
+                  );
+                  if (isTop1) {
+                    rankBadge = (
+                      <span className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center justify-center mx-auto shadow-sm shadow-amber-200">
+                        🥇 1º
+                      </span>
+                    );
+                  } else if (isTop2) {
+                    rankBadge = (
+                      <span className="w-7 h-7 rounded-full bg-slate-300 text-slate-900 font-black text-xs flex items-center justify-center mx-auto">
+                        🥈 2º
+                      </span>
+                    );
+                  } else if (isTop3) {
+                    rankBadge = (
+                      <span className="w-7 h-7 rounded-full bg-amber-700/20 text-amber-900 font-black text-xs flex items-center justify-center mx-auto">
+                        🥉 3º
+                      </span>
+                    );
+                  }
+
+                  let barColor = "bg-rose-500";
+                  let textColor = "text-rose-600";
+                  if (item.conversao >= 100) {
+                    barColor = "bg-emerald-500";
+                    textColor = "text-emerald-600";
+                  } else if (item.conversao >= 80) {
+                    barColor = "bg-blue-500";
+                    textColor = "text-blue-600";
+                  } else if (item.conversao >= 50) {
+                    barColor = "bg-amber-500";
+                    textColor = "text-amber-600";
+                  }
+
+                  const formattedDate = item.updatedAt?.seconds
+                    ? new Date(item.updatedAt.seconds * 1000).toLocaleDateString("pt-BR")
+                    : item.createdAt?.seconds
+                    ? new Date(item.createdAt.seconds * 1000).toLocaleDateString("pt-BR")
+                    : item.updatedAt
+                    ? new Date(item.updatedAt).toLocaleDateString("pt-BR")
+                    : "-";
+
+                  return (
+                    <tr
+                      key={item.id || index}
+                      className={cn(
+                        "hover:bg-slate-50/80 transition-colors",
+                        isTop1 ? "bg-amber-50/20 font-medium" : "",
+                      )}
+                    >
+                      <td className="py-3 px-4 text-center">{rankBadge}</td>
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        <div className="flex items-center space-x-2">
+                          <span>{item.unidade}</span>
+                          {isTop1 && (
+                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-black rounded uppercase">
+                              Líder
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center text-slate-500 font-medium">
+                        {item.semestre || "-"}
+                      </td>
+                      <td className="py-3 px-4 text-center font-black text-slate-900 text-sm">
+                        {item.computedRealizado}
+                      </td>
+                      <td className="py-3 px-4 text-center font-semibold text-slate-600">
+                        {item.computedMetaFinal}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className={cn("font-extrabold", textColor)}>
+                              {item.conversao.toFixed(1)}%
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {item.computedRealizado}/{item.computedMetaFinal}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div
+                              className={cn("h-2 rounded-full transition-all", barColor)}
+                              style={{ width: `${Math.min(100, item.conversao)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={cn(
+                            "px-2 py-0.5 rounded-md text-[11px] font-bold",
+                            item.gapFinal > 0
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : item.gapFinal < 0
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-slate-100 text-slate-600",
+                          )}
+                        >
+                          {item.gapFinal > 0 ? `+${item.gapFinal}` : item.gapFinal}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center text-slate-600 font-medium">
+                        {item.computedMetaDia}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={cn(
+                            "text-xs font-bold",
+                            item.gapDia > 0
+                              ? "text-emerald-600"
+                              : item.gapDia < 0
+                              ? "text-rose-600"
+                              : "text-slate-500",
+                          )}
+                        >
+                          {item.gapDia > 0 ? `+${item.gapDia}` : item.gapDia}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center text-slate-600 font-medium">
+                        {item.computedMetaAA}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span
+                          className={cn(
+                            "text-xs font-bold",
+                            item.gapAA > 0
+                              ? "text-emerald-600"
+                              : item.gapAA < 0
+                              ? "text-rose-600"
+                              : "text-slate-500",
+                          )}
+                        >
+                          {item.gapAA > 0 ? `+${item.gapAA}` : item.gapAA}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right text-[10px] text-slate-400 font-medium">
+                        {formattedDate}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       
       {/* Bom Dia Captação (Complete - All cards) */}
-      {widgets.bomDia && bomDia.filter((b) => !b.oculto).length > 0 && (
+      {!isRegional && widgets.bomDia && bomDia.filter((b) => !b.oculto).length > 0 && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2 text-emerald-600">
@@ -10069,7 +10453,7 @@ function DashboardView({
       )}
 
       {/* QG Ligações Widget */}
-      {widgets.qgLigacoes !== false && qgLigacoes && qgLigacoes.length > 0 && (
+      {!isRegional && widgets.qgLigacoes !== false && qgLigacoes && qgLigacoes.length > 0 && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-slate-900 flex items-center">
@@ -10109,7 +10493,7 @@ function DashboardView({
       )}
 
       {/* Forecasts (Complete - All cards) */}
-      {widgets.forecast && forecast.filter((f) => !f.oculto).length > 0 && (
+      {(isRegional || widgets.forecast) && forecast.filter((f) => !f.oculto).length > 0 && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-bold text-slate-900">
@@ -10228,7 +10612,7 @@ function DashboardView({
         </section>
       )}
 
-      {widgets.periodo && periodos.length > 0 && (
+      {!isRegional && widgets.periodo && periodos.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-slate-900">
@@ -10331,7 +10715,7 @@ function DashboardView({
         </section>
       )}
 
-      {widgets.links && (
+      {(isRegional || widgets.links) && (
         <section>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
             <h3 className="text-xl font-bold text-slate-900">Links Úteis</h3>
@@ -10402,7 +10786,7 @@ function DashboardView({
         </section>
       )}
 
-      {widgets.planner && (
+      {(isRegional || widgets.planner) && (
         <section>
           <h3 className="text-xl font-bold text-slate-900 mb-4">
             Planner da Semana
@@ -10475,23 +10859,47 @@ function DashboardView({
                   principal.
                 </p>
 
-                {[
-                  {
-                    id: "periodo",
-                    label: "Períodos da Captação",
-                    icon: Calendar,
-                  },
-                  { id: "bomDia", label: "Bom Dia Captação", icon: Sun },
-                  { id: "forecast", label: "Forecasts", icon: TrendingUp },
-                  { id: "links", label: "Links Úteis", icon: ExternalLink },
-                  { id: "planner", label: "Planner da Semana", icon: Calendar },
-                  { id: "qgLigacoes", label: "QG Ligações", icon: Phone },
-                  {
-                    id: "aniversarios",
-                    label: "Aniversariantes do Mês",
-                    icon: Cake,
-                  },
-                ].map((item) => (
+                {(isRegional
+                  ? [
+                      {
+                        id: "metaUnidadeRegional",
+                        label: "Metas Unidade Regional",
+                        icon: Award,
+                      },
+                      { id: "forecast", label: "Forecasts", icon: TrendingUp },
+                      { id: "links", label: "Links Úteis", icon: ExternalLink },
+                      { id: "planner", label: "Planner da Semana", icon: Calendar },
+                      {
+                        id: "aniversarios",
+                        label: "Aniversariantes do Mês",
+                        icon: Cake,
+                      },
+                    ]
+                  : [
+                      {
+                        id: "periodo",
+                        label: "Períodos da Captação",
+                        icon: Calendar,
+                      },
+                      { id: "bomDia", label: "Bom Dia Captação", icon: Sun },
+                      { id: "metaSM", label: "Meta SM", icon: Target },
+                      { id: "metaCursos", label: "Meta Cursos", icon: Target },
+                      {
+                        id: "metaUnidadeRegional",
+                        label: "Metas Unidade Regional",
+                        icon: Award,
+                      },
+                      { id: "forecast", label: "Forecasts", icon: TrendingUp },
+                      { id: "links", label: "Links Úteis", icon: ExternalLink },
+                      { id: "planner", label: "Planner da Semana", icon: Calendar },
+                      { id: "qgLigacoes", label: "QG Ligações", icon: Phone },
+                      {
+                        id: "aniversarios",
+                        label: "Aniversariantes do Mês",
+                        icon: Cake,
+                      },
+                    ]
+                ).map((item) => (
                   <button
                     key={item.id}
                     onClick={() => toggleWidget(item.id as any)}

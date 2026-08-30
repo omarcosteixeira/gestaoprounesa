@@ -85,6 +85,8 @@ import { AdminLinksUteisView } from "./AdminLinksUteisView";
 import { AdminLogotipoLoginView } from "./AdminLogotipoLoginView";
 import { AdminFormulariosView } from "./AdminFormulariosView";
 import { AdminBackupSegurancaView } from "./AdminBackupSegurancaView";
+import { MetasUnidadeRegionalView } from "./MetasUnidadeRegionalView";
+import { MetaUnidadeRegional } from "../types";
 
 interface Props {
   profile: UserProfile;
@@ -97,6 +99,7 @@ interface Props {
   uniqueUnidades?: string[];
   metaSM?: MetaSM[];
   metaCursos?: MetaCurso[];
+  metasUnidadeRegional?: MetaUnidadeRegional[];
   analysisSchemes?: AnalysisScheme[];
   onSaveAnalysisScheme?: (scheme: Partial<AnalysisScheme>) => Promise<void>;
   onDeleteAnalysisScheme?: (id: string) => Promise<void>;
@@ -149,6 +152,7 @@ export function AdminMainView({
   uniqueUnidades = [],
   metaSM = [],
   metaCursos = [],
+  metasUnidadeRegional = [],
   analysisSchemes = [],
   onSaveAnalysisScheme,
   onDeleteAnalysisScheme,
@@ -167,6 +171,8 @@ export function AdminMainView({
   setShowInjectModal,
   onToast,
 }: Props) {
+  const isRegionalProfile = profile?.role === "Regional";
+
   const [activeSubTab, setActiveSubTab] = useState<
     | "usuarios"
     | "unidades"
@@ -176,6 +182,7 @@ export function AdminMainView({
     | "funcionarios"
     | "metaSM"
     | "metaCursos"
+    | "metasUnidadeRegional"
     | "crescimento"
     | "folgas"
     | "bomDia"
@@ -189,7 +196,7 @@ export function AdminMainView({
     | "logotipo"
     | "formularios"
     | "backup"
-  >("usuarios");
+  >(isRegionalProfile ? "unidades" : "usuarios");
 
   // Local fallback states populated by onSnapshot if props not passed
   const [localFolgas, setLocalFolgas] = useState<SolicitacaoFolga[]>([]);
@@ -444,7 +451,7 @@ export function AdminMainView({
     return matchesSearch && matchesRole;
   });
 
-  const subTabsConfig = [
+  const allSubTabsConfig = [
     { id: "usuarios", label: "Usuários & Permissões", icon: Users },
     { id: "unidades", label: "Unidades da Regional", icon: Building2 },
     { id: "cadastroSm", label: "Cadastro SM Regional", icon: UserCheck },
@@ -453,6 +460,7 @@ export function AdminMainView({
     { id: "funcionarios", label: "Docentes & Administrativos", icon: GraduationCap },
     { id: "metaSM", label: "Metas SM", icon: Target },
     { id: "metaCursos", label: "Metas Cursos", icon: BookOpen },
+    { id: "metasUnidadeRegional", label: "Metas Unidade Regional", icon: Target },
     { id: "crescimento", label: "Crescimento Anual", icon: TrendingUp },
     { id: "folgas", label: "Folgas e Férias", icon: CalendarDays },
     { id: "bomDia", label: "Bom Dia Captação", icon: Sun },
@@ -467,6 +475,23 @@ export function AdminMainView({
     { id: "formularios", label: "Formulários", icon: FileText },
     { id: "backup", label: "Backup e Segurança", icon: Shield },
   ];
+
+  // For Regional profile, only allow specified subtabs
+  const regionalAllowedSubTabs = [
+    "unidades",
+    "cadastroSm",
+    "tarefas",
+    "linksUteis",
+    "formularios",
+    "planner",
+    "periodos",
+    "forecast",
+    "metasUnidadeRegional",
+  ];
+
+  const subTabsConfig = isRegionalProfile
+    ? allSubTabsConfig.filter((tab) => regionalAllowedSubTabs.includes(tab.id))
+    : allSubTabsConfig;
 
   return (
     <div className="space-y-6">
@@ -628,6 +653,14 @@ export function AdminMainView({
 
       {activeSubTab === "metaCursos" && (
         <MetaCursosView metaCursos={metaCursos} onToast={onToast} />
+      )}
+
+      {activeSubTab === "metasUnidadeRegional" && (
+        <MetasUnidadeRegionalView
+          metas={metasUnidadeRegional}
+          unidades={unidadesRegional}
+          onToast={onToast}
+        />
       )}
 
       {activeSubTab === "crescimento" && (

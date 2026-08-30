@@ -92,6 +92,10 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    match /meta_unidade_regional/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
     // ===============================================================
     // Artifact Collection Rules
     // ===============================================================
@@ -116,6 +120,10 @@ service cloud.firestore {
     }
 
     match /artifacts/gen-lang-client-0111023338/public/data/checklist/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_unidade_regional/{id} {
       allow read, write: if isAuthenticated();
     }
 
@@ -144,6 +152,10 @@ service cloud.firestore {
     }
 
     match /artifacts/unesa-gestaopro/public/data/checklist/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /artifacts/unesa-gestaopro/public/data/meta_unidade_regional/{id} {
       allow read, write: if isAuthenticated();
     }
 
