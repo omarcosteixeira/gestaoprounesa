@@ -60,7 +60,7 @@ export function MessageTemplateModal({
       await addDoc(collection(db, COLLECTIONS.WHATSAPP_MESSAGES), {
         tipo,
         texto,
-        nome: modelName || undefined,
+        nome: modelName || "",
         createdAt: serverTimestamp(),
       });
       onToast(successMessage);

@@ -881,17 +881,23 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
 function PasswordChangeModal({ onComplete }: { onComplete: () => void }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword.length < 6) {
-      setError("A senha deve ter pelo menos 6 caracteres.");
+      setError("A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+    if (newPassword.trim() === "123456") {
+      setError("A nova senha deve ser diferente da senha padrão (123456).");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setError("As senhas não coincidem.");
+      setError("A confirmação de senha não coincide com a nova senha.");
       return;
     }
 
@@ -901,62 +907,106 @@ function PasswordChangeModal({ onComplete }: { onComplete: () => void }) {
       if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword);
         onComplete();
+      } else {
+        setError("Sessão não identificada. Por favor, entre novamente.");
       }
     } catch (err: any) {
-      setError("Erro ao atualizar senha. Tente sair e entrar novamente.");
+      console.error("Erro ao atualizar senha:", err);
+      if (err.code === "auth/requires-recent-login") {
+        setError("Para sua segurança, a sessão expirou. Saia e entre novamente com a senha 123456 para redefinir.");
+      } else {
+        setError(err.message || "Erro ao atualizar senha. Tente novamente.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      sessionStorage.removeItem("must_change_default_password");
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
         className="bg-white p-8 rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full"
       >
-        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
-          <KeyRound size={32} />
+        <div className="flex items-center justify-between mb-6">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center border border-amber-100 shadow-sm">
+            <KeyRound size={28} />
+          </div>
+          <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
+            Primeiro Acesso
+          </span>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Troca de Senha Obrigatória
+
+        <h2 className="text-2xl font-black text-slate-900 mb-2">
+          Defina sua Nova Senha
         </h2>
-        <p className="text-slate-500 mb-6">
-          Para sua segurança, você deve alterar sua senha padrão antes de
-          continuar.
+        <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+          Você acessou com a senha padrão inicial <strong className="text-slate-700 font-semibold">(123456)</strong>. Para garantir a segurança dos seus acessos e dados, cadastre uma nova senha pessoal para continuar.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">
               Nova Senha
             </label>
-            <input
-              type="password"
-              required
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="Mínimo 6 caracteres"
-            />
+            <div className="relative">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 font-medium"
+                placeholder="Mínimo 6 caracteres"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
+
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">
               Confirmar Nova Senha
             </label>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 font-medium"
+                placeholder="Repita a nova senha"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error && (
-            <div className="p-3 bg-rose-50 text-rose-600 text-xs font-bold rounded-xl flex items-center space-x-2">
-              <AlertCircle size={14} />
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl flex items-start space-x-2">
+              <AlertCircle size={16} className="shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -964,9 +1014,27 @@ function PasswordChangeModal({ onComplete }: { onComplete: () => void }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 disabled:opacity-50"
+            className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
-            {loading ? "Atualizando..." : "Atualizar Senha"}
+            {loading ? (
+              <>
+                <RefreshCw size={18} className="animate-spin" />
+                <span>Atualizando senha...</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={18} />
+                <span>Salvar Nova Senha</span>
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full text-slate-500 hover:text-slate-700 text-xs font-semibold py-2 transition-colors cursor-pointer text-center"
+          >
+            Sair e entrar com outra conta
           </button>
         </form>
       </motion.div>
@@ -4491,6 +4559,12 @@ export default function App() {
   const [analysisSchemes, setAnalysisSchemes] = useState<AnalysisScheme[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [forceChangePassword, setForceChangePassword] = useState(() => {
+    return (
+      typeof window !== "undefined" &&
+      sessionStorage.getItem("must_change_default_password") === "true"
+    );
+  });
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -5275,6 +5349,12 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        const isDefaultPassword =
+          typeof window !== "undefined" &&
+          sessionStorage.getItem("must_change_default_password") === "true";
+        if (isDefaultPassword) {
+          setForceChangePassword(true);
+        }
         try {
           // 1. Try to get profile by UID
           let userDoc = await getDoc(doc(db, COLLECTIONS.USERS, user.uid));
@@ -5361,7 +5441,7 @@ export default function App() {
                 name,
                 role,
                 servidor,
-                mustChangePassword: false, // Default for self-signup
+                mustChangePassword: isDefaultPassword || false,
                 createdAt: serverTimestamp(),
                 dashboardWidgets: { stats: true, links: true, planner: true },
               };
@@ -5378,7 +5458,11 @@ export default function App() {
             ) {
               data.role = ROLES.ADMIN_MASTER;
             }
-            setProfile({ uid: user.uid, ...data } as UserProfile);
+            const needsChange = isDefaultPassword || data.mustChangePassword === true;
+            if (needsChange) {
+              setForceChangePassword(true);
+            }
+            setProfile({ uid: user.uid, ...data, mustChangePassword: needsChange } as UserProfile);
           }
           setUser(user);
         } catch (error: any) {
@@ -6960,7 +7044,7 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {profile?.mustChangePassword && (
+      {(profile?.mustChangePassword || forceChangePassword) && (
         <PasswordChangeModal
           onComplete={async () => {
             try {
@@ -6969,13 +7053,16 @@ export default function App() {
                   mustChangePassword: false,
                   updatedAt: serverTimestamp(),
                 });
-                setProfile((prev) =>
-                  prev ? { ...prev, mustChangePassword: false } : null,
-                );
-                showToast("Senha atualizada com sucesso!");
               }
             } catch (err: any) {
-              showToast("Erro ao atualizar status do perfil.", "error");
+              console.warn("Could not update mustChangePassword in Firestore, continuing:", err);
+            } finally {
+              setProfile((prev) =>
+                prev ? { ...prev, mustChangePassword: false } : null,
+              );
+              setForceChangePassword(false);
+              sessionStorage.removeItem("must_change_default_password");
+              showToast("Senha alterada com sucesso! Bem-vindo.");
             }
           }}
         />
@@ -7849,6 +7936,11 @@ function AuthScreen({
     }
     try {
       if (isLogin) {
+        if (password.trim() === "123456") {
+          sessionStorage.setItem("must_change_default_password", "true");
+        } else {
+          sessionStorage.removeItem("must_change_default_password");
+        }
         try {
           // Attempt login on the CURRENTLY SELECTED server
           await signInWithEmailAndPassword(auth, email, password);
@@ -7979,6 +8071,9 @@ function AuthScreen({
 
               try {
                 await signInWithEmailAndPassword(altAuth, email, password);
+                if (password.trim() === "123456") {
+                  sessionStorage.setItem("must_change_default_password", "true");
+                }
                 localStorage.setItem("servidor_selected", altServer);
                 const serverLabel =
                   altServer === "unesa"
@@ -11240,7 +11335,7 @@ function HistoricoView({
       await addDoc(collection(db, COLLECTIONS.WHATSAPP_MESSAGES), {
         tipo: "historico",
         texto: newMsgData.texto,
-        nome: newMsgData.modelName || undefined,
+        nome: newMsgData.modelName || "",
         createdAt: serverTimestamp(),
       });
       onToast("Mensagem de histórico salva!");

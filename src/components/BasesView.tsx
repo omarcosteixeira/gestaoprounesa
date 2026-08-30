@@ -662,7 +662,7 @@ export function BasesView({
       await addDoc(collection(db, COLLECTIONS.WHATSAPP_MESSAGES), {
         tipo: "bases",
         texto: newMsgData.texto,
-        nome: newMsgData.modelName || undefined,
+        nome: newMsgData.modelName || "",
         createdAt: serverTimestamp(),
       });
       onToast("Mensagem de base salva!");
@@ -1611,19 +1611,43 @@ export function BasesView({
                       </select>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
                         {item.telefone && (
                           <button
                             onClick={() => {
                               setSelectedEntry(item);
                               setSelectorOpen(true);
                             }}
-                            className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                             title="WhatsApp"
                           >
                             <MessageSquare size={16} />
                           </button>
                         )}
+                        <button
+                          onClick={() => handleContatoViaSales(item, item.nomeBase ? `Bases - ${item.nomeBase}` : 'Bases')}
+                          className="inline-flex items-center space-x-1 text-sky-600 font-bold text-xs hover:text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="Registrar Contato via Sales"
+                        >
+                          <PhoneOutgoing size={14} />
+                          <span>Sales</span>
+                        </button>
+                        <button
+                          onClick={() => handleContatoViaWhats(item, item.nomeBase ? `Bases - ${item.nomeBase}` : 'Bases')}
+                          className="inline-flex items-center space-x-1 text-emerald-600 font-bold text-xs hover:text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="Registrar Envio via Whats"
+                        >
+                          <Send size={14} />
+                          <span>Envio Whats</span>
+                        </button>
+                        <button
+                          onClick={() => handleContatoViaMalaDireta(item, item.nomeBase ? `Bases - ${item.nomeBase}` : 'Bases')}
+                          className="inline-flex items-center space-x-1 text-amber-600 font-bold text-xs hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="Registrar Envio via Mala Direta"
+                        >
+                          <Mail size={14} />
+                          <span>Envio Mala Direta</span>
+                        </button>
                         <button
                           onClick={() => {
                             setEditingCandidate(item);
@@ -1645,14 +1669,14 @@ export function BasesView({
                             });
                             setIsEditModalOpen(true);
                           }}
-                          className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="text-blue-500 hover:text-blue-700 p-1.5 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                           title="Editar"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button
                           onClick={() => handleDeleteBase(item.id)}
-                          className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="text-rose-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           title="Excluir"
                         >
                           <Trash2 size={16} />

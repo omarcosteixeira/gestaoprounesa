@@ -315,13 +315,13 @@ export function AdminMainView({
       });
 
       const newUid = userCred.user.uid;
-      const profileData: UserProfile = {
+      const profileData: any = {
         uid: newUid,
         name: newUserName.trim(),
         email: newUserEmail.trim(),
         role: newUserRole,
         servidor: targetServidor,
-        unidade: newUserUnidade || undefined,
+        unidade: newUserUnidade || "",
         blocked: false,
         mustChangePassword: true,
         createdAt: serverTimestamp(),
@@ -362,7 +362,7 @@ export function AdminMainView({
     try {
       await updateDoc(doc(db, COLLECTIONS.USERS, editingUser.uid), {
         role: editRole,
-        unidade: editUnidade || undefined,
+        unidade: editUnidade || "",
         updatedAt: serverTimestamp(),
       });
       onToast("Perfil de usuário atualizado com sucesso!");

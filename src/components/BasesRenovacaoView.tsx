@@ -12,6 +12,8 @@ import {
   Clock,
   Send,
   MessageSquare,
+  PhoneOutgoing,
+  Mail,
   Bot,
   Filter,
   X,
@@ -90,6 +92,57 @@ export function BasesRenovacaoView({
   const toggleSelectAll = (checked: boolean) => {
     if (checked) setSelectedEntries(filteredBases.map((b) => b.id));
     else setSelectedEntries([]);
+  };
+
+  const handleContatoViaSales = async (contact: any, origem: string) => {
+    try {
+      await addDoc(collection(db, COLLECTIONS.SALES_CONTACTS), {
+        contactId: contact.id,
+        nome: contact.nome,
+        telefone: contact.telefone,
+        curso: contact.cursoInteresse || contact.curso || "Não informado",
+        origem,
+        createdAt: serverTimestamp(),
+      });
+      onToast("Contato via Sales registrado com sucesso!", "success");
+    } catch (err: any) {
+      console.error(err);
+      onToast("Erro ao registrar Contato via Sales.", "error");
+    }
+  };
+
+  const handleContatoViaWhats = async (contact: any, origem: string) => {
+    try {
+      await addDoc(collection(db, COLLECTIONS.WHATS_CONTACTS), {
+        contactId: contact.id || '',
+        nome: contact.nome || 'Não informado',
+        telefone: contact.telefone || 'Não informado',
+        curso: contact.cursoInteresse || contact.curso || 'Não informado',
+        origem,
+        createdAt: serverTimestamp(),
+      });
+      onToast("Envio via Whats registrado com sucesso!", "success");
+    } catch (err: any) {
+      console.error(err);
+      onToast("Erro ao registrar Envio via Whats.", "error");
+    }
+  };
+
+  const handleContatoViaMalaDireta = async (contact: any, origem: string) => {
+    try {
+      await addDoc(collection(db, COLLECTIONS.MALA_DIRETA_CONTACTS), {
+        contactId: contact.id || '',
+        nome: contact.nome || 'Não informado',
+        telefone: contact.telefone || 'Não informado',
+        curso: contact.cursoInteresse || contact.curso || 'Não informado',
+        origem,
+        createdAt: serverTimestamp(),
+      });
+      onToast("Envio via Mala Direta registrado com sucesso!", "success");
+    } catch (err: any) {
+      console.error(err);
+      onToast("Erro ao registrar Envio via Mala Direta.", "error");
+    }
   };
 
   const handleStatusChange = async (id: string, status: any) => {
@@ -302,22 +355,46 @@ export function BasesRenovacaoView({
                     </select>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
                       {item.telefone && (
                         <button
                           onClick={() => {
                             setSelectedItem(item);
                             setSelectorOpen(true);
                           }}
-                          className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-lg transition-colors"
+                          className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
                           title="WhatsApp"
                         >
                           <MessageSquare size={16} />
                         </button>
                       )}
                       <button
+                        onClick={() => handleContatoViaSales(item, item.nomeBase ? `Base Líquida - ${item.nomeBase}` : 'Base Líquida')}
+                        className="inline-flex items-center space-x-1 text-sky-600 font-bold text-xs hover:text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        title="Registrar Contato via Sales"
+                      >
+                        <PhoneOutgoing size={14} />
+                        <span>Sales</span>
+                      </button>
+                      <button
+                        onClick={() => handleContatoViaWhats(item, item.nomeBase ? `Base Líquida - ${item.nomeBase}` : 'Base Líquida')}
+                        className="inline-flex items-center space-x-1 text-emerald-600 font-bold text-xs hover:text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        title="Registrar Envio via Whats"
+                      >
+                        <Send size={14} />
+                        <span>Envio Whats</span>
+                      </button>
+                      <button
+                        onClick={() => handleContatoViaMalaDireta(item, item.nomeBase ? `Base Líquida - ${item.nomeBase}` : 'Base Líquida')}
+                        className="inline-flex items-center space-x-1 text-amber-600 font-bold text-xs hover:text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                        title="Registrar Envio via Mala Direta"
+                      >
+                        <Mail size={14} />
+                        <span>Envio Mala Direta</span>
+                      </button>
+                      <button
                         onClick={() => handleDelete(item.id)}
-                        className="text-rose-400 hover:text-rose-600 p-2 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="text-rose-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         title="Excluir"
                       >
                         <Trash2 size={16} />

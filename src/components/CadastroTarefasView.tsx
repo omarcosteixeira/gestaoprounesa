@@ -76,9 +76,9 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast }: Pro
         await updateDoc(doc(db, COLLECTIONS.TAREFAS, editingId), {
           titulo: titulo.trim(),
           descricao: descricao.trim(),
-          unidade: unidade || undefined,
+          unidade: unidade || "",
           responsavelNome: responsavelNome.trim(),
-          dataPrazo: dataPrazo || undefined,
+          dataPrazo: dataPrazo || "",
           status,
         });
         onToast("Atividade atualizada com sucesso!");
@@ -86,9 +86,9 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast }: Pro
         await addDoc(collection(db, COLLECTIONS.TAREFAS), {
           titulo: titulo.trim(),
           descricao: descricao.trim(),
-          unidade: unidade || profile?.unidade || undefined,
+          unidade: unidade || profile?.unidade || "",
           responsavelNome: responsavelNome.trim(),
-          dataPrazo: dataPrazo || undefined,
+          dataPrazo: dataPrazo || "",
           status,
           creatorId: profile?.uid,
           creatorNome: profile?.name || profile?.nome,
