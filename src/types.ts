@@ -719,20 +719,54 @@ export interface MetaCurso {
 export interface UnidadeRegional {
   id: string;
   nome: string;
+  marca?: string;
+  regional?: string;
+  nucleo?: string;
+  cluster?: string;
   codigo?: string;
   endereco?: string;
   createdAt?: any;
+  updatedAt?: any;
 }
+
+export type FuncaoSM =
+  | 'Gestor'
+  | 'Lider'
+  | '02'
+  | 'Atendente sm'
+  | 'Estagiario'
+  | 'Jovem aprendiz'
+  | 'Líder'
+  | 'Administrativo'
+  | 'Estagiário'
+  | 'Jovem Aprendiz';
 
 export interface FuncionarioSM {
   id: string;
   nome: string;
-  cpf?: string;
-  cargo: 'Líder' | '02' | 'Administrativo' | 'Estagiário' | 'Jovem Aprendiz';
+  funcao?: FuncaoSM;
+  cargo?: FuncaoSM; // compatibilidade com código existente
   unidade: string;
-  telefone?: string;
+  marca?: string;
+  regional?: string;
+  nucleo?: string;
+  cluster?: string;
+  status: 'Ativo' | 'Licença' | 'Inativo';
+  cpf?: string;
   email?: string;
-  status?: 'Ativo' | 'Inativo';
+  matricula?: string;
+  dataNascimento?: string; // DT NASC
+  admissaoSm?: string; // ADMISSÃO SM
+  admissaoRh?: string; // ADMISSÃO RH
+  desligamento?: string; // DESLIGAMENTO (opcional)
+  tamanhoBlusa?: string; // Tamanho Blusa
+  pdvSalesforce?: string; // PDV SalesForce
+  telefone?: string; // Telefone Principal
+  telefonePrincipal?: string;
+  telefoneAtendimento?: string; // Telefone de Atendimento (opcional)
+  dataAlteracao?: string; // Registro da data de realização de edição
+  dataEdicao?: string;
+  updatedAt?: any;
   createdAt?: any;
 }
 
