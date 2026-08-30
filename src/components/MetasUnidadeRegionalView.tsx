@@ -121,11 +121,24 @@ export function MetasUnidadeRegionalView({
         onToast("Meta da Unidade Regional atualizada com sucesso!");
         handleCancelEdit();
       } else {
-        await addDoc(collection(db, COLLECTIONS.META_UNIDADE_REGIONAL), {
-          ...payload,
-          createdAt: serverTimestamp(),
-        });
-        onToast("Meta da Unidade Regional cadastrada com sucesso!");
+        // Check if a meta for the same unit and semester already exists - update it if so
+        const existing = metas.find(
+          (m) =>
+            m.unidade.trim().toLowerCase() === formData.unidade.trim().toLowerCase() &&
+            m.semestre.trim().toLowerCase() === formData.semestre.trim().toLowerCase()
+        );
+
+        if (existing) {
+          await updateDoc(doc(db, COLLECTIONS.META_UNIDADE_REGIONAL, existing.id), payload);
+          onToast("Meta existente encontrada e atualizada com sucesso!");
+        } else {
+          await addDoc(collection(db, COLLECTIONS.META_UNIDADE_REGIONAL), {
+            ...payload,
+            createdAt: serverTimestamp(),
+          });
+          onToast("Meta da Unidade Regional cadastrada com sucesso!");
+        }
+
         setFormData({
           unidade: "",
           semestre: formData.semestre, // keep semester for faster continuous input
@@ -235,6 +248,8 @@ export function MetasUnidadeRegionalView({
         }
 
         let countAdded = 0;
+        let countUpdated = 0;
+
         for (const row of rawData) {
           const unidadeVal =
             row.Unidade ||
@@ -255,20 +270,45 @@ export function MetasUnidadeRegionalView({
             const metaFinalVal = Number(row["Meta Final"] || row.metaFinal || row["Meta final"] || row.meta_final || 0);
             const realizadoVal = Number(row.Realizado || row.realizado || row.REALIZADO || row["Realizado SM"] || 0);
 
-            await addDoc(collection(db, COLLECTIONS.META_UNIDADE_REGIONAL), {
-              unidade: String(unidadeVal).trim(),
-              semestre: String(semestreVal).trim(),
+            const uTrim = String(unidadeVal).trim();
+            const sTrim = String(semestreVal).trim();
+
+            const existing = metas.find(
+              (m) =>
+                m.unidade.trim().toLowerCase() === uTrim.toLowerCase() &&
+                m.semestre.trim().toLowerCase() === sTrim.toLowerCase()
+            );
+
+            const payload = {
+              unidade: uTrim,
+              semestre: sTrim,
               metaAA: metaAAVal,
               metaDia: metaDiaVal,
               metaFinal: metaFinalVal,
               realizado: realizadoVal,
-              createdAt: serverTimestamp(),
-            });
-            countAdded++;
+              updatedAt: serverTimestamp(),
+            };
+
+            if (existing) {
+              await updateDoc(doc(db, COLLECTIONS.META_UNIDADE_REGIONAL, existing.id), payload);
+              countUpdated++;
+            } else {
+              await addDoc(collection(db, COLLECTIONS.META_UNIDADE_REGIONAL), {
+                ...payload,
+                createdAt: serverTimestamp(),
+              });
+              countAdded++;
+            }
           }
         }
 
-        onToast(`${countAdded} metas de unidades importadas com sucesso!`);
+        const msg = countAdded > 0 && countUpdated > 0
+          ? `${countAdded} novas metas cadastradas e ${countUpdated} metas atualizadas!`
+          : countAdded > 0
+          ? `${countAdded} metas de unidades importadas com sucesso!`
+          : `${countUpdated} metas atualizadas com sucesso!`;
+
+        onToast(msg);
       } catch (err: any) {
         console.error("Erro ao importar planilha:", err);
         onToast(`Erro ao importar arquivo: ${err.message}`, "error");

@@ -72,6 +72,17 @@ export function AdminFuncionariosView({ onToast, uniqueUnidades = [] }: Props) {
       return;
     }
 
+    const isDuplicate = funcionarios.some(
+      (f) =>
+        (matricula.trim() && f.matricula && f.matricula.trim().toLowerCase() === matricula.trim().toLowerCase()) ||
+        (email.trim() && f.email && f.email.trim().toLowerCase() === email.trim().toLowerCase())
+    );
+
+    if (isDuplicate) {
+      onToast("Já existe um funcionário cadastrado com esta Matrícula ou E-mail.", "error");
+      return;
+    }
+
     try {
       await addDoc(collection(db, COLLECTIONS.FUNCIONARIOS), {
         nome: nome.trim(),

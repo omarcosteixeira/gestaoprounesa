@@ -77,6 +77,19 @@ export function UnidadesRegionalView({ unidades, onToast }: Props) {
       return;
     }
 
+    // Check for duplicate unit by name or non-empty code
+    const isDuplicate = unidades.some((u) => {
+      if (editingId && u.id === editingId) return false;
+      const sameName = u.nome.trim().toLowerCase() === nome.trim().toLowerCase();
+      const sameCode = codigo.trim() && u.codigo && u.codigo.trim().toLowerCase() === codigo.trim().toLowerCase();
+      return sameName || Boolean(sameCode);
+    });
+
+    if (isDuplicate) {
+      onToast("Já existe uma unidade cadastrada com este nome ou código!", "error");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -158,6 +171,10 @@ export function UnidadesRegionalView({ unidades, onToast }: Props) {
         }
 
         let addedCount = 0;
+        let skippedCount = 0;
+        const insertedNames = new Set<string>();
+        const insertedCodes = new Set<string>();
+
         for (const row of rawData) {
           const uNome =
             row.Unidade ||
@@ -167,20 +184,41 @@ export function UnidadesRegionalView({ unidades, onToast }: Props) {
             row["Nome da Unidade"] ||
             row.UNIDADE;
           if (uNome) {
+            const cleanName = String(uNome).trim();
+            const cleanCode = String(row["Cód da Unidade"] || row.Código || row.codigo || row.Cod || "").trim();
+
+            const isDup =
+              unidades.some(
+                (u) =>
+                  u.nome.trim().toLowerCase() === cleanName.toLowerCase() ||
+                  (cleanCode && u.codigo && u.codigo.trim().toLowerCase() === cleanCode.toLowerCase())
+              ) ||
+              insertedNames.has(cleanName.toLowerCase()) ||
+              (cleanCode && insertedCodes.has(cleanCode.toLowerCase()));
+
+            if (isDup) {
+              skippedCount++;
+              continue;
+            }
+
             await addDoc(collection(db, COLLECTIONS.UNIDADES_REGIONAL), {
               marca: String(row.Marca || row.marca || "").trim(),
               regional: String(row.Regional || row.regional || "").trim(),
               nucleo: String(row.Núcleo || row.nucleo || row.Nucleo || "").trim(),
               cluster: String(row.CLUSTER || row.cluster || row.Cluster || "").trim(),
-              nome: String(uNome).trim(),
-              codigo: String(row["Cód da Unidade"] || row.Código || row.codigo || row.Cod || "").trim(),
+              nome: cleanName,
+              codigo: cleanCode,
               endereco: String(row["Endereço Completo"] || row.Endereço || row.endereco || "").trim(),
               createdAt: serverTimestamp(),
             });
+            insertedNames.add(cleanName.toLowerCase());
+            if (cleanCode) insertedCodes.add(cleanCode.toLowerCase());
             addedCount++;
           }
         }
-        onToast(`${addedCount} unidades importadas com sucesso!`);
+        onToast(
+          `${addedCount} unidades importadas com sucesso!${skippedCount > 0 ? ` (${skippedCount} duplicatas ignoradas)` : ""}`
+        );
       } catch (err: any) {
         console.error("Erro ao importar excel:", err);
         onToast(`Erro ao importar arquivo: ${err.message}`, "error");

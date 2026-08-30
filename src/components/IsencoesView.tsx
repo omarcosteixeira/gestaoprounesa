@@ -159,6 +159,17 @@ export function IsencoesView({
       return;
     }
 
+    const cleanCpf = formCpf.replace(/\D/g, "");
+    const isDuplicate = isencoes.some((i) => {
+      if (editingEntry && i.id === editingEntry.id) return false;
+      return cleanCpf && (i.cpf || "").replace(/\D/g, "") === cleanCpf;
+    });
+
+    if (isDuplicate) {
+      onToast("Já existe uma isenção cadastrada com este CPF!", "error");
+      return;
+    }
+
     setLoading(true);
     const entryData = {
       nome: formNome.trim(),
@@ -420,6 +431,8 @@ export function IsencoesView({
         }
 
         let importedCount = 0;
+        let skippedCount = 0;
+        const insertedCpfs = new Set<string>();
         setLoading(true);
 
         for (const row of rawData) {
@@ -429,6 +442,16 @@ export function IsencoesView({
           const curso = row["Curso Interesse"] || row["curso"] || row["Curso"];
           
           if (!nome || !cpf || !telefone || !curso) continue;
+
+          const cleanCpf = String(cpf).replace(/\D/g, "");
+          const isDup =
+            (cleanCpf && isencoes.some((i) => (i.cpf || "").replace(/\D/g, "") === cleanCpf)) ||
+            (cleanCpf && insertedCpfs.has(cleanCpf));
+
+          if (isDup) {
+            skippedCount++;
+            continue;
+          }
 
           let statusRaw = row["Status"] || row["status"] || "Pendente";
           let status: "Pendente" | "Solicitado" | "Deferido" = "Pendente";
@@ -465,11 +488,11 @@ export function IsencoesView({
           };
 
           await addDoc(collection(db, COLLECTIONS.ISENCOES), isencaoData);
+          if (cleanCpf) insertedCpfs.add(cleanCpf);
           importedCount++;
           
           if (boletoPago) {
              try {
-                const cleanCpf = isencaoData.cpf.replace(/\D/g, "");
                 const existsInGap = gap.some(
                   (g) => (g.cpf || "").replace(/\D/g, "") === cleanCpf
                 );
@@ -496,8 +519,11 @@ export function IsencoesView({
           }
         }
 
-        if (importedCount > 0) {
-          onToast(`${importedCount} isenções importadas com sucesso!`, "success");
+        if (importedCount > 0 || skippedCount > 0) {
+          onToast(
+            `${importedCount} registros importados com sucesso!${skippedCount > 0 ? ` (${skippedCount} duplicatas ignoradas)` : ""}`,
+            importedCount > 0 ? "success" : "error"
+          );
         } else {
           onToast(
             "Nenhuma isenção válida encontrada. Verifique as colunas obrigatórias (Nome, CPF, Telefone, Curso Interesse).",

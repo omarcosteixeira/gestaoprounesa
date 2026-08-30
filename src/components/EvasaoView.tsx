@@ -286,6 +286,23 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanMat = (formData.matricula || "").trim().toLowerCase();
+    const cleanNome = (formData.nome || "").trim().toLowerCase();
+    const cleanAtend = (formData.atendimento || "").trim();
+
+    const isDuplicate = data.some((item) => {
+      if (editingEntry && item.id === editingEntry.id) return false;
+      const matchMat = cleanMat && (item.matricula || "").trim().toLowerCase() === cleanMat;
+      const matchNome = cleanNome && (item.nome || "").trim().toLowerCase() === cleanNome;
+      const matchAtend = cleanAtend && (item.atendimento || "").trim() === cleanAtend;
+      return (matchMat || matchNome) && matchAtend;
+    });
+
+    if (isDuplicate) {
+      onToast("Já existe um registro de evasão cadastrado para este Aluno/Matrícula nesta Data de Atendimento!", "error");
+      return;
+    }
+
     try {
       if (editingEntry) {
         await updateDoc(doc(db, COLLECTIONS.EVASAO, editingEntry.id), {
@@ -394,19 +411,40 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
     importFromExcel(file, async (importedData) => {
       try {
         let count = 0;
+        let skippedCount = 0;
+        const insertedKeys = new Set<string>();
+
         for (const row of importedData) {
           if (!row["Nome"] && !row["Matrícula"]) continue;
           
+          const mat = String(row["Matrícula"] || row["matricula"] || "").trim();
+          const nome = String(row["Nome"] || row["nome"] || "").trim();
+          const atend = String(row["Atendimento"] || row["atendimento"] || "").trim();
+
+          const key = `${mat.toLowerCase()}|${nome.toLowerCase()}|${atend}`;
+          const isDup =
+            data.some((item) => {
+              const matchMat = mat && (item.matricula || "").trim().toLowerCase() === mat.toLowerCase();
+              const matchNome = nome && (item.nome || "").trim().toLowerCase() === nome.toLowerCase();
+              const matchAtend = atend && (item.atendimento || "").trim() === atend;
+              return (matchMat || matchNome) && matchAtend;
+            }) || insertedKeys.has(key);
+
+          if (isDup) {
+            skippedCount++;
+            continue;
+          }
+
           await addDoc(collection(db, COLLECTIONS.EVASAO), {
-            atendimento: String(row["Atendimento"] || ""),
+            atendimento: atend,
             tipoAtendimento: String(row["Tipo de Atendimento"] || ""),
             horario: String(row["Horário"] || ""),
             unidade: String(row["Unidade"] || profile?.unidade || ""),
             modalidade: String(row["Modalidade"] || ""),
-            matricula: String(row["Matrícula"] || ""),
+            matricula: mat,
             curso: String(row["Curso"] || ""),
             safra: String(row["Safra"] || ""),
-            nome: String(row["Nome"] || ""),
+            nome: nome,
             contato: String(row["Contato"] || ""),
             status: String(row["Status"] || ""),
             pendencia: String(row["Pendência"] || ""),
@@ -423,9 +461,13 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
 
             createdAt: serverTimestamp(),
           });
+          insertedKeys.add(key);
           count++;
         }
-        onToast(`${count} registros importados com sucesso!`, "success");
+        onToast(
+          `${count} registros importados com sucesso!${skippedCount > 0 ? ` (${skippedCount} duplicatas ignoradas)` : ""}`,
+          count > 0 ? "success" : "error"
+        );
       } catch (error) {
         console.error("Erro na importação:", error);
         onToast("Erro ao importar dados.", "error");

@@ -288,8 +288,18 @@ export function ControleInsumosComercialView({
   // Submit or Edit Stock item (Controle de Estoque)
   const handleSubmitEstoque = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!stockMaterial) {
+    if (!stockMaterial.trim()) {
       onToast("O nome do material é obrigatório.", "error");
+      return;
+    }
+
+    const cleanMaterial = stockMaterial.trim().toLowerCase();
+    const isDuplicate = estoque.some(
+      (es) => (!editingEstoque || es.id !== editingEstoque.id) && es.material.trim().toLowerCase() === cleanMaterial
+    );
+
+    if (isDuplicate && !editingEstoque) {
+      onToast("Este material já existe no estoque! Para alterar a quantidade, edite o item existente.", "error");
       return;
     }
 

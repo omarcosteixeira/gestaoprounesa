@@ -145,15 +145,37 @@ export function CursosDisponiveisView({
           return val;
         };
 
-        const batch = importData.map((item) => ({
-          nomeUnidade: item.Unidade || item.nomeUnidade || "",
+        const rawBatch = importData.map((item) => ({
+          nomeUnidade: String(item.Unidade || item.nomeUnidade || "").trim(),
           produto: normalizeProduto(item.Produto || item.produto),
-          curso: item.Curso || item.curso || "",
+          curso: String(item.Curso || item.curso || "").trim(),
           metodologia: normalizeMetodologia(item.Metodologia || item.metodologia),
-          duracao: item["Duração"] || item.duracao || "",
+          duracao: String(item["Duração"] || item.duracao || "").trim(),
           turno: normalizeTurno(item.Turno || item.turno),
           createdAt: new Date().toISOString(),
         }));
+
+        let skippedCount = 0;
+        const validBatch: any[] = [];
+        const seenKeys = new Set<string>();
+
+        for (const item of rawBatch) {
+          if (!item.nomeUnidade || !item.curso) continue;
+          const key = `${item.nomeUnidade.toLowerCase()}|${item.produto.toLowerCase()}|${item.curso.toLowerCase()}|${item.metodologia.toLowerCase()}|${item.turno.toLowerCase()}`;
+          const isDup =
+            cursos.some(
+              (c) =>
+                `${(c.nomeUnidade || "").toLowerCase()}|${(c.produto || "").toLowerCase()}|${(c.curso || "").toLowerCase()}|${(c.metodologia || "").toLowerCase()}|${(c.turno || "").toLowerCase()}` ===
+                key
+            ) || seenKeys.has(key);
+
+          if (isDup) {
+            skippedCount++;
+          } else {
+            seenKeys.add(key);
+            validBatch.push(item);
+          }
+        }
 
         const processBatch = async (items: any[]) => {
           const chunk = items.slice(0, 500);
@@ -172,8 +194,14 @@ export function CursosDisponiveisView({
           }
         };
 
-        await processBatch(batch);
-        onToast(`${batch.length} cursos importados com sucesso!`, "success");
+        if (validBatch.length > 0) {
+          await processBatch(validBatch);
+        }
+        
+        onToast(
+          `${validBatch.length} cursos importados com sucesso!${skippedCount > 0 ? ` (${skippedCount} duplicatas ignoradas)` : ""}`,
+          "success"
+        );
       } catch (err: any) {
         console.error("Import error:", err);
         onToast(`Erro na importação: ${err.message}`, "error");
@@ -186,16 +214,32 @@ export function CursosDisponiveisView({
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data = {
-      nomeUnidade: formData.get("nomeUnidade") as string,
+      nomeUnidade: (formData.get("nomeUnidade") as string || "").trim(),
       produto: formData.get("produto") as
         | "Graduação"
         | "Técnico"
         | "Pós-graduação",
-      curso: formData.get("curso") as string,
-      metodologia: formData.get("metodologia") as string,
-      duracao: formData.get("duracao") as string,
-      turno: formData.get("turno") as string,
+      curso: (formData.get("curso") as string || "").trim(),
+      metodologia: (formData.get("metodologia") as string || "").trim(),
+      duracao: (formData.get("duracao") as string || "").trim(),
+      turno: (formData.get("turno") as string || "").trim(),
     };
+
+    const isDuplicate = cursos.some((c) => {
+      if (editingId && c.id === editingId) return false;
+      return (
+        (c.nomeUnidade || "").trim().toLowerCase() === data.nomeUnidade.toLowerCase() &&
+        (c.produto || "").trim().toLowerCase() === data.produto.toLowerCase() &&
+        (c.curso || "").trim().toLowerCase() === data.curso.toLowerCase() &&
+        (c.metodologia || "").trim().toLowerCase() === data.metodologia.toLowerCase() &&
+        (c.turno || "").trim().toLowerCase() === data.turno.toLowerCase()
+      );
+    });
+
+    if (isDuplicate) {
+      onToast("Já existe um curso cadastrado com esta Unidade, Produto, Curso, Metodologia e Turno!", "error");
+      return;
+    }
 
     try {
       if (editingId) {

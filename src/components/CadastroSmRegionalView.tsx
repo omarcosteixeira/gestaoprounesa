@@ -176,6 +176,26 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
       return;
     }
 
+    // Check for duplicate collaborator by CPF, Matricula, or Name in the same unit
+    const cleanCpf = cpf.replace(/\D/g, "");
+    const isDuplicate = funcionarios.some((f) => {
+      if (editingId && f.id === editingId) return false;
+      if (cleanCpf && f.cpf && f.cpf.replace(/\D/g, "") === cleanCpf) return true;
+      if (matricula.trim() && f.matricula && f.matricula.trim().toLowerCase() === matricula.trim().toLowerCase()) return true;
+      if (
+        f.nome.trim().toLowerCase() === nome.trim().toLowerCase() &&
+        f.unidade.trim().toLowerCase() === unidade.trim().toLowerCase()
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (isDuplicate) {
+      onToast("Já existe um colaborador cadastrado com este CPF/Matrícula ou Nome nesta unidade!", "error");
+      return;
+    }
+
     setLoading(true);
     const nowFormatted = new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",

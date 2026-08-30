@@ -1068,9 +1068,9 @@ function MapaoAcademicoView({
 
     const isDuplicate = mapao.some(
       (m) =>
-        m.curso?.toLowerCase() === formData.curso?.toLowerCase() &&
-        m.modalidade === formData.modalidade &&
-        m.periodo === formData.periodo &&
+        m.curso?.trim().toLowerCase() === formData.curso?.trim().toLowerCase() &&
+        m.modalidade?.trim().toLowerCase() === formData.modalidade?.trim().toLowerCase() &&
+        m.periodo?.trim().toLowerCase() === formData.periodo?.trim().toLowerCase() &&
         m.id !== editingEntry?.id,
     );
 
@@ -1254,26 +1254,37 @@ function MapaoAcademicoView({
         });
         
         let importedCount = 0;
+        let skippedCount = 0;
         const newEntries = Array.from(map.values());
+        const insertedKeys = new Set<string>();
         
         for (const item of newEntries) {
-          const isDuplicate = mapao.some(
-            (m) =>
-              m.curso?.toLowerCase() === item.curso?.toLowerCase() &&
-              m.modalidade?.toLowerCase() === item.modalidade?.toLowerCase() &&
-              m.periodo?.toLowerCase() === item.periodo?.toLowerCase()
-          );
+          const itemKey = `${item.curso?.trim().toLowerCase()}|${item.modalidade?.trim().toLowerCase()}|${item.periodo?.trim().toLowerCase()}`;
+          const isDuplicate =
+            insertedKeys.has(itemKey) ||
+            mapao.some(
+              (m) =>
+                m.curso?.trim().toLowerCase() === item.curso?.trim().toLowerCase() &&
+                m.modalidade?.trim().toLowerCase() === item.modalidade?.trim().toLowerCase() &&
+                m.periodo?.trim().toLowerCase() === item.periodo?.trim().toLowerCase()
+            );
 
           if (!isDuplicate) {
+            insertedKeys.add(itemKey);
             await addDoc(collection(db, COLLECTIONS.MAPAO_ACADEMICO), {
               ...item,
               createdAt: serverTimestamp(),
             });
             importedCount++;
+          } else {
+            skippedCount++;
           }
         }
                 
-        onToast(`${importedCount} novos registros importados com sucesso!`, "success");
+        onToast(
+          `${importedCount} novos registros importados com sucesso!${skippedCount > 0 ? ` (${skippedCount} ignorados por duplicidade)` : ""}`,
+          "success",
+        );
       } catch (err: any) {
         onToast("Erro ao importar arquivo.", "error");
       }
@@ -2981,7 +2992,7 @@ function FiesProuniView({
 
     const payload = {
       nome: formData.get("nome") as string,
-      cpf: cpf.replace(/\D/g, ""), // Store only digits
+      cpf: cleanCpf,
       telefone: formData.get("telefone") as string,
       email: formData.get("email") as string,
       endereco: formData.get("endereco") as string,
@@ -3039,10 +3050,12 @@ function FiesProuniView({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    importFromExcel(file, async (data) => {
+    importFromExcel(file, async (importData) => {
       onToast("Importando registros...");
       let successCount = 0;
+      let skippedCount = 0;
       let errorCount = 0;
+      const insertedCpfs = new Set<string>();
 
       const getVal = (row: any, ...keys: string[]) => {
         const rowKeys = Object.keys(row);
@@ -3055,11 +3068,20 @@ function FiesProuniView({
         return undefined;
       };
 
-      for (const row of data) {
+      for (const row of importData) {
         try {
           const rawCpf = String(getVal(row, "CPF", "cpf") || "");
           const cpf = rawCpf.replace(/\D/g, "");
           if (!cpf) continue;
+
+          const isDup =
+            insertedCpfs.has(cpf) ||
+            data.some((entry) => entry.cpf?.replace(/\D/g, "") === cpf);
+
+          if (isDup) {
+            skippedCount++;
+            continue;
+          }
 
           const payload = {
             nome: String(getVal(row, "Nome", "nome") || ""),
@@ -3109,6 +3131,7 @@ function FiesProuniView({
             updatedAt: serverTimestamp(),
           };
 
+          insertedCpfs.add(cpf);
           await addDoc(collection(db, COLLECTIONS.FIES_PROUNI), payload);
           successCount++;
         } catch (err) {
@@ -3118,7 +3141,7 @@ function FiesProuniView({
       }
 
       onToast(
-        `Importação concluída: ${successCount} sucesso, ${errorCount} erros`,
+        `Importação concluída: ${successCount} sucesso${skippedCount > 0 ? `, ${skippedCount} ignorados por duplicidade` : ""}${errorCount > 0 ? `, ${errorCount} erros` : ""}`,
         successCount > 0 ? "success" : "error",
       );
     });
@@ -3174,10 +3197,12 @@ function FiesProuniView({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    importFromExcel(file, async (data) => {
+    importFromExcel(file, async (importData) => {
       onToast("Importando vagas...");
       let successCount = 0;
+      let skippedCount = 0;
       let errorCount = 0;
+      const insertedKeys = new Set<string>();
 
       const getVal = (row: any, ...keys: string[]) => {
         const rowKeys = Object.keys(row);
@@ -3190,21 +3215,39 @@ function FiesProuniView({
         return undefined;
       };
 
-      for (const row of data) {
+      for (const row of importData) {
         try {
           const payload = {
-            periodo: String(getVal(row, "Período", "Periodo", "período", "periodo") || ""),
-            codCurso: String(getVal(row, "Cod. Curso", "cod curso", "cod. curso", "codCurso") || ""),
-            curso: String(getVal(row, "Curso", "curso") || ""),
-            turno: String(getVal(row, "Turno", "turno") || ""),
-            metodologia: String(getVal(row, "Metodologia", "metodologia") || ""),
-            bolsa: String(getVal(row, "Bolsa", "bolsa") || "") as "50%" | "100%",
+            periodo: String(getVal(row, "Período", "Periodo", "período", "periodo") || "").trim(),
+            codCurso: String(getVal(row, "Cod. Curso", "cod curso", "cod. curso", "codCurso") || "").trim(),
+            curso: String(getVal(row, "Curso", "curso") || "").trim(),
+            turno: String(getVal(row, "Turno", "turno") || "").trim(),
+            metodologia: String(getVal(row, "Metodologia", "metodologia") || "").trim(),
+            bolsa: String(getVal(row, "Bolsa", "bolsa") || "").trim() as "50%" | "100%",
             vagas: parseInt(String(getVal(row, "Vagas", "vagas")), 10) || 0,
-            unidade: String(getVal(row, "Unidade", "unidade") || ""),
+            unidade: String(getVal(row, "Unidade", "unidade") || "").trim(),
             createdAt: serverTimestamp(),
           };
 
           if (payload.curso && payload.periodo && payload.bolsa) {
+            const vagaKey = `${payload.curso.toLowerCase()}|${payload.periodo.toLowerCase()}|${payload.bolsa.toLowerCase()}|${payload.turno.toLowerCase()}|${payload.unidade.toLowerCase()}`;
+            const isDup =
+              insertedKeys.has(vagaKey) ||
+              vagas.some(
+                (v) =>
+                  (v.curso || "").trim().toLowerCase() === payload.curso.toLowerCase() &&
+                  (v.periodo || "").trim().toLowerCase() === payload.periodo.toLowerCase() &&
+                  (v.bolsa || "").trim().toLowerCase() === payload.bolsa.toLowerCase() &&
+                  (v.turno || "").trim().toLowerCase() === payload.turno.toLowerCase() &&
+                  (v.unidade || "").trim().toLowerCase() === payload.unidade.toLowerCase()
+              );
+
+            if (isDup) {
+              skippedCount++;
+              continue;
+            }
+
+            insertedKeys.add(vagaKey);
             await addDoc(
               collection(db, COLLECTIONS.FIES_PROUNI_VAGAS),
               payload,
@@ -3218,7 +3261,7 @@ function FiesProuniView({
       }
 
       onToast(
-        `Importação concluída: ${successCount} sucesso, ${errorCount} erros`,
+        `Importação concluída: ${successCount} sucesso${skippedCount > 0 ? `, ${skippedCount} ignoradas por duplicidade` : ""}${errorCount > 0 ? `, ${errorCount} erros` : ""}`,
         successCount > 0 ? "success" : "error",
       );
     });
