@@ -4666,6 +4666,12 @@ export default function App() {
 
   const canView = (view: string) => {
     if (!profile) return false;
+    
+    // Strict enforcement for Regional testing
+    if (profile.role === ROLES.REGIONAL || profile.role === "Regional") {
+      return VIEW_PERMISSIONS[view]?.includes(profile.role) || false;
+    }
+
     if (
       profile.email === "canaldonutri@gmail.com" ||
       profile.email === "marcos.teixeira@estacio.br" ||
@@ -4673,6 +4679,7 @@ export default function App() {
     ) {
       return true;
     }
+
     const isComercial =
       localStorage.getItem("servidor_selected") === "comercial";
     if (profile.role === ROLES.FINANCEIRO) {
