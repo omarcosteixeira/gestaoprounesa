@@ -2240,6 +2240,7 @@ function CampanhasView({
   campanhas: Campanha[];
   onToast: (m: string, t?: "success" | "error") => void;
 }) {
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [editingCampanha, setEditingCampanha] = useState<Campanha | null>(null);
@@ -2258,6 +2259,23 @@ function CampanhasView({
     if (today > camp.dataFim) return "Finalizada";
     return "Ativa";
   };
+  const dashboardMetrics = useMemo(() => {
+    let ativas = 0;
+    let encerradas = 0;
+    const porProduto: Record<string, number> = {};
+
+    campanhas.forEach((camp) => {
+      const status = getEffectiveStatus(camp);
+      if (status === "Ativa") ativas++;
+      if (status === "Finalizada") encerradas++;
+
+      const prod = camp.produto || "Graduação";
+      porProduto[prod] = (porProduto[prod] || 0) + 1;
+    });
+
+    return { ativas, encerradas, porProduto };
+  }, [campanhas]);
+
 
   const filteredCampanhas = useMemo(() => {
     return campanhas.filter((camp) => {
@@ -2444,6 +2462,44 @@ function CampanhasView({
             <Download size={18} />
             <span>Exportar</span>
           </button>
+        </div>
+      </div>
+
+      {/* Dashboard Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-500 uppercase">Ativas</p>
+            <h3 className="text-2xl font-black text-slate-800">{dashboardMetrics.ativas}</h3>
+          </div>
+        </div>
+        
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex items-center space-x-4">
+          <div className="p-3 bg-slate-100 text-slate-500 rounded-xl">
+            <AlertCircle size={24} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-500 uppercase">Encerradas</p>
+            <h3 className="text-2xl font-black text-slate-800">{dashboardMetrics.encerradas}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+          <p className="text-sm font-bold text-slate-500 uppercase mb-2">Por Produto</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(dashboardMetrics.porProduto).map(([produto, count]) => (
+              <div key={produto} className="flex items-center space-x-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-lg text-xs font-bold">
+                <span>{produto}:</span>
+                <span className="bg-blue-200 text-blue-800 px-1.5 rounded-md">{count}</span>
+              </div>
+            ))}
+            {Object.keys(dashboardMetrics.porProduto).length === 0 && (
+              <span className="text-xs text-slate-400">Nenhuma campanha</span>
+            )}
+          </div>
         </div>
       </div>
 
