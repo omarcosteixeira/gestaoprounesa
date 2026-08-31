@@ -11,7 +11,7 @@ service cloud.firestore {
     }
     
     function getUserData() {
-      let path1 = /databases/$(database)/documents/artifacts/gestaodeleadspro-d4230/public/data/users/$(request.auth.uid);
+      let path1 = /databases/$(database)/documents/artifacts/gestaopro-761e1/public/data/users/$(request.auth.uid);
       let path2 = /databases/$(database)/documents/artifacts/gen-lang-client-0111023338/public/data/users/$(request.auth.uid);
       let path3 = /databases/$(database)/documents/artifacts/unesa-gestaopro/public/data/users/$(request.auth.uid);
       let path4 = /databases/$(database)/documents/artifacts/gestaodeleadspro-d4230/public/data/users/$(request.auth.uid);
@@ -69,127 +69,144 @@ service cloud.firestore {
     // Root Collection Rules
     // ===============================================================
     match /users/{userId} {
-      allow get: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isComercial() || isFinanceiro() || isRegional());
+      allow get: if isAuthenticated();
       allow list: if isAuthenticated();
       allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
       allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
       allow delete: if isMasterUser() || isRegional();
     }
-
-    match /unidades_regional/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /funcionarios_sm/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /tarefas/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /checklist/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /meta_unidade_regional/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // ===============================================================
-    // Artifact Collection Rules
-    // ===============================================================
-    match /artifacts/gestaodeleadspro-d4230/public/data/users/{userId} {
-      allow get: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isComercial() || isFinanceiro() || isRegional());
-      allow list: if isAuthenticated();
-      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
-      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
-      allow delete: if isMasterUser() || isRegional();
-    }
-
-    match /artifacts/gestaodeleadspro-d4230/public/data/unidades_regional/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios_sm/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /artifacts/gestaodeleadspro-d4230/public/data/tarefas/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /artifacts/gestaodeleadspro-d4230/public/data/checklist/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /artifacts/gestaodeleadspro-d4230/public/data/meta_unidade_regional/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
     
-    match /linksUteis/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/linksUteis/{id} {
-      allow read, write: if isAuthenticated();
-    }
+    match /unidades_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
+    match /tarefas/{id} { allow read, write: if isAuthenticated(); }
+    match /checklist/{id} { allow read, write: if isAuthenticated(); }
+    match /meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /linksUteis/{id} { allow read, write: if isAuthenticated(); }
+    match /planner/{id} { allow read, write: if isAuthenticated(); }
+    match /periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
+    match /forecast/{id} { allow read, write: if isAuthenticated(); }
+    match /cursos/{id} { allow read, write: if isAuthenticated(); }
+    match /campanhas/{id} { allow read, write: if isAuthenticated(); }
+    match /funcionarios/{id} { allow read, write: if isAuthenticated(); }
+    match /formularios/{id} { allow read, write: if isAuthenticated(); }
 
-    match /planner/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/planner/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /periodo_captacao/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/periodo_captacao/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /forecast/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/forecast/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /cursos/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/cursos/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /campanhas/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/campanhas/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /funcionarios/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /formularios/{id} {
-      allow read, write: if isAuthenticated();
-    }
-    match /artifacts/gestaodeleadspro-d4230/public/data/formularios/{id} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Wildcard rules for all other collections
     match /{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();
     }
 
+    // ===============================================================
+    // Artifact Collection Rules - gestaopro-761e1
+    // ===============================================================
+    match /artifacts/gestaopro-761e1/public/data/users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
+      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow delete: if isMasterUser() || isRegional();
+    }
+    
+    match /artifacts/gestaopro-761e1/public/data/unidades_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+
+    match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
+    }
+
+    // ===============================================================
+    // Artifact Collection Rules - unesa-gestaopro
+    // ===============================================================
+    match /artifacts/unesa-gestaopro/public/data/users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
+      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow delete: if isMasterUser() || isRegional();
+    }
+    
+    match /artifacts/unesa-gestaopro/public/data/unidades_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+
+    match /artifacts/unesa-gestaopro/public/data/{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
+    }
+
+    // ===============================================================
+    // Artifact Collection Rules - gestaodeleadspro-d4230
+    // ===============================================================
+    match /artifacts/gestaodeleadspro-d4230/public/data/users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
+      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow delete: if isMasterUser() || isRegional();
+    }
+    
+    match /artifacts/gestaodeleadspro-d4230/public/data/unidades_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+
     match /artifacts/gestaodeleadspro-d4230/public/data/{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
+    }
+    
+    // ===============================================================
+    // Artifact Collection Rules - gen-lang-client-0111023338
+    // ===============================================================
+    match /artifacts/gen-lang-client-0111023338/public/data/users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
+      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow delete: if isMasterUser() || isRegional();
+    }
+    
+    match /artifacts/gen-lang-client-0111023338/public/data/unidades_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+
+    match /artifacts/gen-lang-client-0111023338/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();
     }
   }

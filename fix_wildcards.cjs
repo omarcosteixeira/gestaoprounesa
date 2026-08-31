@@ -1,0 +1,146 @@
+const fs = require('fs');
+
+let newRules = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      let path1 = /databases/$(database)/documents/artifacts/gestaopro-761e1/public/data/users/$(request.auth.uid);
+      let path2 = /databases/$(database)/documents/artifacts/gen-lang-client-0111023338/public/data/users/$(request.auth.uid);
+      let path3 = /databases/$(database)/documents/artifacts/unesa-gestaopro/public/data/users/$(request.auth.uid);
+      let path4 = /databases/$(database)/documents/artifacts/gestaodeleadspro-d4230/public/data/users/$(request.auth.uid);
+      let path5 = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path1) ? get(path1).data : (exists(path2) ? get(path2).data : (exists(path3) ? get(path3).data : (exists(path4) ? get(path4).data : (exists(path5) ? get(path5).data : {"role": "none", "unidade": "none"}))));
+    }
+    
+    function isMasterUser() {
+      let data = getUserData();
+      return isAuthenticated() && (
+        request.auth.token.email in ["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"] || 
+        data.email in ["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"] ||
+        data.role == "Admin Master" || 
+        data.role == "Líder/FDV"
+      );
+    }
+    
+    function hasAnyRole(roles) {
+      let data = getUserData();
+      return isAuthenticated() && (
+        isMasterUser() ||
+        data.role in roles
+      );
+    }
+    
+    function isAdminMaster() { return hasAnyRole(['Admin Master']); }
+    function isPrincipal() { return isAdminMaster(); }
+    function isLider() { return hasAnyRole(['Líder/FDV']); }
+    function isSalaMatricula() { return hasAnyRole(['Sala de Matrícula']); }
+    function isQG() { return hasAnyRole(['QG']); }
+    function isFDV() { return hasAnyRole(['FDV', 'FDV (Comercial)']); }
+    function isPromotor() { return hasAnyRole(['Promotor', 'Promotor/rua']); }
+    function isSSA() { return hasAnyRole(['SSA']); }
+    function isGestorUnidade() { return hasAnyRole(['Gestor Unidade']); }
+    function isGestorComercial() { return hasAnyRole(['Gestor Comercial', 'Gerente Comercial (Comercial)']); }
+    function isComercial() { return isGestorComercial(); }
+    function isAcademico() { return hasAnyRole(['Acadêmico']); }
+    function isFinanceiro() { return hasAnyRole(['Financeiro']); }
+    function isTecnico() { return hasAnyRole(['Técnico']); }
+    function isRegional() { return hasAnyRole(['Regional']); }
+    function isLiderSM() { return hasAnyRole(['Líder SM']); }
+    function isGestor() { return hasAnyRole(['Gestor']); }
+    function isSM() { return hasAnyRole(['SM']); }
+
+    function isRestrictedRole(role) {
+      return !(role in ['Admin Master', 'Gestor Comercial', 'Gerente Comercial (Comercial)', 'Financeiro', 'Regional', 'Gestor']);
+    }
+
+    function canAccessUnit(unidade) {
+      let data = getUserData();
+      return isMasterUser() || !isRestrictedRole(data.role) || (unidade == data.unidade);
+    }
+
+    // ===============================================================
+    // Root Collection Rules
+    // ===============================================================
+    match /users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
+      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow delete: if isMasterUser() || isRegional();
+    }
+`;
+
+const allowCollections = [
+  'unidades_regional',
+  'funcionarios_sm',
+  'tarefas',
+  'checklist',
+  'meta_unidade_regional',
+  'linksUteis',
+  'planner',
+  'periodo_captacao',
+  'forecast',
+  'cursos',
+  'campanhas',
+  'funcionarios',
+  'formularios'
+];
+
+allowCollections.forEach(col => {
+  newRules += \`
+    match /\${col}/{id} {
+      allow read, write: if isAuthenticated();
+    }\`;
+});
+
+const projects = [
+  'gestaopro-761e1',
+  'gen-lang-client-0111023338',
+  'unesa-gestaopro',
+  'gestaodeleadspro-d4230'
+];
+
+projects.forEach(proj => {
+  newRules += \`
+    match /artifacts/\${proj}/public/data/users/{userId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
+      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow delete: if isMasterUser() || isRegional();
+    }
+\`;
+
+  allowCollections.forEach(col => {
+    newRules += \`
+    match /artifacts/\${proj}/public/data/\${col}/{id} {
+      allow read, write: if isAuthenticated();
+    }\`;
+  });
+  
+  newRules += \`
+    match /artifacts/\${proj}/public/data/{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
+    }
+\`;
+});
+
+newRules += \`
+    // Wildcard rules for all other collections
+    match /{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
+    }
+  }
+}
+\`;
+
+fs.writeFileSync('firestore.rules', newRules);
