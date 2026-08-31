@@ -224,6 +224,7 @@ import ControleLigacoesView from "./components/ControleLigacoesView";
 import CRMView from "./components/CRMView";
 import MetaSMView from "./components/MetaSMView";
 import MetaCursosView from "./components/MetaCursosView";
+import { BrandMedia } from "./components/BrandMedia";
 
 // --- Helpers ---
 export const replaceMessageVariables = (
@@ -7191,11 +7192,11 @@ export default function App() {
         <div className="h-full flex flex-col">
           <div className="p-6 flex items-center space-x-3">
             {botConfig?.loginLogo ? (
-              <img
+              <BrandMedia
                 src={botConfig.loginLogo}
                 alt="Logo"
                 className="w-full max-h-12 object-contain drop-shadow-md"
-                referrerPolicy="no-referrer"
+                videoClassName="w-full max-h-12 object-contain drop-shadow-md rounded-lg"
               />
             ) : (
               <>
@@ -8125,12 +8126,12 @@ function AuthScreen({
         <div className="my-auto space-y-8">
           <div>
             {botConfig?.loginLogo ? (
-              <div className="mb-6 flex">
-                <img
+              <div className="mb-6 flex justify-center">
+                <BrandMedia
                   src={botConfig.loginLogo}
                   alt="Logo"
                   className="max-h-32 w-full object-contain drop-shadow-lg"
-                  referrerPolicy="no-referrer"
+                  videoClassName="max-h-32 w-full object-contain drop-shadow-lg rounded-2xl"
                 />
               </div>
             ) : (
@@ -8435,11 +8436,11 @@ function AuthScreen({
         {/* SVG ART Container */}
         <div className="relative z-10 w-full flex justify-center">
           {botConfig?.loginLogo ? (
-            <img
+            <BrandMedia
               src={botConfig.loginLogo}
               alt="Logo Promocional"
               className="w-full max-w-[560px] aspect-square rounded-3xl object-contain drop-shadow-[0_35px_60px_rgba(14,116,253,0.35)] border border-slate-700/40 p-12 bg-[#011a3c]/50 animate-fade-in"
-              referrerPolicy="no-referrer"
+              videoClassName="w-full max-w-[560px] aspect-square rounded-3xl object-contain drop-shadow-[0_35px_60px_rgba(14,116,253,0.35)] border border-slate-700/40 p-6 bg-[#011a3c]/50 animate-fade-in"
             />
           ) : (
             /* Oeste Hunter Badge SVG */
