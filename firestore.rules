@@ -127,13 +127,70 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Wildcard rules for all other collections
-    match /{collectionName}/{id} {
+    
+    match /linksUteis/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/linksUteis/{id} {
       allow read, write: if isAuthenticated();
     }
 
-    match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
+    match /planner/{id} {
       allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/planner/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /periodo_captacao/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/periodo_captacao/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /forecast/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/forecast/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /cursos/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/cursos/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /campanhas/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/campanhas/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /funcionarios/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/funcionarios/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /formularios/{id} {
+      allow read, write: if isAuthenticated();
+    }
+    match /artifacts/gestaopro-761e1/public/data/formularios/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Wildcard rules for all other collections
+    match /{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
+    }
+
+    match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
+      allow read, write: if isAuthenticated() && !isRegional();
     }
   }
 }
