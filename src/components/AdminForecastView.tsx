@@ -28,6 +28,7 @@ interface Props {
 }
 
 export function AdminForecastView({ forecast = [], onToast }: Props) {
+  const [activeTab, setActiveTab] = useState<"ativos" | "inativos">("ativos");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ForecastCaptacao | null>(null);
 
@@ -152,14 +153,24 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
 
       {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {forecast.length === 0 ? (
-          <div className="col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-100 p-8 text-slate-400">
-            <TrendingUp className="mx-auto mb-3 text-slate-300" size={48} />
-            <p className="text-sm font-semibold">Nenhum Forecast cadastrado.</p>
-            <p className="text-xs text-slate-400 mt-1">Clique em "Novo Forecast" para adicionar.</p>
-          </div>
-        ) : (
-          forecast.map((item) => {
+        {(() => {
+          const today = new Date().toISOString().split("T")[0];
+          const filteredForecast = forecast.filter((item) => {
+            const isAtivo = item.dataFim >= today && !item.oculto;
+            return activeTab === "ativos" ? isAtivo : !isAtivo;
+          });
+
+          if (filteredForecast.length === 0) {
+            return (
+              <div className="col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-100 p-8 text-slate-400">
+                <TrendingUp className="mx-auto mb-3 text-slate-300" size={48} />
+                <p className="text-sm font-semibold">Nenhum Forecast {activeTab} cadastrado.</p>
+                <p className="text-xs text-slate-400 mt-1">Clique em "Novo Forecast" para adicionar.</p>
+              </div>
+            );
+          }
+
+          return filteredForecast.map((item) => {
             const atingimento = item.metaFechamento > 0 ? (item.realizado / item.metaFechamento) * 100 : 0;
             return (
               <div
@@ -240,8 +251,8 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
                 </div>
               </div>
             );
-          })
-        )}
+          });
+        })()}
       </div>
 
       {/* Modal Add / Edit */}

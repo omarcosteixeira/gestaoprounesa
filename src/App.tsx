@@ -2308,6 +2308,11 @@ function CampanhasView({
       dataInicio: formData.get("dataInicio") as string,
       dataFim: formData.get("dataFim") as string,
       objetivo: formData.get("objetivo") as string,
+      publicoAlvo: formData.get("publicoAlvo") as string,
+      conflitos: formData.get("conflitos") as string,
+      nomeBolsas: formData.get("nomeBolsas") as string,
+      dis: formData.get("dis") as string,
+      quemLancaraBolsa: formData.get("quemLancaraBolsa") as string,
       updatedAt: serverTimestamp(),
     };
 

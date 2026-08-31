@@ -83,6 +83,11 @@ export interface Campanha {
   objetivo: string;
   status?: string;
   produto?: string;
+  publicoAlvo?: string;
+  conflitos?: string;
+  nomeBolsas?: string;
+  dis?: string;
+  quemLancaraBolsa?: string;
   createdAt: any;
 }
 
