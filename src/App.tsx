@@ -7813,6 +7813,8 @@ export default function App() {
               {currentView === "controleConcorrencia" && (
                 <ControleConcorrenciaView
                   data={controleConcorrencia}
+                  unidadesRegional={unidadesRegional}
+                  cursosDisponiveis={cursos}
                   onToast={showToast}
                 />
               )}

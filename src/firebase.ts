@@ -101,6 +101,8 @@ export const COLLECTIONS = new Proxy({} as any, {
       INSUMOS_BAIXAS_COMERCIAL: `artifacts/${currentProjectId}/public/data/insumos_baixas_comercial`,
       FUNCIONARIOS: `artifacts/${currentProjectId}/public/data/funcionarios`,
       CONTROLE_CONCORRENCIA: `artifacts/${currentProjectId}/public/data/controle_concorrencia`,
+      EVIDENCIAS_CLIENTE_OCULTO: `artifacts/${currentProjectId}/public/data/evidencias_cliente_oculto`,
+      PRECOS_INSTITUICAO: `artifacts/${currentProjectId}/public/data/precos_instituicao`,
       EVASAO: `artifacts/${currentProjectId}/public/data/evasao`,
       PEDIDO_CURSOS: `artifacts/${currentProjectId}/public/data/pedido_cursos`,
       CONTROLE_LIGACOES: `artifacts/${currentProjectId}/public/data/controle_ligacoes`,

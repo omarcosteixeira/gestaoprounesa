@@ -182,15 +182,98 @@ export interface GapEntry {
 
 export interface GapDocs { [key: string]: boolean; }
 
+export interface SWOTItem {
+  id: string;
+  tipo: 'forte' | 'fraco' | 'oportunidade' | 'ameaca';
+  texto: string;
+  createdAt?: string;
+}
+
+export interface HistoricoPreco {
+  id?: string;
+  data: string;
+  valor: number;
+  observacao?: string;
+}
+
+export interface CursoConcorrente {
+  id: string;
+  nomeCurso: string;
+  modalidade: 'Presencial' | 'Semipresencial' | 'EAD';
+  turno: 'Matutino' | 'Vespertino' | 'Noturno' | 'Integral' | 'EAD / Livre';
+  duracao: string;
+  mensalidade: number;
+  historicoPrecos?: HistoricoPreco[];
+  createdAt?: string;
+}
+
+export interface PlanoAtaque {
+  id: string;
+  titulo: string;
+  descricao: string;
+  responsavel: string;
+  prazo: string;
+  prioridade: 'Baixa' | 'Média' | 'Alta';
+  status: 'A Fazer' | 'Em Andamento' | 'Concluído';
+  createdAt?: string;
+}
+
+export interface AnexoClienteOculto {
+  id: string;
+  nome: string;
+  tipo: string;
+  url: string;
+}
+
+export interface EvidenciaClienteOculto {
+  id: string;
+  concorrenteId?: string;
+  concorrenteNome: string;
+  data: string;
+  responsavel: string;
+  canal: 'Presencial' | 'Telefone' | 'WhatsApp' | 'Site';
+  relato: string;
+  anexos?: AnexoClienteOculto[];
+  createdAt?: any;
+}
+
+export interface PrecoInstituicao {
+  id: string;
+  curso: string;
+  modalidade: 'Presencial' | 'Semipresencial' | 'EAD';
+  mensalidade: number;
+  unidade?: string;
+  createdAt?: any;
+}
+
 export interface ControleConcorrencia {
   id: string;
-  ies: string;
-  curso: string;
-  valor: number;
-  bairro: string;
-  descontoExtra?: string;
+  ies: string; // Nome / Razão Social
+  razaoSocial?: string;
+  rua?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  telefone?: string;
+  site?: string;
   observacao?: string;
-  createdAt: any;
+  observacoes?: string;
+  unidadeVinculada?: string;
+
+  swot?: SWOTItem[];
+  cursos?: CursoConcorrente[];
+  planoAtaque?: PlanoAtaque[];
+  evidencias?: EvidenciaClienteOculto[];
+
+  // Campos legados mantidos para compatibilidade
+  curso?: string;
+  valor?: number;
+  descontoExtra?: string;
+
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface BomDiaMetrics {
