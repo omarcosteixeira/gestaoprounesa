@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from "react";
+const fs = require('fs');
+
+const code = `import React, { useState, useMemo } from "react";
 import {
   Search,
   Plus,
@@ -178,14 +180,14 @@ export function GapView({
   };
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Deseja excluir ${selectedEntries.length} registros selecionados?`)) return;
+    if (!window.confirm(\`Deseja excluir \${selectedEntries.length} registros selecionados?\`)) return;
     try {
       const batch = writeBatch(db);
       selectedEntries.forEach((id) => {
         batch.delete(doc(db, COLLECTIONS.GAP, id));
       });
       await batch.commit();
-      onToast(`${selectedEntries.length} registros excluídos!`, "success");
+      onToast(\`\${selectedEntries.length} registros excluídos!\`, "success");
       setSelectedEntries([]);
     } catch (e: any) {
       onToast(e.message, "error");
@@ -204,7 +206,7 @@ export function GapView({
     });
 
     if (dups.size > 0) {
-      onToast(`Encontrados CPFs duplicados: ${Array.from(dups).join(", ")}`, "error");
+      onToast(\`Encontrados CPFs duplicados: \${Array.from(dups).join(", ")}\`, "error");
       setFilterCPF(Array.from(dups)[0]);
     } else {
       onToast("Nenhuma duplicidade encontrada.", "success");
@@ -287,7 +289,7 @@ export function GapView({
         }
 
         await batch.commit();
-        onToast(`${count} registros importados com sucesso!`, "success");
+        onToast(\`\${count} registros importados com sucesso!\`, "success");
       } catch (err: any) {
         onToast("Erro ao importar arquivo: " + err.message, "error");
       }
@@ -388,17 +390,17 @@ export function GapView({
         <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
           <button
             onClick={() => setActiveTab("dashboard")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+            className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all \${
               activeTab === "dashboard" ? "bg-blue-600 text-white shadow-md" : "text-slate-500 hover:text-slate-800"
-            }`}
+            }\`}
           >
             <LayoutDashboard size={16} /> Dashboard
           </button>
           <button
             onClick={() => setActiveTab("lista")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+            className={\`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all \${
               activeTab === "lista" ? "bg-blue-600 text-white shadow-md" : "text-slate-500 hover:text-slate-800"
-            }`}
+            }\`}
           >
             <List size={16} /> Lista de Alunos
           </button>
@@ -576,9 +578,9 @@ export function GapView({
                                 <button
                                   key={docLabel.key}
                                   onClick={() => toggleDoc(item, docLabel.key)}
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                                  className={\`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors \${
                                     hasDoc ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400 hover:bg-slate-200"
-                                  }`}
+                                  }\`}
                                 >
                                   {docLabel.label}
                                 </button>
@@ -590,9 +592,9 @@ export function GapView({
                           <select
                             value={status}
                             onChange={(e) => updateField(item.id, "matAcad", e.target.value)}
-                            className={`text-xs font-bold px-3 py-2 rounded-xl outline-none appearance-none pr-8 cursor-pointer border border-transparent hover:border-slate-200 transition-colors ${getStatusColor(status)}`}
+                            className={\`text-xs font-bold px-3 py-2 rounded-xl outline-none appearance-none pr-8 cursor-pointer border border-transparent hover:border-slate-200 transition-colors \${getStatusColor(status)}\`}
                             style={{
-                              backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                              backgroundImage: \`url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")\`,
                               backgroundPosition: 'right 0.5rem center',
                               backgroundRepeat: 'no-repeat',
                               backgroundSize: '1.5em 1.5em'
@@ -711,13 +713,13 @@ export function GapView({
                     <div key={stat.label}>
                       <div className="flex justify-between text-sm mb-1 font-bold">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${stat.color}`}></span>
+                          <span className={\`w-2 h-2 rounded-full \${stat.color}\`}></span>
                           <span className="text-slate-600">{stat.label}</span>
                         </div>
                         <span className="text-slate-800">{stat.count} <span className="text-slate-400 font-normal">({pct.toFixed(1)}%)</span></span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-2.5">
-                        <div className={`h-2.5 rounded-full ${stat.color}`} style={{ width: `${pct}%` }}></div>
+                        <div className={\`h-2.5 rounded-full \${stat.color}\`} style={{ width: \`\${pct}%\` }}></div>
                       </div>
                     </div>
                   )
@@ -742,7 +744,7 @@ export function GapView({
                         <span className="text-slate-800">{count} <span className="text-slate-400 font-normal">({pct.toFixed(1)}%)</span></span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-2.5">
-                        <div className="h-2.5 rounded-full bg-blue-500" style={{ width: `${pct}%` }}></div>
+                        <div className="h-2.5 rounded-full bg-blue-500" style={{ width: \`\${pct}%\` }}></div>
                       </div>
                     </div>
                   )
@@ -997,3 +999,6 @@ export function GapView({
     </div>
   );
 }
+`
+fs.writeFileSync('src/components/GapView.tsx', code);
+console.log("Updated GapView.tsx");
