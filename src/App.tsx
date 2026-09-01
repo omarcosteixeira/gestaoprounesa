@@ -208,6 +208,7 @@ import { PublicCustomForm } from "./components/PublicCustomForm";
 import { PublicInsumoForm } from "./components/PublicInsumoForm";
 import { PublicMaintenanceForm } from "./components/PublicMaintenanceForm";
 import { PublicPedidoCursoForm } from "./components/PublicPedidoCursoForm";
+import { PublicClubeLocalView } from "./components/PublicClubeLocalView";
 import { MessageTemplateModal } from "./components/MessageTemplateModal";
 import { CursosDisponiveisView } from "./components/CursosDisponiveisView";
 import { ControleInsumosView } from "./components/ControleInsumosView";
@@ -4589,8 +4590,15 @@ export default function App() {
   });
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("view") || "cadastro";
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get("view");
+      if (viewParam) return viewParam;
+      
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes("clubelocal")) return "clubeLocal";
+    }
+    return "cadastro";
   });
   const [toast, setToast] = useState<{
     message: string;
@@ -6858,6 +6866,23 @@ export default function App() {
           )}
         </AnimatePresence>
         <PublicCustomForm onToast={showToast} />
+      </div>
+    );
+  }
+
+  if (currentView === "clubeLocal" && !user) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <AnimatePresence>
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          )}
+        </AnimatePresence>
+        <PublicClubeLocalView onToast={showToast} />
       </div>
     );
   }
