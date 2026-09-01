@@ -83,7 +83,7 @@ import { AdminWhatsappApiView } from "./AdminWhatsappApiView";
 import { AdminTreinamentoBotView } from "./AdminTreinamentoBotView";
 import { AdminLinksUteisView } from "./AdminLinksUteisView";
 import { AdminLogotipoLoginView } from "./AdminLogotipoLoginView";
-import { AdminFormulariosView } from "./AdminFormulariosView";
+import { FormulariosView } from "./FormulariosView";
 import { AdminBackupSegurancaView } from "./AdminBackupSegurancaView";
 import { MetasUnidadeRegionalView } from "./MetasUnidadeRegionalView";
 import { MetaUnidadeRegional } from "../types";
@@ -596,8 +596,8 @@ export function AdminMainView({
       )}
 
       {activeSubTab === "formularios" && (
-        <AdminFormulariosView
-          profile={profile}
+        <FormulariosView
+          user={profile}
           onToast={onToast}
         />
       )}
