@@ -7929,27 +7929,11 @@ function AuthScreen({
         try {
           const snap = await getDocs(collection(db, COLLECTIONS.UNIDADES_REGIONAL));
           const names = snap.docs.map((d) => d.data().nome).filter(Boolean);
-          const defaults = [
-            "Campos",
-            "Macaé",
-            "Niterói",
-            "Cabo Frio",
-            "Norte Shopping",
-            "Resende",
-            "Nova Friburgo",
-          ];
-          const combined = Array.from(new Set([...defaults, ...names])).sort();
-          setUnidadesOptions(combined);
+          const sorted = Array.from(new Set([...names])).sort();
+          setUnidadesOptions(sorted);
         } catch (err) {
-          setUnidadesOptions([
-            "Campos",
-            "Macaé",
-            "Niterói",
-            "Cabo Frio",
-            "Norte Shopping",
-            "Resende",
-            "Nova Friburgo",
-          ]);
+          console.error("Error fetching units:", err);
+          setUnidadesOptions([]);
         }
       };
       fetchUnits();
