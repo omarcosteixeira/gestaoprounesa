@@ -83,7 +83,15 @@ const getStatusColorHex = (status: string) => {
 
 const normalizeStatus = (matAcad: any) => {
   if (typeof matAcad === 'boolean') return matAcad ? "MATRÍCULA GERADA" : "PENDENTE";
-  return matAcad || "PENDENTE";
+  if (typeof matAcad === 'string') {
+    const upper = matAcad.toUpperCase();
+    if (upper.includes("GERADA") || upper === "OK") return "MATRÍCULA GERADA";
+    if (upper.includes("PENDENTE")) return "PENDENTE";
+    if (upper.includes("AGUARDANDO")) return "AGUARDANDO";
+    if (upper.includes("DESISTENTE")) return "DESISTENTE";
+    return upper;
+  }
+  return "PENDENTE";
 };
 
 export function GapView({
@@ -125,9 +133,9 @@ export function GapView({
       
       const matchNome = !filterNome || (item.nome || "").toLowerCase().includes(filterNome.toLowerCase());
       const matchCPF = !filterCPF || (item.cpf || "").includes(filterCPF);
-      const matchProduto = !filterProduto || item.produto === filterProduto;
+      const matchProduto = !filterProduto || (item.produto || "").toLowerCase() === filterProduto.toLowerCase();
       const matchCurso = !filterCurso || (item.curso || "").toLowerCase().includes(filterCurso.toLowerCase());
-      const matchPeriodo = !filterPeriodo || (item.periodo || item.semestre || "").includes(filterPeriodo);
+      const matchPeriodo = !filterPeriodo || (item.periodo || item.semestre || "").toLowerCase().includes(filterPeriodo.toLowerCase());
       const matchMatAcad = !filterMatAcad || status === filterMatAcad;
       const matchGapDocs = !filterGapDocs || 
         (filterGapDocs === "Com Pendência" ? pendingDocs : !pendingDocs);
@@ -138,6 +146,14 @@ export function GapView({
 
   const uniqueProdutos = useMemo(() => {
     return Array.from(new Set(gap.map(g => g.produto).filter(Boolean))) as string[];
+  }, [gap]);
+
+  const uniqueCursos = useMemo(() => {
+    return Array.from(new Set(gap.map(g => g.curso).filter(Boolean))) as string[];
+  }, [gap]);
+
+  const uniquePeriodos = useMemo(() => {
+    return Array.from(new Set(gap.map(g => g.periodo || g.semestre).filter(Boolean))) as string[];
   }, [gap]);
 
   const toggleSelect = (id: string, checked: boolean) => {
