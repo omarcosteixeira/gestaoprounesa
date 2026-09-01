@@ -1,4 +1,10 @@
-import React, { useState, useMemo } from "react";
+const fs = require('fs');
+
+const file = 'src/components/GapView.tsx';
+let code = fs.readFileSync(file, 'utf8');
+
+// Replace the component implementation
+const newCode = `import React, { useState, useMemo } from "react";
 import {
   Search,
   Plus,
@@ -110,14 +116,14 @@ export function GapView({
   };
 
   const handleBulkDelete = async () => {
-    if (!window.confirm(`Deseja excluir ${selectedEntries.length} registros selecionados?`)) return;
+    if (!window.confirm(\`Deseja excluir \${selectedEntries.length} registros selecionados?\`)) return;
     try {
       const batch = writeBatch(db);
       selectedEntries.forEach((id) => {
         batch.delete(doc(db, COLLECTIONS.GAP, id));
       });
       await batch.commit();
-      onToast(`${selectedEntries.length} registros excluídos!`, "success");
+      onToast(\`\${selectedEntries.length} registros excluídos!\`, "success");
       setSelectedEntries([]);
     } catch (e: any) {
       onToast(e.message, "error");
@@ -184,7 +190,7 @@ export function GapView({
         }
 
         await batch.commit();
-        onToast(`${count} registros importados com sucesso!`, "success");
+        onToast(\`\${count} registros importados com sucesso!\`, "success");
       } catch (err: any) {
         onToast("Erro ao importar arquivo: " + err.message, "error");
       }
@@ -366,11 +372,11 @@ export function GapView({
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={() => handleToggleMatAcad(item)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
+                      className={\`px-3 py-1.5 rounded-full text-xs font-bold transition-all \${
                         item.matAcad
                           ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
                           : "bg-amber-100 text-amber-700 hover:bg-amber-200"
-                      }`}
+                      }\`}
                     >
                       {item.matAcad ? "Matriculado (OK)" : "Pendente"}
                     </button>
@@ -598,3 +604,7 @@ export function GapView({
     </div>
   );
 }
+`
+
+fs.writeFileSync(file, newCode);
+console.log('Successfully wrote GapView.tsx');
