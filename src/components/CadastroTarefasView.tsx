@@ -16,6 +16,7 @@ interface Props {
   unidades: UnidadeRegional[];
   profile?: UserProfile;
   onToast: (msg: string, type?: "success" | "error") => void;
+  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string) => void;
 }
 
 const STATUS_OPTIONS = [
@@ -26,7 +27,7 @@ const STATUS_OPTIONS = [
   "Cancelado",
 ] as const;
 
-export function CadastroTarefasView({ tarefas, unidades, profile, onToast }: Props) {
+export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSendNotification }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [unidadeFilter, setUnidadeFilter] = useState("TODAS");
   const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -96,6 +97,9 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast }: Pro
           createdAt: serverTimestamp(),
         });
         onToast("Atividade cadastrada com sucesso!");
+        if (onSendNotification) {
+          onSendNotification(responsavelNome.trim(), titulo.trim(), "Acompanhamento de Tarefas");
+        }
       }
       setIsModalOpen(false);
       setEditingId(null);

@@ -5204,6 +5204,53 @@ export default function App() {
     }
   };
 
+  const handleSendTaskNotification = async (textToSearch: string, taskTitle: string, taskType: string) => {
+    if (!textToSearch) return;
+    const lowerText = textToSearch.toLowerCase();
+    
+    // Find all users mentioned in the text
+    const matchedUsers = users.filter((u) => {
+      const nome = (u.nome || u.name || "").trim().toLowerCase();
+      if (nome.length > 2 && lowerText.includes(nome)) return true;
+      return false;
+    });
+
+    for (const u of matchedUsers) {
+      const message = `Olá ${u.nome || u.name}! Você foi vinculado a uma nova atividade no sistema.\n\nAtividade: *${taskTitle}*\nTipo: ${taskType}\n\nAcesse o sistema para mais detalhes.`;
+      
+      // WhatsApp sending
+      if (u.phone) {
+        let rawPhone = u.phone.replace(/\D/g, "");
+        if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
+        if (rawPhone.length === 10 || rawPhone.length === 11) {
+          rawPhone = `55${rawPhone}`;
+        }
+        if (rawPhone.length >= 12) {
+          try {
+            await callBotApi("/api/send", {
+              method: "POST",
+              body: {
+                botNumber: "5524993346717",
+                number: rawPhone,
+                message: message + "\n\nPor favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.",
+                force: true,
+                manual: true,
+              },
+            });
+            console.log(`WhatsApp task notification sent to ${u.name}`);
+          } catch (err) {
+            console.error("WhatsApp task notification error:", err);
+          }
+        }
+      }
+
+      // Telegram sending
+      if (u.telegram) {
+        await sendAppTelegram(u.telegram, message);
+      }
+    }
+  };
+
   const handleMassSendBotMessages = async (
     messages: { telefone: string; message: string; nome?: string }[],
   ) => {
@@ -7723,6 +7770,7 @@ export default function App() {
                 <CalendarioAcoesView
                   data={calendarioAcoes}
                   onToast={showToast}
+                  onSendNotification={handleSendTaskNotification}
                   profile={profile!}
                   initialData={initialActionData}
                   onClearInitialData={() => setInitialActionData(null)}
@@ -7799,6 +7847,7 @@ export default function App() {
               )}
               {currentView === "admin" && (
                 <AdminMainView
+                  onSendTaskNotification={handleSendTaskNotification}
                   profile={profile!}
                   users={users}
                   unidadesRegional={unidadesRegional}

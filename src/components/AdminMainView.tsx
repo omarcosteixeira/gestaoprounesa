@@ -113,6 +113,7 @@ interface Props {
   periodos?: PeriodoCaptacao[];
   links?: LinkUtil[];
   botStatuses?: Record<string, any>;
+  onSendTaskNotification?: (textToSearch: string, taskTitle: string, taskType: string) => void;
   setBotStatuses?: React.Dispatch<React.SetStateAction<any>>;
   callBotApi?: (path: string, options?: any) => Promise<any>;
   setShowInjectModal?: (show: boolean) => void;
@@ -166,6 +167,7 @@ export function AdminMainView({
   periodos: periodosProp,
   links: linksProp,
   botStatuses = {},
+  onSendTaskNotification,
   setBotStatuses,
   callBotApi,
   setShowInjectModal,
@@ -628,6 +630,7 @@ export function AdminMainView({
           unidades={unidadesRegional}
           profile={profile}
           onToast={onToast}
+          onSendNotification={onSendTaskNotification}
         />
       )}
 

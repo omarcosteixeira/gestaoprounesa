@@ -31,6 +31,7 @@ interface CalendarioAcoesViewProps {
   leads?: Lead[];
   gap?: GapEntry[];
   onSendWhatsApp?: (tel: string, msg: string) => Promise<void>;
+  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string) => void;
 }
 
 export function CalendarioAcoesView({
@@ -41,6 +42,7 @@ export function CalendarioAcoesView({
   onClearInitialData,
   users,
   onSendWhatsApp,
+  onSendNotification,
 }: CalendarioAcoesViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(!!initialData);
@@ -87,6 +89,10 @@ export function CalendarioAcoesView({
           createdAt: serverTimestamp(),
         });
         onToast("Ação agendada com sucesso!");
+        if (onSendNotification) {
+          const textToSearch = (formData.nome || "") + " " + (formData.observacao || "");
+          onSendNotification(textToSearch, formData.nome || "Ação", "Plano de Ação");
+        }
       }
       setIsModalOpen(false);
       setEditingAcao(null);
