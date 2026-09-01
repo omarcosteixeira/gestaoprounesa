@@ -36,7 +36,9 @@ import {
   doc,
   deleteDoc,
   serverTimestamp,
-  orderBy
+  orderBy,
+  where,
+  getDocs
 } from "firebase/firestore";
 import { FormConfig, FormField, UserProfile } from "../types";
 import { cn } from "../lib/utils";
@@ -62,6 +64,29 @@ export function FormulariosView({ user, onToast }: FormulariosViewProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [currentForm, setCurrentForm] = useState<Partial<FormConfig> | null>(null);
   const [showShareModal, setShowShareModal] = useState<string | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<FormConfig | null>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
+  const handleViewHistory = async (form: FormConfig) => {
+    setViewingHistory(form);
+    setLoadingSubmissions(true);
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.FORM_SUBMISSIONS),
+        where("formId", "==", form.id),
+        orderBy("createdAt", "desc")
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setSubmissions(list);
+    } catch (err) {
+      console.error(err);
+      onToast("Erro ao carregar histórico.", "error");
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
 
   useEffect(() => {
     const q = query(
@@ -154,6 +179,7 @@ export function FormulariosView({ user, onToast }: FormulariosViewProps) {
       title: "",
       description: "",
       active: true,
+      isLeadAction: true,
       fields: [...DEFAULT_FIELDS],
       unidade: user.unidade || ""
     });
@@ -455,6 +481,18 @@ export function FormulariosView({ user, onToast }: FormulariosViewProps) {
                     {/* Add more if needed */}
                   </select>
                 </div>
+                <label className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl cursor-pointer">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold text-slate-700">Ação de Leads</span>
+                    <span className="text-[10px] text-slate-500">Enviar pro Histórico CRM</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={currentForm?.isLeadAction !== false} // defaults to true
+                    onChange={(e) => setCurrentForm({ ...currentForm, isLeadAction: e.target.checked })}
+                    className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                </label>
               </div>
             </div>
 
@@ -464,7 +502,11 @@ export function FormulariosView({ user, onToast }: FormulariosViewProps) {
                 <span className="text-sm font-bold">Dica de Gestão</span>
               </div>
               <p className="text-[11px] text-blue-600 leading-relaxed">
-                Ao preencher este formulário, o Lead será inserido automaticamente no Histórico com o status <b>Pendente</b> e a base será o nome deste formulário.
+                {currentForm?.isLeadAction !== false ? (
+                  <>Ao preencher este formulário, o Lead será inserido automaticamente no Histórico com o status <b>Pendente</b> e a base será o nome deste formulário.</>
+                ) : (
+                  <>As respostas não irão para os Leads. Ficarão salvas num histórico separado acessível pela aba do formulário.</>
+                )}
               </p>
             </div>
           </div>
@@ -546,6 +588,15 @@ export function FormulariosView({ user, onToast }: FormulariosViewProps) {
                   </button>
                 </div>
               </div>
+              {form.isLeadAction === false && (
+                <button
+                  onClick={() => handleViewHistory(form)}
+                  className="w-full mt-4 flex items-center justify-center gap-2 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-600 py-2 rounded-xl text-sm font-bold transition-colors"
+                >
+                  <List size={16} />
+                  Ver Respostas
+                </button>
+              )}
 
               <div className="space-y-1">
                 <h3 className="text-lg font-black text-slate-800 group-hover:text-blue-600 transition-colors">{form.title}</h3>
@@ -621,6 +672,61 @@ export function FormulariosView({ user, onToast }: FormulariosViewProps) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* History Modal */}
+      {viewingHistory && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-slate-100">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-slate-800">
+                  Respostas: {viewingHistory.title}
+                </h3>
+                <p className="text-sm font-medium text-slate-500 mt-1">
+                  Histórico local de preenchimentos
+                </p>
+              </div>
+              <button
+                onClick={() => setViewingHistory(null)}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto bg-slate-50/50 flex-1">
+              {loadingSubmissions ? (
+                <div className="flex items-center justify-center py-20">
+                  <RefreshCw size={24} className="text-blue-500 animate-spin" />
+                </div>
+              ) : submissions.length === 0 ? (
+                <div className="text-center py-20 text-slate-500">
+                  <List size={40} className="mx-auto mb-3 opacity-20" />
+                  <p className="font-semibold">Nenhuma resposta registrada.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {submissions.map(sub => (
+                    <div key={sub.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                      <div className="text-xs font-bold text-slate-400 mb-3 flex justify-between">
+                        <span>DATA: {sub.createdAt?.toDate ? sub.createdAt.toDate().toLocaleString() : 'Recente'}</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {Object.entries(sub.answers || {}).map(([key, val]) => (
+                          <div key={key}>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">{key}</p>
+                            <p className="text-sm font-medium text-slate-800 break-words">{String(val || "-")}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

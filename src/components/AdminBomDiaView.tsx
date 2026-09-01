@@ -20,7 +20,10 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  serverTimestamp
+  serverTimestamp,
+  getDocs,
+  query,
+  where
 } from "firebase/firestore";
 
 interface Props {

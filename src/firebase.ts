@@ -109,6 +109,7 @@ export const COLLECTIONS = new Proxy({} as any, {
       CONVERSATIONS: `artifacts/${currentProjectId}/public/data/conversations`,
       MESSAGES: `artifacts/${currentProjectId}/public/data/messages`,
       FORMS_CONFIG: `artifacts/${currentProjectId}/public/data/forms_config`,
+      FORM_SUBMISSIONS: `artifacts/${currentProjectId}/public/data/form_submissions`,
       EMAIL_CAMPAIGNS: `artifacts/${currentProjectId}/public/data/email_campaigns`,
       EMAIL_CAMPAIGN_CONTACTS: `artifacts/${currentProjectId}/public/data/email_campaign_contacts`,
       EMAIL_CAMPAIGN_LOGS: `artifacts/${currentProjectId}/public/data/email_campaign_logs`,

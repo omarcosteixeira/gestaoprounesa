@@ -536,6 +536,7 @@ export function AdminMainView({
       {activeSubTab === "forecast" && (
         <AdminForecastView
           forecast={activeForecast}
+          bomDia={activeBomDia}
           onToast={onToast}
         />
       )}

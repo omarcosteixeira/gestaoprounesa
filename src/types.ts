@@ -220,6 +220,8 @@ export interface ForecastCaptacao {
   realizado: number;
   metaFechamento: number;
   oculto?: boolean;
+  linkedBomDiaId?: string;
+  linkedBomDiaMetric?: 'insc' | 'matFin' | 'matAcad';
   createdAt: any;
 }
 
@@ -674,6 +676,7 @@ export interface FormConfig {
   fields: FormField[];
   unidade?: string;
   bannerUrl?: string;
+  isLeadAction?: boolean;
   createdAt: any;
   updatedAt?: any;
 }

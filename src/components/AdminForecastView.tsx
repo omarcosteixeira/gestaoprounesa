@@ -11,7 +11,7 @@ import {
   Percent,
   CheckCircle2
 } from "lucide-react";
-import { ForecastCaptacao } from "../types";
+import { ForecastCaptacao, BomDiaCaptacao } from "../types";
 import { db, COLLECTIONS } from "../firebase";
 import {
   collection,
@@ -24,10 +24,11 @@ import {
 
 interface Props {
   forecast: ForecastCaptacao[];
+  bomDia?: BomDiaCaptacao[];
   onToast: (msg: string, type?: "success" | "error") => void;
 }
 
-export function AdminForecastView({ forecast = [], onToast }: Props) {
+export function AdminForecastView({ forecast = [], bomDia = [], onToast }: Props) {
   const [activeTab, setActiveTab] = useState<"ativos" | "inativos">("ativos");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ForecastCaptacao | null>(null);
@@ -41,6 +42,9 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
   const [metaFechamento, setMetaFechamento] = useState(0);
   const [oculto, setOculto] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  const [linkedBomDiaId, setLinkedBomDiaId] = useState("");
+  const [linkedBomDiaMetric, setLinkedBomDiaMetric] = useState<"insc"|"matFin"|"matAcad">("matFin");
 
   const handleOpenAdd = () => {
     setEditingItem(null);
@@ -51,6 +55,8 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
     setRealizado(0);
     setMetaFechamento(0);
     setOculto(false);
+    setLinkedBomDiaId("");
+    setLinkedBomDiaMetric("matFin");
     setIsModalOpen(true);
   };
 
@@ -63,6 +69,8 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
     setRealizado(item.realizado || 0);
     setMetaFechamento(item.metaFechamento || 0);
     setOculto(!!item.oculto);
+    setLinkedBomDiaId(item.linkedBomDiaId || "");
+    setLinkedBomDiaMetric(item.linkedBomDiaMetric || "matFin");
     setIsModalOpen(true);
   };
 
@@ -98,14 +106,24 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
     }
     setSaving(true);
     try {
+      let finalRealizado = Number(realizado) || 0;
+      if (linkedBomDiaId) {
+        const linkedBomDia = bomDia.find(b => b.id === linkedBomDiaId);
+        if (linkedBomDia && linkedBomDia.real && typeof linkedBomDia.real[linkedBomDiaMetric] !== 'undefined') {
+          finalRealizado = linkedBomDia.real[linkedBomDiaMetric];
+        }
+      }
+
       const payload = {
         nome: nome.trim(),
         dataInicio,
         dataFim,
         metaDiaYTD: Number(metaDiaYTD) || 0,
-        realizado: Number(realizado) || 0,
+        realizado: finalRealizado,
         metaFechamento: Number(metaFechamento) || 0,
         oculto,
+        linkedBomDiaId,
+        linkedBomDiaMetric,
         updatedAt: serverTimestamp(),
       };
 
@@ -301,6 +319,44 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
               </div>
 
               <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-3 bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-3">
+                  <h4 className="text-xs font-bold text-blue-800">Preenchimento Automático do Realizado (Opcional)</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">Vincular a um Bom Dia</label>
+                      <select
+                        value={linkedBomDiaId}
+                        onChange={(e) => setLinkedBomDiaId(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-blue-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-400"
+                      >
+                        <option value="">Nenhum (Preenchimento Manual)</option>
+                        {bomDia.map(b => (
+                          <option key={b.id} value={b.id}>{b.titulo} ({b.data})</option>
+                        ))}
+                      </select>
+                    </div>
+                    {linkedBomDiaId && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-blue-600 uppercase mb-1">Usar qual métrica?</label>
+                        <select
+                          value={linkedBomDiaMetric}
+                          onChange={(e) => setLinkedBomDiaMetric(e.target.value as any)}
+                          className="w-full px-3 py-2 bg-white border border-blue-200 rounded-xl text-xs font-bold focus:outline-none focus:border-blue-400"
+                        >
+                          <option value="matFin">Matrículas Financeiras</option>
+                          <option value="matAcad">Matrículas Acadêmicas</option>
+                          <option value="insc">Inscrições</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  {linkedBomDiaId && (
+                    <p className="text-[10px] text-blue-600 font-medium">
+                      O valor "Realizado" deste forecast será atualizado automaticamente com base no Bom Dia selecionado.
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Meta Dia YTD</label>
                   <input
@@ -316,7 +372,9 @@ export function AdminForecastView({ forecast = [], onToast }: Props) {
                     type="number"
                     value={realizado}
                     onChange={(e) => setRealizado(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                    className={`w-full px-3 py-2 border rounded-xl text-xs font-bold ${linkedBomDiaId ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-slate-50 border-slate-200'}`}
+                    disabled={!!linkedBomDiaId}
+                    title={linkedBomDiaId ? "Valor atualizado automaticamente via Bom Dia" : ""}
                   />
                 </div>
                 <div>
