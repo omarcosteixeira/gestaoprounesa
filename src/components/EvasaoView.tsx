@@ -95,7 +95,9 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
   useEffect(() => {
     if (!profile) return;
 
+    const isPrincipalServer = ((localStorage.getItem("servidor_selected") as string) || "principal") === "principal";
     const isRestricted = 
+      (!isPrincipalServer || profile?.role !== "SSA") &&
       profile?.role !== "Admin Master" && 
       profile?.role !== "Gestor Comercial" && 
       profile?.role !== "Gerente Comercial (Comercial)" &&

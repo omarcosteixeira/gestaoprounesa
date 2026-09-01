@@ -4748,6 +4748,13 @@ export default function App() {
     ) {
       return true;
     }
+    
+    // Explicitly allow SSA on principal server for requested tabs
+    if (profile.role === "SSA" && (localStorage.getItem("servidor_selected") || "principal") === "principal") {
+      if (["fiesProuni", "mapao", "campanhas", "cursos", "evasao"].includes(view)) {
+        return true;
+      }
+    }
 
     const isComercial =
       localStorage.getItem("servidor_selected") === "comercial";
