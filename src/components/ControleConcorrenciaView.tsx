@@ -225,6 +225,10 @@ export function ControleConcorrenciaView({
       onToast("Nome do concorrente (IES) é obrigatório!", "error");
       return;
     }
+    if (!concorrenteForm.telefone.trim()) {
+      onToast("Telefone do concorrente é obrigatório!", "error");
+      return;
+    }
 
     try {
       const payload = {
@@ -620,7 +624,7 @@ export function ControleConcorrenciaView({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Razão Social
+                    Razão Social (Opcional)
                   </label>
                   <input
                     type="text"
@@ -633,7 +637,7 @@ export function ControleConcorrenciaView({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                    Campus/Unidade Vinculada (Nossa)
+                    Campus/Unidade Vinculada (Opcional)
                   </label>
                   <select
                     value={concorrenteForm.unidadeVinculada}
@@ -650,9 +654,12 @@ export function ControleConcorrenciaView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Telefone</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Telefone *
+                  </label>
                   <input
                     type="text"
+                    required
                     placeholder="(00) 00000-0000"
                     value={concorrenteForm.telefone}
                     onChange={(e) => setConcorrenteForm({ ...concorrenteForm, telefone: e.target.value })}
@@ -661,7 +668,9 @@ export function ControleConcorrenciaView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Site / URL</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Site / URL (Opcional)
+                  </label>
                   <input
                     type="text"
                     placeholder="https://exemplo.com.br"
@@ -674,7 +683,9 @@ export function ControleConcorrenciaView({
                 {/* Endereço Completo */}
                 <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Rua / Logradouro</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Rua / Logradouro (Opcional)
+                    </label>
                     <input
                       type="text"
                       placeholder="Rua..."
@@ -685,7 +696,9 @@ export function ControleConcorrenciaView({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Número</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Número (Opcional)
+                    </label>
                     <input
                       type="text"
                       placeholder="123"
@@ -696,7 +709,9 @@ export function ControleConcorrenciaView({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Bairro</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Bairro (Opcional)
+                    </label>
                     <input
                       type="text"
                       placeholder="Bairro"
@@ -707,7 +722,9 @@ export function ControleConcorrenciaView({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Cidade</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Cidade (Opcional)
+                    </label>
                     <input
                       type="text"
                       placeholder="Cidade"
@@ -718,7 +735,9 @@ export function ControleConcorrenciaView({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Estado / CEP</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                      Estado / CEP (Opcional)
+                    </label>
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -739,7 +758,9 @@ export function ControleConcorrenciaView({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Observações</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                    Observações (Opcional)
+                  </label>
                   <textarea
                     rows={2}
                     placeholder="Informações adicionais sobre o concorrente..."
