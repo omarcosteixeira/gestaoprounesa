@@ -926,6 +926,8 @@ export interface ClubeResgate {
   userEmail: string;
   userUnidade?: string;
   codigoUnicoResgate: string;
+  status?: 'pendente' | 'utilizado';
+  dataUtilizacao?: any;
   dataResgate: any;
 }
 
