@@ -4,6 +4,48 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", sans-serif;
+
+  /* Brand Blue (#0632f1) mapped to indigo for layout integration */
+  --color-indigo-50: #eff2fe;
+  --color-indigo-100: #e1e7fd;
+  --color-indigo-200: #c9d5fb;
+  --color-indigo-300: #a1b8f8;
+  --color-indigo-400: #7695f4;
+  --color-indigo-500: #496cf0;
+  --color-indigo-600: #0632f1; /* Brand Royal Blue */
+  --color-indigo-700: #0529cc;
+  --color-indigo-800: #0421a6;
+  --color-indigo-900: #031a80;
+  --color-indigo-950: #021159;
+
+  /* Brand Sky Blue (#04b2fd) mapped to sky */
+  --color-sky-400: #4ecaff;
+  --color-sky-500: #04b2fd; /* Brand Sky Blue */
+  --color-sky-600: #0390cc;
+
+  /* Brand Emerald Green (#0cbf6d) mapped to emerald */
+  --color-emerald-50: #effcf5;
+  --color-emerald-100: #dcf9ea;
+  --color-emerald-200: #baf3d6;
+  --color-emerald-300: #88ebbe;
+  --color-emerald-400: #50dea0;
+  --color-emerald-500: #23cc84;
+  --color-emerald-600: #0cbf6d; /* Brand Emerald Green */
+  --color-emerald-700: #099957;
+  --color-emerald-800: #077a47;
+  --color-emerald-900: #05633b;
+  --color-emerald-950: #033822;
+
+  /* Brand Lime Green (#7ede04) & Lighter Lime (#b4e128) mapped to lime */
+  --color-lime-400: #b4e128; /* Brand Lighter Lime */
+  --color-lime-500: #7ede04; /* Brand Lime Green */
+  --color-lime-600: #65b203;
+
+  /* Brand Yellow-Green (#dbed2a) mapped to yellow */
+  --color-yellow-300: #eaf573;
+  --color-yellow-400: #dbed2a; /* Brand Yellow */
+  --color-yellow-500: #b8c723;
+  --color-yellow-600: #929e1c;
 }
 
 @layer base {
