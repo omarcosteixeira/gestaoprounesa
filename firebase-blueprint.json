@@ -312,6 +312,44 @@
         "horario": { "type": "string" }
       },
       "required": ["nome", "dataInicio", "dataFim", "local", "unidade", "creatorId", "createdAt"]
+    },
+    "PrecoInstituicao": {
+      "title": "PrecoInstituicao",
+      "description": "Institutional Course Pricing",
+      "type": "object",
+      "properties": {
+        "curso": { "type": "string" },
+        "modalidade": { "type": "string" },
+        "turno": { "type": "string" },
+        "mensalidade": { "type": "number" },
+        "valorDe": { "type": "number" },
+        "unidade": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["curso", "modalidade", "mensalidade"]
+    },
+    "ControleConcorrencia": {
+      "title": "ControleConcorrencia",
+      "description": "Competitor Analysis and Tracking",
+      "type": "object",
+      "properties": {
+        "ies": { "type": "string" },
+        "telefone": { "type": "string" },
+        "razaoSocial": { "type": "string" },
+        "rua": { "type": "string" },
+        "numero": { "type": "string" },
+        "bairro": { "type": "string" },
+        "cidade": { "type": "string" },
+        "estado": { "type": "string" },
+        "cep": { "type": "string" },
+        "site": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "unidadeVinculada": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ies", "telefone"]
     }
   },
   "firestore": {
@@ -382,6 +420,14 @@
     "artifacts/gestaopro-761e1/public/data/calendario_acoes/{acaoId}": {
       "schema": "CalendarioAcao",
       "description": "Team action and event planning data"
+    },
+    "artifacts/gestaopro-761e1/public/data/precos_instituicao/{precoId}": {
+      "schema": "PrecoInstituicao",
+      "description": "Institutional course prices data"
+    },
+    "artifacts/gestaopro-761e1/public/data/controle_concorrencia/{concorrenteId}": {
+      "schema": "ControleConcorrencia",
+      "description": "Competitor control data"
     }
   }
 }

@@ -89,6 +89,9 @@ service cloud.firestore {
     match /campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /funcionarios/{id} { allow read, write: if isAuthenticated(); }
     match /formularios/{id} { allow read, write: if isAuthenticated(); }
+    match /controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
+    match /precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
+    match /evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
 
     match /{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();
@@ -118,6 +121,9 @@ service cloud.firestore {
     match /artifacts/gestaopro-761e1/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();
@@ -147,6 +153,9 @@ service cloud.firestore {
     match /artifacts/unesa-gestaopro/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/unesa-gestaopro/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();
@@ -176,6 +185,9 @@ service cloud.firestore {
     match /artifacts/gestaodeleadspro-d4230/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/gestaodeleadspro-d4230/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();
@@ -205,6 +217,9 @@ service cloud.firestore {
     match /artifacts/gen-lang-client-0111023338/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/formularios/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/gen-lang-client-0111023338/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && !isRegional();

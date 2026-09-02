@@ -1847,6 +1847,26 @@ function PlanoAtaqueTab({
 /* =========================================================================
    SUB-COMPONENT 2: COMPARATIVO DE PREÇOS
    ========================================================================= */
+/* =========================================================================
+   SUB-COMPONENT 3: COMPARATIVO DE PREÇOS VIEW
+   ========================================================================= */
+function parseCurrencyInput(val: string | number | undefined | null): number {
+  if (val === undefined || val === null) return 0;
+  if (typeof val === "number") return isNaN(val) ? 0 : val;
+  const str = String(val).trim();
+  if (!str) return 0;
+  // Remove currency symbol and spaces
+  const clean = str.replace(/[R$\s]/g, "");
+  // If contains comma as decimal separator
+  if (clean.includes(",")) {
+    const formatted = clean.replace(/\./g, "").replace(",", ".");
+    const num = parseFloat(formatted);
+    return isNaN(num) ? 0 : num;
+  }
+  const num = parseFloat(clean);
+  return isNaN(num) ? 0 : num;
+}
+
 function ComparativoPrecosView({
   concorrentes,
   cursosDisponiveis = [],
@@ -1860,30 +1880,156 @@ function ComparativoPrecosView({
 }) {
   const [filterConcorrente, setFilterConcorrente] = useState("");
   const [filterModalidade, setFilterModalidade] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Modal for adding custom Institutional Price for comparison
+  // Modal for adding / editing Institutional Price
   const [isAddingPrecoInst, setIsAddingPrecoInst] = useState(false);
+  const [editingPrecoInst, setEditingPrecoInst] = useState<PrecoInstituicao | null>(null);
+  const [isManagingPrecosModal, setIsManagingPrecosModal] = useState(false);
+  const [searchPrecosMinhaInst, setSearchPrecosMinhaInst] = useState("");
+
   const [formInst, setFormInst] = useState({
     curso: "",
-    modalidade: "Presencial" as 'Presencial' | 'Semipresencial' | 'EAD',
+    modalidade: "Presencial" as 'Presencial' | 'Semipresencial' | 'EAD' | string,
+    turno: "Noturno",
     mensalidade: "",
+    valorDe: "",
+    unidade: "",
   });
+
+  // Extract all distinct course names for autocomplete
+  const courseSuggestions = useMemo(() => {
+    const set = new Set<string>();
+    cursosDisponiveis.forEach((c) => {
+      if (c.curso) set.add(c.curso.trim());
+    });
+    concorrentes.forEach((c) => {
+      if (c.cursos) {
+        c.cursos.forEach((cc) => {
+          if (cc.nomeCurso) set.add(cc.nomeCurso.trim());
+        });
+      }
+      if (c.curso) set.add(c.curso.trim());
+    });
+    precosMinhaInst.forEach((p) => {
+      if (p.curso) set.add(p.curso.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [cursosDisponiveis, concorrentes, precosMinhaInst]);
+
+  const handleOpenAddPreco = (prefillCourse = "", prefillModalidade = "Presencial") => {
+    setEditingPrecoInst(null);
+    setFormInst({
+      curso: prefillCourse,
+      modalidade: prefillModalidade,
+      turno: "Noturno",
+      mensalidade: "",
+      valorDe: "",
+      unidade: "",
+    });
+    setIsAddingPrecoInst(true);
+  };
+
+  const handleOpenEditPreco = (preco: PrecoInstituicao) => {
+    setEditingPrecoInst(preco);
+    setFormInst({
+      curso: preco.curso,
+      modalidade: preco.modalidade || "Presencial",
+      turno: preco.turno || "Noturno",
+      mensalidade: preco.mensalidade !== undefined ? String(preco.mensalidade) : "",
+      valorDe: preco.valorDe !== undefined ? String(preco.valorDe) : "",
+      unidade: preco.unidade || "",
+    });
+    setIsAddingPrecoInst(true);
+  };
 
   const handleSavePrecoInst = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formInst.curso.trim() || !formInst.mensalidade) return;
+    if (!formInst.curso.trim()) {
+      onToast("Por favor, selecione ou digite o nome do curso.", "error");
+      return;
+    }
+
+    const valorMensalidade = parseCurrencyInput(formInst.mensalidade);
+    if (valorMensalidade <= 0) {
+      onToast("Por favor, informe uma mensalidade válida maior que zero.", "error");
+      return;
+    }
+
+    const valorDeNum = formInst.valorDe ? parseCurrencyInput(formInst.valorDe) : undefined;
+
     try {
-      await addDoc(collection(db, COLLECTIONS.PRECOS_INSTITUICAO), {
-        curso: formInst.curso.trim(),
-        modalidade: formInst.modalidade,
-        mensalidade: Number(formInst.mensalidade),
-        createdAt: serverTimestamp(),
-      });
-      onToast("Preço da instituição salvo!", "success");
-      setFormInst({ curso: "", modalidade: "Presencial", mensalidade: "" });
+      if (editingPrecoInst) {
+        await updateDoc(doc(db, COLLECTIONS.PRECOS_INSTITUICAO, editingPrecoInst.id), {
+          curso: formInst.curso.trim(),
+          modalidade: formInst.modalidade,
+          turno: formInst.turno,
+          mensalidade: valorMensalidade,
+          ...(valorDeNum !== undefined ? { valorDe: valorDeNum } : {}),
+          ...(formInst.unidade ? { unidade: formInst.unidade } : {}),
+          updatedAt: serverTimestamp(),
+        });
+        onToast("Preço da instituição atualizado com sucesso!", "success");
+      } else {
+        // Check if price already exists for this exact course & modality to update seamlessly
+        const existing = precosMinhaInst.find(
+          (p) =>
+            p.curso.toLowerCase().trim() === formInst.curso.toLowerCase().trim() &&
+            p.modalidade?.toLowerCase().trim() === formInst.modalidade?.toLowerCase().trim()
+        );
+
+        if (existing) {
+          await updateDoc(doc(db, COLLECTIONS.PRECOS_INSTITUICAO, existing.id), {
+            curso: formInst.curso.trim(),
+            modalidade: formInst.modalidade,
+            turno: formInst.turno,
+            mensalidade: valorMensalidade,
+            ...(valorDeNum !== undefined ? { valorDe: valorDeNum } : {}),
+            ...(formInst.unidade ? { unidade: formInst.unidade } : {}),
+            updatedAt: serverTimestamp(),
+          });
+          onToast("Preço existente atualizado com sucesso!", "success");
+        } else {
+          await addDoc(collection(db, COLLECTIONS.PRECOS_INSTITUICAO), {
+            curso: formInst.curso.trim(),
+            modalidade: formInst.modalidade,
+            turno: formInst.turno,
+            mensalidade: valorMensalidade,
+            ...(valorDeNum !== undefined ? { valorDe: valorDeNum } : {}),
+            ...(formInst.unidade ? { unidade: formInst.unidade } : {}),
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          onToast("Preço da instituição cadastrado com sucesso!", "success");
+        }
+      }
+
       setIsAddingPrecoInst(false);
+      setEditingPrecoInst(null);
+      setFormInst({
+        curso: "",
+        modalidade: "Presencial",
+        turno: "Noturno",
+        mensalidade: "",
+        valorDe: "",
+        unidade: "",
+      });
     } catch (e: any) {
-      onToast(`Erro: ${e.message}`, "error");
+      console.error("Erro ao salvar preco da instituicao:", e);
+      handleFirestoreError(e, OperationType.WRITE, COLLECTIONS.PRECOS_INSTITUICAO);
+      onToast(`Erro ao salvar preço: ${e.message}`, "error");
+    }
+  };
+
+  const handleDeletePrecoInst = async (id: string, nomeCurso: string) => {
+    if (!window.confirm(`Deseja realmente remover o preço cadastrado para "${nomeCurso}"?`)) return;
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.PRECOS_INSTITUICAO, id));
+      onToast("Preço removido com sucesso!", "success");
+    } catch (e: any) {
+      console.error("Erro ao excluir preco da instituicao:", e);
+      handleFirestoreError(e, OperationType.DELETE, COLLECTIONS.PRECOS_INSTITUICAO);
+      onToast(`Erro ao excluir: ${e.message}`, "error");
     }
   };
 
@@ -1893,82 +2039,115 @@ function ComparativoPrecosView({
       id: string;
       curso: string;
       modalidade: string;
+      turno?: string;
       meuPreco: number;
+      meuPrecoObj?: PrecoInstituicao;
       concorrenteNome: string;
       precoConcorrente: number;
       diferenca: number;
+      percentualDiff: number;
       status: 'mais_barato' | 'mais_caro' | 'igual';
     }> = [];
 
     concorrentes.forEach((c) => {
       if (filterConcorrente && c.ies !== filterConcorrente) return;
 
-      const courses = c.cursos && c.cursos.length > 0 ? c.cursos : (c.curso ? [{
-        id: "legacy",
-        nomeCurso: c.curso,
-        modalidade: "Presencial" as const,
-        turno: "Noturno" as const,
-        duracao: "4 anos",
-        mensalidade: Number(c.valor || 0),
-      }] : []);
+      const courses =
+        c.cursos && c.cursos.length > 0
+          ? c.cursos
+          : c.curso
+          ? [
+              {
+                id: "legacy",
+                nomeCurso: c.curso,
+                modalidade: "Presencial" as const,
+                turno: "Noturno" as const,
+                duracao: "4 anos",
+                mensalidade: parseCurrencyInput(c.valor || 0),
+              },
+            ]
+          : [];
 
       courses.forEach((cc) => {
         if (filterModalidade && cc.modalidade !== filterModalidade) return;
+        if (
+          searchTerm &&
+          !cc.nomeCurso.toLowerCase().includes(searchTerm.toLowerCase()) &&
+          !c.ies.toLowerCase().includes(searchTerm.toLowerCase())
+        ) {
+          return;
+        }
 
-        // Find institutional price matching course name
-        const matchInst = precosMinhaInst.find(
-          (p) => p.curso.toLowerCase() === cc.nomeCurso.toLowerCase()
+        // Find institutional price matching course name and modality (or fallback to course name)
+        const matchInstModalidade = precosMinhaInst.find(
+          (p) =>
+            p.curso.toLowerCase().trim() === cc.nomeCurso.toLowerCase().trim() &&
+            p.modalidade?.toLowerCase().trim() === cc.modalidade?.toLowerCase().trim()
         );
-        const meuPreco = matchInst ? matchInst.mensalidade : 0;
-        const diff = meuPreco - cc.mensalidade; // positive = we are more expensive, negative = we are cheaper
+        const matchInstAny = precosMinhaInst.find(
+          (p) => p.curso.toLowerCase().trim() === cc.nomeCurso.toLowerCase().trim()
+        );
+
+        const matchInst = matchInstModalidade || matchInstAny;
+        const meuPreco = matchInst ? parseCurrencyInput(matchInst.mensalidade) : 0;
+        const precoConc = parseCurrencyInput(cc.mensalidade);
+        const diff = meuPreco > 0 && precoConc > 0 ? meuPreco - precoConc : 0;
+        const percentualDiff = meuPreco > 0 && precoConc > 0 ? ((meuPreco - precoConc) / precoConc) * 100 : 0;
 
         let status: 'mais_barato' | 'mais_caro' | 'igual' = 'igual';
-        if (meuPreco > 0) {
-          if (diff < 0) status = 'mais_barato';
-          else if (diff > 0) status = 'mais_caro';
+        if (meuPreco > 0 && precoConc > 0) {
+          if (diff < -0.01) status = 'mais_barato';
+          else if (diff > 0.01) status = 'mais_caro';
         }
 
         rows.push({
           id: `${c.id}_${cc.id}`,
           curso: cc.nomeCurso,
           modalidade: cc.modalidade,
+          turno: cc.turno,
           meuPreco,
+          meuPrecoObj: matchInst,
           concorrenteNome: c.ies,
-          precoConcorrente: cc.mensalidade,
+          precoConcorrente: precoConc,
           diferenca: diff,
+          percentualDiff,
           status,
         });
       });
     });
 
     return rows;
-  }, [concorrentes, precosMinhaInst, filterConcorrente, filterModalidade]);
+  }, [concorrentes, precosMinhaInst, filterConcorrente, filterModalidade, searchTerm]);
 
   // Derived Indicators
   const countMaisCaro = comparisonRows.filter((r) => r.meuPreco > 0 && r.status === 'mais_caro').length;
   const countMaisBarato = comparisonRows.filter((r) => r.meuPreco > 0 && r.status === 'mais_barato').length;
+  const countIgual = comparisonRows.filter((r) => r.meuPreco > 0 && r.status === 'igual').length;
+  const countSemPreco = comparisonRows.filter((r) => r.meuPreco === 0).length;
 
   const { diffMedia, rotuloAutomatico } = useMemo(() => {
-    const validRows = comparisonRows.filter((r) => r.meuPreco > 0);
-    if (validRows.length === 0) return { diffMedia: 0, rotuloAutomatico: "Sem dados de preço da instituição" };
+    const validRows = comparisonRows.filter((r) => r.meuPreco > 0 && r.precoConcorrente > 0);
+    if (validRows.length === 0) {
+      return { diffMedia: 0, rotuloAutomatico: "Sem dados suficientes de comparação" };
+    }
 
     const totalDiff = validRows.reduce((acc, r) => acc + r.diferenca, 0);
     const avg = totalDiff / validRows.length;
 
-    if (avg < 0) {
+    if (avg < -0.5) {
       return {
         diffMedia: Math.abs(avg),
-        rotuloAutomatico: "minha instituição é mais barata em média",
+        rotuloAutomatico: "Minha instituição é mais barata em média",
       };
-    } else if (avg > 0) {
+    } else if (avg > 0.5) {
       return {
         diffMedia: avg,
-        rotuloAutomatico: "minha instituição é mais cara em média",
+        rotuloAutomatico: "Minha instituição é mais cara em média",
       };
     } else {
       return {
         diffMedia: 0,
-        rotuloAutomatico: "preços em média iguais",
+        rotuloAutomatico: "Preços em média equivalentes",
       };
     }
   }, [comparisonRows]);
@@ -1980,63 +2159,120 @@ function ComparativoPrecosView({
       return;
     }
 
-    const headers = ["Curso", "Modalidade", "Minha Instituição (R$)", "Concorrente", "Preço Concorrente (R$)", "Diferença (R$)", "Situação"];
-    const csvLines = comparisonRows.map((r) => [
-      `"${r.curso}"`,
-      `"${r.modalidade}"`,
-      r.meuPreco ? r.meuPreco.toFixed(2) : "0.00",
-      `"${r.concorrenteNome}"`,
-      r.precoConcorrente.toFixed(2),
-      r.diferenca.toFixed(2),
-      r.meuPreco === 0 ? "Sem cadastro" : r.status === "mais_barato" ? "Mais Barato" : r.status === "mais_caro" ? "Mais Caro" : "Igual",
-    ].join(","));
+    const headers = [
+      "Curso",
+      "Modalidade",
+      "Turno",
+      "Minha Instituição (R$)",
+      "Concorrente",
+      "Preço Concorrente (R$)",
+      "Diferença (R$)",
+      "Variação (%)",
+      "Situação",
+    ];
+    const csvLines = comparisonRows.map((r) =>
+      [
+        `"${r.curso.replace(/"/g, '""')}"`,
+        `"${r.modalidade}"`,
+        `"${r.turno || ""}"`,
+        r.meuPreco ? r.meuPreco.toFixed(2) : "0.00",
+        `"${r.concorrenteNome.replace(/"/g, '""')}"`,
+        r.precoConcorrente.toFixed(2),
+        r.diferenca.toFixed(2),
+        `${r.percentualDiff.toFixed(1)}%`,
+        r.meuPreco === 0
+          ? "Sem cadastro da minha instituição"
+          : r.status === "mais_barato"
+          ? "Mais Barato"
+          : r.status === "mais_caro"
+          ? "Mais Caro"
+          : "Igual",
+      ].join(",")
+    );
 
     const content = [headers.join(","), ...csvLines].join("\n");
     const blob = new Blob(["\uFEFF" + content], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `comparativo_precos_concorrencia_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute(
+      "download",
+      `comparativo_precos_concorrencia_${new Date().toISOString().split("T")[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     onToast("Relatório CSV exportado com sucesso!", "success");
   };
 
+  const filteredPrecosMinhaInst = useMemo(() => {
+    if (!searchPrecosMinhaInst) return precosMinhaInst;
+    const q = searchPrecosMinhaInst.toLowerCase();
+    return precosMinhaInst.filter(
+      (p) =>
+        p.curso?.toLowerCase().includes(q) ||
+        p.modalidade?.toLowerCase().includes(q) ||
+        p.turno?.toLowerCase().includes(q)
+    );
+  }, [precosMinhaInst, searchPrecosMinhaInst]);
+
   return (
     <div className="space-y-6">
+      {/* Autocomplete Datalist */}
+      <datalist id="sugestoes-cursos-lista">
+        {courseSuggestions.map((name, idx) => (
+          <option key={idx} value={name} />
+        ))}
+      </datalist>
+
       {/* Top Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-rose-50 border border-rose-200 p-5 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-rose-100 text-rose-700 rounded-2xl flex items-center justify-center font-black">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-rose-50/80 border border-rose-200/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+          <div className="w-12 h-12 bg-rose-100 text-rose-700 rounded-2xl flex items-center justify-center font-black shrink-0">
             <TrendingUp size={24} />
           </div>
-          <div>
-            <p className="text-xs font-bold uppercase text-rose-800">Mais Caro em</p>
-            <p className="text-2xl font-black text-rose-900">{countMaisCaro} cursos</p>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-rose-800">Mais Caro</p>
+            <p className="text-2xl font-black text-rose-900">{countMaisCaro} <span className="text-xs font-medium text-rose-700">cursos</span></p>
           </div>
         </div>
 
-        <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center font-black">
+        <div className="bg-emerald-50/80 border border-emerald-200/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+          <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center justify-center font-black shrink-0">
             <TrendingDown size={24} />
           </div>
-          <div>
-            <p className="text-xs font-bold uppercase text-emerald-800">Mais Barato em</p>
-            <p className="text-2xl font-black text-emerald-900">{countMaisBarato} cursos</p>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Mais Barato</p>
+            <p className="text-2xl font-black text-emerald-900">{countMaisBarato} <span className="text-xs font-medium text-emerald-700">cursos</span></p>
           </div>
         </div>
 
-        <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-2xl flex items-center justify-center font-black">
+        <div className="bg-indigo-50/80 border border-indigo-200/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+          <div className="w-12 h-12 bg-indigo-100 text-indigo-700 rounded-2xl flex items-center justify-center font-black shrink-0">
             <DollarSign size={24} />
           </div>
-          <div>
-            <p className="text-xs font-bold uppercase text-indigo-800">Diferença Média</p>
-            <p className="text-xl font-black text-indigo-950">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-800">Diferença Média</p>
+            <p className="text-xl font-black text-indigo-950 truncate">
               {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(diffMedia)}
             </p>
-            <p className="text-[11px] font-bold text-indigo-700 capitalize">{rotuloAutomatico}</p>
+            <p className="text-[11px] font-bold text-indigo-700 capitalize truncate">{rotuloAutomatico}</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+          <div className="w-12 h-12 bg-slate-200 text-slate-700 rounded-2xl flex items-center justify-center font-black shrink-0">
+            <Layers size={24} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-600">Nossos Preços</p>
+            <p className="text-2xl font-black text-slate-800">{precosMinhaInst.length} <span className="text-xs font-medium text-slate-500">cadastrados</span></p>
+            <button
+              onClick={() => setIsManagingPrecosModal(true)}
+              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline block mt-0.5"
+            >
+              Ver e gerenciar lista →
+            </button>
           </div>
         </div>
       </div>
@@ -2044,10 +2280,21 @@ function ComparativoPrecosView({
       {/* Filter and Actions Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
         <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Buscar por curso ou concorrente..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+            />
+          </div>
+
           <select
             value={filterConcorrente}
             onChange={(e) => setFilterConcorrente(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Todas as IES / Concorrentes</option>
             {concorrentes.map((c) => (
@@ -2060,27 +2307,35 @@ function ComparativoPrecosView({
           <select
             value={filterModalidade}
             onChange={(e) => setFilterModalidade(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Todas as Modalidades</option>
             <option value="Presencial">Presencial</option>
             <option value="Semipresencial">Semipresencial</option>
             <option value="EAD">EAD</option>
+            <option value="Flex">Flex</option>
+            <option value="Digital">Digital</option>
           </select>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={() => setIsAddingPrecoInst(true)}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2"
+            onClick={() => handleOpenAddPreco()}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95"
           >
             <Plus size={16} /> Cadastrar Nosso Preço
           </button>
           <button
-            onClick={handleExportCSV}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-sm"
+            onClick={() => setIsManagingPrecosModal(true)}
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors"
           >
-            <Download size={16} /> Exportar CSV/Excel
+            <Layers size={16} /> Tabela de Preços ({precosMinhaInst.length})
+          </button>
+          <button
+            onClick={handleExportCSV}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95"
+          >
+            <Download size={16} /> Exportar CSV
           </button>
         </div>
       </div>
@@ -2092,19 +2347,31 @@ function ComparativoPrecosView({
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-400">
                 <th className="p-4">Curso</th>
-                <th className="p-4">Modalidade</th>
+                <th className="p-4">Modalidade / Turno</th>
                 <th className="p-4">Minha Instituição (R$)</th>
                 <th className="p-4">Concorrente</th>
                 <th className="p-4">Preço Concorrente (R$)</th>
                 <th className="p-4">Diferença</th>
                 <th className="p-4 text-center">Situação</th>
+                <th className="p-4 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {comparisonRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400 italic">
-                    Nenhum curso comparável cadastrado.
+                  <td colSpan={8} className="p-12 text-center text-slate-400">
+                    <div className="max-w-md mx-auto space-y-2">
+                      <p className="font-bold text-slate-600 text-base">Nenhum curso comparável encontrado.</p>
+                      <p className="text-xs">
+                        Adicione cursos nas fichas dos concorrentes ou cadastre os preços da sua instituição para iniciar a comparação automatizada.
+                      </p>
+                      <button
+                        onClick={() => handleOpenAddPreco()}
+                        className="mt-3 inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold px-4 py-2 rounded-xl text-xs"
+                      >
+                        <Plus size={14} /> Cadastrar Nosso Primeiro Preço
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -2115,35 +2382,92 @@ function ComparativoPrecosView({
                   return (
                     <tr
                       key={r.id}
-                      className={`hover:bg-slate-50/70 transition-colors ${
-                        isCheaper ? "bg-emerald-50/30" : isExpensive ? "bg-rose-50/30" : ""
+                      className={`hover:bg-slate-50/80 transition-colors ${
+                        isCheaper ? "bg-emerald-50/20" : isExpensive ? "bg-rose-50/20" : ""
                       }`}
                     >
-                      <td className="p-4 font-bold text-slate-800">{r.curso}</td>
-                      <td className="p-4 text-slate-600">{r.modalidade}</td>
                       <td className="p-4 font-bold text-slate-800">
-                        {r.meuPreco > 0
-                          ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(r.meuPreco)
-                          : "Não informado"}
+                        {r.curso}
+                      </td>
+                      <td className="p-4 text-slate-600">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-semibold text-xs rounded-md">
+                            {r.modalidade}
+                          </span>
+                          {r.turno && (
+                            <span className="text-[11px] text-slate-400 font-medium">
+                              ({r.turno})
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 font-bold text-slate-800">
+                        {r.meuPreco > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-slate-900 font-black">
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(r.meuPreco)}
+                            </span>
+                            {r.meuPrecoObj && (
+                              <button
+                                onClick={() => handleOpenEditPreco(r.meuPrecoObj!)}
+                                title="Editar nosso preço cadastrado"
+                                className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenAddPreco(r.curso, r.modalidade)}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-2 py-1 rounded-lg flex items-center gap-1 border border-indigo-200"
+                          >
+                            <Plus size={13} /> Cadastrar Valor
+                          </button>
+                        )}
                       </td>
                       <td className="p-4 font-bold text-slate-700">{r.concorrenteNome}</td>
                       <td className="p-4 font-bold text-slate-800">
-                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                          r.precoConcorrente
-                        )}
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(r.precoConcorrente)}
                       </td>
                       <td className="p-4 font-bold">
                         {r.meuPreco > 0 ? (
-                          <span className={isCheaper ? "text-emerald-600" : isExpensive ? "text-rose-600" : "text-slate-600"}>
-                            {r.diferenca > 0 ? `+ R$ ${r.diferenca.toFixed(2)}` : `- R$ ${Math.abs(r.diferenca).toFixed(2)}`}
-                          </span>
+                          <div className="flex flex-col">
+                            <span
+                              className={
+                                isCheaper
+                                  ? "text-emerald-600 font-black"
+                                  : isExpensive
+                                  ? "text-rose-600 font-black"
+                                  : "text-slate-600"
+                              }
+                            >
+                              {r.diferenca > 0
+                                ? `+ R$ ${r.diferenca.toFixed(2)}`
+                                : r.diferenca < 0
+                                ? `- R$ ${Math.abs(r.diferenca).toFixed(2)}`
+                                : "R$ 0,00"}
+                            </span>
+                            {r.percentualDiff !== 0 && (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                ({r.percentualDiff > 0 ? "+" : ""}
+                                {r.percentualDiff.toFixed(1)}%)
+                              </span>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-slate-400 text-xs">-</span>
                         )}
                       </td>
                       <td className="p-4 text-center">
                         {r.meuPreco === 0 ? (
-                          <span className="px-2.5 py-1 bg-slate-100 text-slate-500 font-bold text-xs rounded-full">
+                          <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[11px] rounded-full inline-block">
                             Sem Nosso Valor
                           </span>
                         ) : isCheaper ? (
@@ -2160,6 +2484,25 @@ function ComparativoPrecosView({
                           </span>
                         )}
                       </td>
+                      <td className="p-4 text-center whitespace-nowrap">
+                        {r.meuPrecoObj ? (
+                          <button
+                            onClick={() => handleOpenEditPreco(r.meuPrecoObj!)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-bold inline-flex items-center gap-1"
+                            title="Editar nosso preço"
+                          >
+                            <Edit2 size={15} /> Editar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleOpenAddPreco(r.curso, r.modalidade)}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg text-xs font-bold inline-flex items-center gap-1"
+                            title="Cadastrar nosso valor para este curso"
+                          >
+                            <Plus size={15} /> Cadastrar
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })
@@ -2169,64 +2512,263 @@ function ComparativoPrecosView({
         </div>
       </div>
 
-      {/* MODAL: ADD NOSSO PREÇO */}
+      {/* MODAL: ADD / EDIT NOSSO PREÇO */}
       {isAddingPrecoInst && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-slate-800">Cadastrar Preço da Minha Instituição</h3>
-            <form onSubmit={handleSavePrecoInst} className="space-y-3">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Curso *</label>
+                <h3 className="text-lg font-black text-slate-800">
+                  {editingPrecoInst ? "Editar Preço da Minha Instituição" : "Cadastrar Preço da Minha Instituição"}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Defina o valor do curso para cálculo automatizado de diferenças com a concorrência
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAddingPrecoInst(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePrecoInst} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                  Nome do Curso *
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Medicina, Direito"
+                  list="sugestoes-cursos-lista"
+                  placeholder="Ex: Medicina, Direito, Administração, Enfermagem..."
                   value={formInst.curso}
                   onChange={(e) => setFormInst({ ...formInst, curso: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none"
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Você pode selecionar um curso existente na lista ou digitar um novo nome.
+                </p>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Modalidade</label>
-                <select
-                  value={formInst.modalidade}
-                  onChange={(e) => setFormInst({ ...formInst, modalidade: e.target.value as any })}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none"
-                >
-                  <option value="Presencial">Presencial</option>
-                  <option value="Semipresencial">Semipresencial</option>
-                  <option value="EAD">EAD</option>
-                </select>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Modalidade</label>
+                  <select
+                    value={formInst.modalidade}
+                    onChange={(e) => setFormInst({ ...formInst, modalidade: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  >
+                    <option value="Presencial">Presencial</option>
+                    <option value="Semipresencial">Semipresencial</option>
+                    <option value="EAD">EAD</option>
+                    <option value="Flex">Flex</option>
+                    <option value="Digital">Digital</option>
+                    <option value="Híbrido">Híbrido</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Turno</label>
+                  <select
+                    value={formInst.turno}
+                    onChange={(e) => setFormInst({ ...formInst, turno: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  >
+                    <option value="Noturno">Noturno</option>
+                    <option value="Matutino">Matutino</option>
+                    <option value="Vespertino">Vespertino</option>
+                    <option value="Integral">Integral</option>
+                    <option value="EAD / Livre">EAD / Livre</option>
+                  </select>
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                    Nossa Mensalidade (R$) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: 450,00 ou 450.00"
+                    value={formInst.mensalidade}
+                    onChange={(e) => setFormInst({ ...formInst, mensalidade: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none font-bold text-emerald-700 focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Valor praticado / com desconto comercial.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                    Valor de Tabela (R$) <span className="text-slate-400 font-normal">(Opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 890,00"
+                    value={formInst.valorDe}
+                    onChange={(e) => setFormInst({ ...formInst, valorDe: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">Valor cheio sem bolsas.</p>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nossa Mensalidade (R$) *</label>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">
+                  Unidade / Campus <span className="text-slate-400 font-normal">(Opcional)</span>
+                </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="0.00"
-                  value={formInst.mensalidade}
-                  onChange={(e) => setFormInst({ ...formInst, mensalidade: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none"
+                  type="text"
+                  placeholder="Ex: Campus Principal, Unidade Centro..."
+                  value={formInst.unidade}
+                  onChange={(e) => setFormInst({ ...formInst, unidade: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-2">
+              <div className="pt-3 flex justify-end gap-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddingPrecoInst(false)}
-                  className="px-4 py-2 text-slate-600 font-bold rounded-xl text-sm"
+                  className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 font-bold rounded-xl text-sm transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-indigo-600 text-white font-bold px-5 py-2 rounded-xl text-sm shadow-sm"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm shadow-md transition-all active:scale-95 flex items-center gap-2"
                 >
-                  Salvar
+                  <CheckCircle2 size={16} />
+                  {editingPrecoInst ? "Salvar Alterações" : "Cadastrar Preço"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: GERENCIAR TABELA DE PREÇOS DA INSTITUIÇÃO */}
+      {isManagingPrecosModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                  <Layers className="text-indigo-600" size={22} />
+                  Tabela de Preços da Minha Instituição
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Gerencie os valores oficiais cadastrados para a sua instituição de ensino ({precosMinhaInst.length} cursos)
+                </p>
+              </div>
+              <button
+                onClick={() => setIsManagingPrecosModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between gap-3 items-stretch sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Pesquisar nossos cursos..."
+                  value={searchPrecosMinhaInst}
+                  onChange={(e) => setSearchPrecosMinhaInst(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  handleOpenAddPreco();
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Plus size={16} /> Novo Preço
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto border border-slate-100 rounded-2xl">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-bold uppercase text-slate-400 sticky top-0 bg-slate-50">
+                    <th className="p-3.5">Curso</th>
+                    <th className="p-3.5">Modalidade</th>
+                    <th className="p-3.5">Turno</th>
+                    <th className="p-3.5">Mensalidade (R$)</th>
+                    <th className="p-3.5">Valor Tabela</th>
+                    <th className="p-3.5 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {filteredPrecosMinhaInst.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                        Nenhum preço de curso cadastrado ainda.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPrecosMinhaInst.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="p-3.5 font-bold text-slate-800">{p.curso}</td>
+                        <td className="p-3.5">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 font-semibold text-xs rounded-md">
+                            {p.modalidade}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-600 text-xs">{p.turno || "-"}</td>
+                        <td className="p-3.5 font-black text-emerald-600">
+                          {new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          }).format(p.mensalidade)}
+                        </td>
+                        <td className="p-3.5 text-slate-400 text-xs">
+                          {p.valorDe
+                            ? new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(p.valorDe)
+                            : "-"}
+                        </td>
+                        <td className="p-3.5 text-center whitespace-nowrap">
+                          <button
+                            onClick={() => {
+                              handleOpenEditPreco(p);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg mr-1 transition-colors"
+                            title="Editar preço"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePrecoInst(p.id, p.curso)}
+                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Excluir preço"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="pt-2 flex justify-end border-t border-slate-100">
+              <button
+                onClick={() => setIsManagingPrecosModal(false)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
           </div>
         </div>
       )}

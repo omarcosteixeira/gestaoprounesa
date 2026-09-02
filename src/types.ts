@@ -240,10 +240,13 @@ export interface EvidenciaClienteOculto {
 export interface PrecoInstituicao {
   id: string;
   curso: string;
-  modalidade: 'Presencial' | 'Semipresencial' | 'EAD';
+  modalidade: 'Presencial' | 'Semipresencial' | 'EAD' | string;
+  turno?: string;
   mensalidade: number;
+  valorDe?: number;
   unidade?: string;
   createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface ControleConcorrencia {
