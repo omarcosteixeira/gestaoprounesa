@@ -1,3 +1,4 @@
+import { PublicValidadorVouchers } from "./components/PublicValidadorVouchers";
 import { BasesView } from "./components/BasesView";
 import { ROLES } from "./types";
 ﻿import { AdminView } from "./components/AdminView";
@@ -7005,6 +7006,24 @@ export default function App() {
           )}
         </AnimatePresence>
         <PublicPedidoCursoForm onToast={showToast} />
+      </div>
+    );
+  }
+
+
+  if (currentView === "validador-vouchers") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <AnimatePresence>
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          )}
+        </AnimatePresence>
+        <PublicValidadorVouchers onToast={showToast} />
       </div>
     );
   }

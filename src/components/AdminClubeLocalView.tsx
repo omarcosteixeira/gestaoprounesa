@@ -111,6 +111,19 @@ function ValidadorVouchers({ resgates, onToast }: { resgates: ClubeResgate[]; on
           <p className="text-sm text-slate-500">
             Digite o <strong>Código Único de Resgate</strong> (6 caracteres) apresentado pelo aluno para verificar a validade e registrar o uso.
           </p>
+          <div className="pt-2">
+            <button 
+              onClick={() => {
+                const url = window.location.origin + "/?view=validador-vouchers";
+                navigator.clipboard.writeText(url);
+                onToast("Link público copiado! Envie para o parceiro validar vouchers sem precisar de senha.", "success");
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl transition-colors text-sm"
+            >
+              <ExternalLink size={16} />
+              Copiar Link de Acesso Público para o Parceiro
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleBuscar} className="flex gap-2">
