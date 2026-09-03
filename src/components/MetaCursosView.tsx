@@ -129,8 +129,9 @@ export default function MetaCursosView({
         financeiro: { ...emptyMetrics },
         academico: { ...emptyMetrics },
       });
-    } catch (error) {
-      onToast("Erro ao salvar registro.", "error");
+    } catch (error: any) {
+      console.error(error);
+      onToast(`Erro ao salvar meta de curso: ${error?.message || "Tente novamente"}`, "error");
     }
   };
 

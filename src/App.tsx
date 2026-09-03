@@ -7884,6 +7884,7 @@ export default function App() {
                   clubeParceiros={clubeParceiros}
                   clubeResgates={clubeResgates}
                   uniqueUnidades={uniqueUnidades}
+                  metaDia={metaDia}
                   metaSM={metaSM}
                   metaCursos={metaCursos}
                   metasUnidadeRegional={metasUnidadeRegional}

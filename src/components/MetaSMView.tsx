@@ -32,6 +32,7 @@ export default function MetaSMView({
       metaFinal: item.metaFinal?.toString() || "",
       realizado: item.realizado?.toString() || "",
     });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -79,9 +80,9 @@ export default function MetaSMView({
         metaFinal: "",
         realizado: "",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      onToast("Erro ao salvar Meta SM.", "error");
+      onToast(`Erro ao salvar Meta SM: ${error?.message || "Tente novamente"}`, "error");
     }
   };
 

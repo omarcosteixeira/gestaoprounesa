@@ -86,7 +86,8 @@ import { AdminLogotipoLoginView } from "./AdminLogotipoLoginView";
 import { FormulariosView } from "./FormulariosView";
 import { AdminBackupSegurancaView } from "./AdminBackupSegurancaView";
 import { MetasUnidadeRegionalView } from "./MetasUnidadeRegionalView";
-import { MetaUnidadeRegional } from "../types";
+import MetaDiaView from "./MetaDiaView";
+import { MetaUnidadeRegional, MetaDia } from "../types";
 
 interface Props {
   profile: UserProfile;
@@ -97,6 +98,7 @@ interface Props {
   clubeParceiros?: ClubeParceiro[];
   clubeResgates?: ClubeResgate[];
   uniqueUnidades?: string[];
+  metaDia?: MetaDia[];
   metaSM?: MetaSM[];
   metaCursos?: MetaCurso[];
   metasUnidadeRegional?: MetaUnidadeRegional[];
@@ -151,6 +153,7 @@ export function AdminMainView({
   clubeParceiros = [],
   clubeResgates = [],
   uniqueUnidades = [],
+  metaDia: metaDiaProp,
   metaSM = [],
   metaCursos = [],
   metasUnidadeRegional = [],
@@ -182,6 +185,7 @@ export function AdminMainView({
     | "tarefas"
     | "clubeLocal"
     | "funcionarios"
+    | "metaDia"
     | "metaSM"
     | "metaCursos"
     | "metasUnidadeRegional"
@@ -208,6 +212,16 @@ export function AdminMainView({
   const [localPlanner, setLocalPlanner] = useState<PlannerTask[]>([]);
   const [localPeriodos, setLocalPeriodos] = useState<PeriodoCaptacao[]>([]);
   const [localLinks, setLocalLinks] = useState<LinkUtil[]>([]);
+  const [localMetaDia, setLocalMetaDia] = useState<MetaDia[]>([]);
+
+  useEffect(() => {
+    if (!metaDiaProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.META_DIA), (s) => {
+        setLocalMetaDia(s.docs.map((d) => ({ id: d.id, ...d.data() }) as MetaDia));
+      });
+      return () => unsub();
+    }
+  }, [metaDiaProp]);
 
   useEffect(() => {
     if (!folgasProp) {
@@ -279,6 +293,7 @@ export function AdminMainView({
   const activePlanner = plannerProp || localPlanner;
   const activePeriodos = periodosProp || localPeriodos;
   const activeLinks = linksProp || localLinks;
+  const activeMetaDia = metaDiaProp || localMetaDia;
 
   // User Management States
   const [searchTerm, setSearchTerm] = useState("");
@@ -460,6 +475,7 @@ export function AdminMainView({
     { id: "tarefas", label: "Cadastro de Tarefas", icon: CheckSquare },
     { id: "clubeLocal", label: "Clube Local (Vouchers)", icon: Gift },
     { id: "funcionarios", label: "Docentes & Administrativos", icon: GraduationCap },
+    { id: "metaDia", label: "Meta Dia", icon: Target },
     { id: "metaSM", label: "Metas SM", icon: Target },
     { id: "metaCursos", label: "Metas Cursos", icon: BookOpen },
     { id: "metasUnidadeRegional", label: "Metas Unidade Regional", icon: Target },
@@ -488,6 +504,7 @@ export function AdminMainView({
     "planner",
     "periodos",
     "forecast",
+    "metaDia",
     "metasUnidadeRegional",
   ];
 
@@ -649,6 +666,10 @@ export function AdminMainView({
           onToast={onToast}
           uniqueUnidades={uniqueUnidades}
         />
+      )}
+
+      {activeSubTab === "metaDia" && (
+        <MetaDiaView metaDia={activeMetaDia} onToast={onToast} />
       )}
 
       {activeSubTab === "metaSM" && (

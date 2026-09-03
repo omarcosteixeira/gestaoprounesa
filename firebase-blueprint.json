@@ -405,6 +405,18 @@
       "schema": "MetaDia",
       "description": "Meta Dia goals and performance entries"
     },
+    "artifacts/gestaopro-761e1/public/data/meta_sm/{id}": {
+      "schema": "MetaSM",
+      "description": "Meta SM goals and tracking entries"
+    },
+    "artifacts/gestaopro-761e1/public/data/meta_cursos/{id}": {
+      "schema": "MetaCurso",
+      "description": "Meta Cursos goals and tracking entries"
+    },
+    "artifacts/gestaopro-761e1/public/data/meta_unidade_regional/{id}": {
+      "schema": "MetaUnidadeRegional",
+      "description": "Meta Unidade Regional goals and tracking entries"
+    },
     "artifacts/gestaopro-761e1/public/data/solicitacoes_folga/{id}": {
       "schema": "SolicitacaoFolga",
       "description": "Time off and vacation requests data"
