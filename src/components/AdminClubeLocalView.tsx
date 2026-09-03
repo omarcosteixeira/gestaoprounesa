@@ -23,7 +23,12 @@ import {
   Sparkles,
   Info,
   Layers,
+  TrendingUp,
+  Clock,
+  RotateCcw,
+  Filter,
 } from "lucide-react";
+import { AdminEmpresasValidadorasView } from "./AdminEmpresasValidadorasView";
 
 interface Props {
   parceiros: ClubeParceiro[];
@@ -66,13 +71,22 @@ function ValidadorVouchers({ resgates, onToast }: { resgates: ClubeResgate[]; on
   const [buscando, setBuscando] = useState(false);
   const [validando, setValidando] = useState(false);
 
+  // Table filters
+  const [tableSearch, setTableSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"TODOS" | "UTILIZADOS" | "PENDENTES">("TODOS");
+
   const handleBuscar = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!codigoBusca.trim()) return;
-    setBuscando(true);
     const upperCode = codigoBusca.trim().toUpperCase();
+    if (!upperCode) return;
+    setBuscando(true);
     
-    const found = resgates.find(r => r.codigoUnicoResgate === upperCode);
+    const found = resgates.find(r => {
+      const unique = (r.codigoUnicoResgate || "").toUpperCase();
+      const uniqueWithoutPrefix = unique.replace("RES-", "");
+      const promo = (r.codigoVoucher || "").toUpperCase();
+      return unique === upperCode || uniqueWithoutPrefix === upperCode || unique === `RES-${upperCode}` || promo === upperCode;
+    });
     
     setTimeout(() => {
       setResgateEncontrado(found || null);
@@ -80,19 +94,21 @@ function ValidadorVouchers({ resgates, onToast }: { resgates: ClubeResgate[]; on
         onToast("Voucher não encontrado ou código inválido.", "error");
       }
       setBuscando(false);
-    }, 500);
+    }, 400);
   };
 
-  const handleValidar = async () => {
-    if (!resgateEncontrado?.id) return;
+  const handleValidar = async (resgateId: string) => {
     setValidando(true);
     try {
-      await updateDoc(doc(db, COLLECTIONS.CLUBE_RESGATES, resgateEncontrado.id), {
+      await updateDoc(doc(db, COLLECTIONS.CLUBE_RESGATES, resgateId), {
         status: "utilizado",
+        empresaValidadora: "Administração",
         dataUtilizacao: serverTimestamp()
       });
       onToast("Voucher validado com sucesso!", "success");
-      setResgateEncontrado(prev => prev ? { ...prev, status: "utilizado" } : null);
+      if (resgateEncontrado?.id === resgateId) {
+        setResgateEncontrado(prev => prev ? { ...prev, status: "utilizado" } : null);
+      }
     } catch (err: any) {
       onToast("Erro ao validar voucher: " + err.message, "error");
     } finally {
@@ -100,110 +116,304 @@ function ValidadorVouchers({ resgates, onToast }: { resgates: ClubeResgate[]; on
     }
   };
 
+  const handleReverter = async (resgateId: string) => {
+    if (!window.confirm("Deseja reverter este voucher para o status Pendente?")) return;
+    try {
+      await updateDoc(doc(db, COLLECTIONS.CLUBE_RESGATES, resgateId), {
+        status: "pendente",
+        dataUtilizacao: null
+      });
+      onToast("Status revertido para Pendente!", "success");
+      if (resgateEncontrado?.id === resgateId) {
+        setResgateEncontrado(prev => prev ? { ...prev, status: "pendente" } : null);
+      }
+    } catch (err: any) {
+      onToast("Erro ao reverter status: " + err.message, "error");
+    }
+  };
+
+  // KPIs
+  const totalResgates = resgates.length;
+  const totalUtilizados = resgates.filter(r => r.status === "utilizado").length;
+  const totalPendentes = resgates.filter(r => r.status !== "utilizado").length;
+  const taxaValidacao = totalResgates > 0 ? Math.round((totalUtilizados / totalResgates) * 100) : 0;
+
+  // Filtered Table
+  const filteredResgates = resgates.filter(r => {
+    const q = tableSearch.toLowerCase();
+    const matchesSearch =
+      (r.userName || "").toLowerCase().includes(q) ||
+      (r.userEmail || "").toLowerCase().includes(q) ||
+      (r.nomeEmpresa || "").toLowerCase().includes(q) ||
+      (r.codigoUnicoResgate || "").toLowerCase().includes(q) ||
+      (r.codigoVoucher || "").toLowerCase().includes(q) ||
+      (r.empresaValidadora || "").toLowerCase().includes(q);
+
+    const matchesStatus =
+      statusFilter === "TODOS" ||
+      (statusFilter === "UTILIZADOS" && r.status === "utilizado") ||
+      (statusFilter === "PENDENTES" && r.status !== "utilizado");
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6">
-      <div className="max-w-xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <QrCode size={32} />
-          </div>
-          <h3 className="text-xl font-black text-slate-800">Validação de Vouchers</h3>
-          <p className="text-sm text-slate-500">
-            Digite o <strong>Código Único de Resgate</strong> (6 caracteres) apresentado pelo aluno para verificar a validade e registrar o uso.
-          </p>
-          <div className="pt-2">
-            <button 
-              onClick={() => {
-                const url = window.location.origin + "/?view=validador-vouchers";
-                navigator.clipboard.writeText(url);
-                onToast("Link público copiado! Envie para o parceiro validar vouchers sem precisar de senha.", "success");
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl transition-colors text-sm"
-            >
-              <ExternalLink size={16} />
-              Copiar Link de Acesso Público para o Parceiro
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Resgatados</div>
+          <div className="text-2xl font-black text-slate-800 mt-1">{totalResgates}</div>
         </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Utilizados / Validados</div>
+          <div className="text-2xl font-black text-emerald-600 mt-1">{totalUtilizados}</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Pendentes de Uso</div>
+          <div className="text-2xl font-black text-amber-600 mt-1">{totalPendentes}</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Taxa de Validação</div>
+          <div className="text-2xl font-black text-blue-600 mt-1">{taxaValidacao}%</div>
+        </div>
+      </div>
 
-        <form onSubmit={handleBuscar} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input
-              type="text"
-              placeholder="Ex: A1B2C3"
-              value={codigoBusca}
-              onChange={(e) => setCodigoBusca(e.target.value.toUpperCase())}
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase text-center tracking-[0.2em]"
-              maxLength={6}
-            />
+      {/* Fast Validator Card */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="max-w-xl mx-auto space-y-5">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-2">
+              <QrCode size={28} />
+            </div>
+            <h3 className="text-xl font-black text-slate-800">Consulta & Validação Rápida</h3>
+            <p className="text-xs text-slate-500">
+              Digite o <strong>Código Único de Resgate</strong> (ex: <span className="font-mono font-bold text-blue-600">RES-ABC12</span> ou <span className="font-mono font-bold text-blue-600">ABC12</span>) apresentado pelo aluno para verificar a validade e registrar o uso.
+            </p>
+            <div className="pt-2">
+              <button 
+                onClick={() => {
+                  const url = window.location.origin + "/?view=validador-vouchers";
+                  navigator.clipboard.writeText(url);
+                  onToast("Link público copiado! Envie para o parceiro validar vouchers sem precisar de login.", "success");
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl transition-colors text-xs cursor-pointer"
+              >
+                <ExternalLink size={15} />
+                Copiar Link Público do Validador de Vouchers
+              </button>
+            </div>
           </div>
-          <button
-            type="submit"
-            disabled={buscando || codigoBusca.length < 5}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md cursor-pointer"
-          >
-            {buscando ? "Buscando..." : "Buscar"}
-          </button>
-        </form>
 
-        {resgateEncontrado && (
-          <div className="mt-8 border border-slate-200 rounded-2xl p-6 bg-slate-50 animate-in fade-in zoom-in-95">
-            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Resultado da Busca</h4>
-            
-            <div className="space-y-4">
+          <form onSubmit={handleBuscar} className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="Ex: RES-A1B2C ou A1B2C"
+                value={codigoBusca}
+                onChange={(e) => setCodigoBusca(e.target.value.toUpperCase())}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-base text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase text-center tracking-[0.15em]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={buscando || codigoBusca.trim().length < 3}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md cursor-pointer text-sm"
+            >
+              {buscando ? "Buscando..." : "Consultar"}
+            </button>
+          </form>
+
+          {resgateEncontrado && (
+            <div className="mt-6 border border-slate-200 rounded-2xl p-5 bg-slate-50 animate-in fade-in zoom-in-95 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Resultado da Busca</span>
+                <span className="font-mono text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-md">
+                  {resgateEncontrado.codigoUnicoResgate || resgateEncontrado.codigoVoucher}
+                </span>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-slate-500 font-bold mb-1">Aluno(a)</p>
-                  <p className="text-base font-black text-slate-800">{resgateEncontrado.userName}</p>
-                  <p className="text-xs text-slate-500">{resgateEncontrado.userEmail}</p>
+                  <p className="text-[11px] text-slate-500 font-bold mb-0.5">Aluno(a)</p>
+                  <p className="text-sm font-black text-slate-800">{resgateEncontrado.userName}</p>
+                  <p className="text-xs text-slate-500 truncate">{resgateEncontrado.userEmail}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-bold mb-1">Parceiro</p>
-                  <p className="text-base font-black text-slate-800">{resgateEncontrado.nomeEmpresa}</p>
-                  <p className="text-xs font-mono font-bold text-blue-600 bg-blue-50 inline-block px-2 py-0.5 rounded mt-1">
-                    {resgateEncontrado.codigoVoucher}
+                  <p className="text-[11px] text-slate-500 font-bold mb-0.5">Parceiro</p>
+                  <p className="text-sm font-black text-slate-800">{resgateEncontrado.nomeEmpresa}</p>
+                  <p className="text-xs font-mono font-bold text-blue-600 bg-blue-50 inline-block px-2 py-0.5 rounded mt-0.5">
+                    Cupom: {resgateEncontrado.codigoVoucher}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs text-slate-500 font-bold mb-1">Data do Resgate</p>
-                <p className="text-sm font-bold text-slate-700">
+                <p className="text-[11px] text-slate-500 font-bold mb-0.5">Data do Resgate</p>
+                <p className="text-xs font-bold text-slate-700">
                   {resgateEncontrado.dataResgate?.toDate ? resgateEncontrado.dataResgate.toDate().toLocaleString("pt-BR") : "Data indisponível"}
                 </p>
               </div>
 
-              <div className="pt-4 border-t border-slate-200 flex flex-col items-center">
+              <div className="pt-3 border-t border-slate-200 flex flex-col items-center">
                 {resgateEncontrado.status === "utilizado" ? (
-                  <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl w-full text-center flex flex-col items-center gap-2">
-                    <XCircle size={32} />
+                  <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl w-full text-center space-y-2">
+                    <XCircle size={28} className="mx-auto" />
                     <div>
-                      <p className="font-black text-lg">Voucher já utilizado!</p>
-                      <p className="text-sm font-medium">Este voucher não pode ser usado novamente.</p>
+                      <p className="font-black text-base">Voucher já utilizado!</p>
+                      {resgateEncontrado.empresaValidadora && (
+                        <p className="text-xs font-medium mt-0.5">Baixado por: <strong>{resgateEncontrado.empresaValidadora}</strong></p>
+                      )}
                       {resgateEncontrado.dataUtilizacao?.toDate && (
-                        <p className="text-xs mt-1 opacity-80">Utilizado em: {resgateEncontrado.dataUtilizacao.toDate().toLocaleString("pt-BR")}</p>
+                        <p className="text-xs opacity-75">Data: {resgateEncontrado.dataUtilizacao.toDate().toLocaleString("pt-BR")}</p>
                       )}
                     </div>
+                    <button
+                      onClick={() => handleReverter(resgateEncontrado.id!)}
+                      className="mt-2 text-xs font-bold text-rose-800 underline hover:text-rose-950 cursor-pointer"
+                    >
+                      Reverter para Pendente
+                    </button>
                   </div>
                 ) : (
-                  <div className="w-full space-y-4">
-                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-xl w-full text-center flex items-center justify-center gap-2">
-                      <CheckCircle2 size={24} />
-                      <span className="font-black">Voucher Válido e Pendente de Uso</span>
+                  <div className="w-full space-y-3">
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-3 rounded-xl w-full text-center flex items-center justify-center gap-2">
+                      <CheckCircle2 size={18} />
+                      <span className="font-bold text-xs">Voucher Válido e Pendente de Uso</span>
                     </div>
                     <button
-                      onClick={handleValidar}
+                      onClick={() => handleValidar(resgateEncontrado.id!)}
                       disabled={validando}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-lg cursor-pointer"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm cursor-pointer"
                     >
-                      <CheckSquare size={24} />
-                      {validando ? "Validando..." : "Confirmar Utilização (Baixa)"}
+                      <CheckSquare size={18} />
+                      {validando ? "Validando..." : "Confirmar Utilização (Dar Baixa)"}
                     </button>
                   </div>
                 )}
               </div>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Full Redemption History Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden space-y-4 p-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h4 className="font-extrabold text-slate-800 text-base">Histórico Completo de Resgates & Validações</h4>
+            <p className="text-xs text-slate-500">Acompanhe todos os cupons resgatados pelos alunos e o status de uso.</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Filtrar aluno, código, parceiro..."
+                value={tableSearch}
+                onChange={(e) => setTableSearch(e.target.value)}
+                className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-blue-500 w-56"
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(e: any) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:border-blue-500"
+            >
+              <option value="TODOS">Todos os Status</option>
+              <option value="UTILIZADOS">Utilizados</option>
+              <option value="PENDENTES">Pendentes</option>
+            </select>
+          </div>
+        </div>
+
+        {filteredResgates.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400 font-semibold">
+            Nenhum resgate encontrado para os filtros selecionados.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="px-4 py-3">Código Único</th>
+                  <th className="px-4 py-3">Aluno(a)</th>
+                  <th className="px-4 py-3">Parceiro / Benefício</th>
+                  <th className="px-4 py-3">Data Resgate</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Validador / Data Uso</th>
+                  <th className="px-4 py-3 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredResgates.map((r) => (
+                  <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-3 font-mono font-bold text-blue-600">
+                      {r.codigoUnicoResgate || r.codigoVoucher}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-slate-800">{r.userName}</div>
+                      <div className="text-[11px] text-slate-400">{r.userEmail}</div>
+                      {r.userUnidade && (
+                        <div className="text-[10px] text-slate-500 mt-0.5">{r.userUnidade}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-slate-800">{r.nomeEmpresa}</div>
+                      <div className="text-[11px] text-emerald-600 font-mono">Cupom: {r.codigoVoucher}</div>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {r.dataResgate?.toDate ? r.dataResgate.toDate().toLocaleDateString("pt-BR") : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {r.status === "utilizado" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                          <CheckCircle2 size={11} /> Utilizado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800">
+                          <Clock size={11} /> Pendente
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-[11px] text-slate-600">
+                      {r.status === "utilizado" ? (
+                        <div>
+                          <div className="font-semibold text-slate-800">{r.empresaValidadora || "Parceiro"}</div>
+                          {r.atendenteNome && <div className="text-slate-500">Atendente: {r.atendenteNome}</div>}
+                          {r.dataUtilizacao?.toDate && (
+                            <div className="text-slate-400">{r.dataUtilizacao.toDate().toLocaleDateString("pt-BR")}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">Ainda não utilizado</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {r.status === "utilizado" ? (
+                        <button
+                          onClick={() => handleReverter(r.id!)}
+                          className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                          title="Reverter para Pendente"
+                        >
+                          <RotateCcw size={14} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleValidar(r.id!)}
+                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <Check size={12} /> Dar Baixa
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -213,7 +423,7 @@ function ValidadorVouchers({ resgates, onToast }: { resgates: ClubeResgate[]; on
 
 
 export function AdminClubeLocalView({ parceiros, resgates, unidades = [], onToast }: Props) {
-  const [activeTab, setActiveTab] = useState<"parceiros" | "validacao">("parceiros");
+  const [activeTab, setActiveTab] = useState<"parceiros" | "validacao" | "empresas">("parceiros");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("TODAS");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVOS" | "INATIVOS">("TODOS");
@@ -442,11 +652,27 @@ export function AdminClubeLocalView({ parceiros, resgates, unidades = [], onToas
         >
           <QrCode size={18} /> Validação de Vouchers
         </button>
+        <button
+          onClick={() => setActiveTab("empresas")}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-black transition-colors border-b-2 -mb-[2px] cursor-pointer ${
+            activeTab === "empresas"
+              ? "text-blue-600 border-blue-600"
+              : "text-slate-500 border-transparent hover:text-slate-800"
+          }`}
+        >
+          <Building2 size={18} /> Empresas Validadoras
+        </button>
       </div>
 
-      {activeTab === "validacao" ? (
+      {activeTab === "validacao" && (
         <ValidadorVouchers resgates={resgates} onToast={onToast} />
-      ) : (
+      )}
+
+      {activeTab === "empresas" && (
+        <AdminEmpresasValidadorasView unidades={unidades} onToast={onToast} />
+      )}
+
+      {activeTab === "parceiros" && (
         <>
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

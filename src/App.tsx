@@ -1296,7 +1296,14 @@ function MapaoAcademicoView({
     e.target.value = ''; // Reset input
   };
 
-  const canEdit = true;
+  const canEdit =
+    profile?.role === ROLES.ADMIN_MASTER ||
+    profile?.role === ROLES.REGIONAL ||
+    profile?.role === ROLES.GESTOR ||
+    profile?.role === ROLES.GESTOR_UNIDADE ||
+    profile?.role === ROLES.GESTOR_COMERCIAL ||
+    profile?.role === ROLES.GESTOR_COMERCIAL_COMERCIAL ||
+    profile?.role === ROLES.ACADEMICO;
 
   return (
     <div className="space-y-6">

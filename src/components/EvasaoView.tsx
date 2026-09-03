@@ -13,7 +13,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { COLLECTIONS } from "../firebase";
-import { EvasaoRecord, UserProfile } from "../types";
+import { EvasaoRecord, UserProfile, ROLES } from "../types";
 import { 
   Plus, 
   Search, 
@@ -95,9 +95,9 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
   useEffect(() => {
     if (!profile) return;
 
-    const isPrincipalServer = ((localStorage.getItem("servidor_selected") as string) || "principal") === "principal";
     const isRestricted = 
-      (!isPrincipalServer || profile?.role !== "SSA") &&
+      profile?.role !== "SSA" &&
+      profile?.role !== ROLES.SSA &&
       profile?.role !== "Admin Master" && 
       profile?.role !== "Gestor Comercial" && 
       profile?.role !== "Gerente Comercial (Comercial)" &&

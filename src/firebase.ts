@@ -124,6 +124,7 @@ export const COLLECTIONS = new Proxy({} as any, {
       META_UNIDADE_REGIONAL: `artifacts/${currentProjectId}/public/data/meta_unidade_regional`,
       CLUBE_PARCEIROS: `artifacts/${currentProjectId}/public/data/clube_parceiros`,
       CLUBE_RESGATES: `artifacts/${currentProjectId}/public/data/clube_resgates`,
+      CLUBE_EMPRESAS_VALIDADORAS: `artifacts/${currentProjectId}/public/data/clube_empresas_validadoras`,
     };
     return paths[prop];
   }

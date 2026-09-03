@@ -929,6 +929,27 @@ export interface ClubeResgate {
   status?: 'pendente' | 'utilizado';
   dataUtilizacao?: any;
   dataResgate: any;
+  empresaValidadora?: string;
+  atendenteNome?: string;
+  observacaoUso?: string;
+  valorConsumo?: number;
+  descontoAplicado?: number;
+}
+
+export interface ClubeEmpresaValidadora {
+  id?: string;
+  nomeEmpresa: string;
+  parceiroId?: string;
+  cnpj?: string;
+  responsavelNome?: string;
+  responsavelTelefone?: string;
+  endereco?: string;
+  unidade?: string;
+  codigoAcesso?: string;
+  ativo?: boolean;
+  totalValidados?: number;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export const ROLES: Record<string, UserRole> = {

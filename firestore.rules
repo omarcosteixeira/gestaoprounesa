@@ -103,6 +103,20 @@ service cloud.firestore {
     match /solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
     match /qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
+    match /clube_resgates/{id} {
+      allow read, create, update: if true;
+      allow delete: if isAuthenticated();
+    }
+    match /clube_empresas_validadoras/{id} {
+      allow read: if true;
+      allow create, delete: if isAuthenticated();
+      allow update: if isAuthenticated() || true;
+    }
+    match /fies_prouni/{id} { allow read, write: if isAuthenticated(); }
+    match /fies_prouni_vagas/{id} { allow read, write: if isAuthenticated(); }
+    match /mapao_academico/{id} { allow read, write: if isAuthenticated(); }
+    match /evasao/{id} { allow read, write: if isAuthenticated(); }
+    match /bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
 
     match /{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
@@ -143,8 +157,14 @@ service cloud.firestore {
     match /artifacts/gestaopro-761e1/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
-
     match /artifacts/gestaopro-761e1/public/data/clube_resgates/{id} { allow read, write: if true; }
+    match /artifacts/gestaopro-761e1/public/data/clube_empresas_validadoras/{id} { allow read, write: if true; }
+    match /artifacts/gestaopro-761e1/public/data/fies_prouni/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/fies_prouni_vagas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
+
     match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
     }
@@ -184,8 +204,21 @@ service cloud.firestore {
     match /artifacts/unesa-gestaopro/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/clube_resgates/{id} {
+      allow read, create, update: if true;
+      allow delete: if isAuthenticated();
+    }
+    match /artifacts/unesa-gestaopro/public/data/clube_empresas_validadoras/{id} {
+      allow read: if true;
+      allow create, delete: if isAuthenticated();
+      allow update: if isAuthenticated() || true;
+    }
+    match /artifacts/unesa-gestaopro/public/data/fies_prouni/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/fies_prouni_vagas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
 
-    match /artifacts/unesa-gestaopro/public/data/clube_resgates/{id} { allow read, write: if true; }
     match /artifacts/unesa-gestaopro/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
     }
@@ -225,12 +258,25 @@ service cloud.firestore {
     match /artifacts/gestaodeleadspro-d4230/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/clube_resgates/{id} {
+      allow read, create, update: if true;
+      allow delete: if isAuthenticated();
+    }
+    match /artifacts/gestaodeleadspro-d4230/public/data/clube_empresas_validadoras/{id} {
+      allow read: if true;
+      allow create, delete: if isAuthenticated();
+      allow update: if isAuthenticated() || true;
+    }
+    match /artifacts/gestaodeleadspro-d4230/public/data/fies_prouni/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/fies_prouni_vagas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
 
-    match /artifacts/gestaodeleadspro-d4230/public/data/clube_resgates/{id} { allow read, write: if true; }
     match /artifacts/gestaodeleadspro-d4230/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
     }
-    
+
     // ===============================================================
     // Artifact Collection Rules - gen-lang-client-0111023338
     // ===============================================================
@@ -266,8 +312,13 @@ service cloud.firestore {
     match /artifacts/gen-lang-client-0111023338/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
-
     match /artifacts/gen-lang-client-0111023338/public/data/clube_resgates/{id} { allow read, write: if true; }
+    match /artifacts/gen-lang-client-0111023338/public/data/clube_empresas_validadoras/{id} { allow read, write: if true; }
+    match /artifacts/gen-lang-client-0111023338/public/data/fies_prouni/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/fies_prouni_vagas/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
     }
