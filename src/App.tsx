@@ -126,6 +126,8 @@ import {
   Gift,
   Ticket,
   Award,
+  Image as ImageIcon,
+  Paperclip,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -2262,6 +2264,92 @@ function CampanhasView({
   const [endDateFilter, setEndDateFilter] = useState("");
   const [produtoFilter, setProdutoFilter] = useState("");
 
+  // States for boletim image upload and preview
+  const [boletimImagemUrl, setBoletimImagemUrl] = useState<string>("");
+  const [boletimImagemNome, setBoletimImagemNome] = useState<string>("");
+  const [uploadingBoletim, setUploadingBoletim] = useState(false);
+  const [previewBoletimModal, setPreviewBoletimModal] = useState<{
+    isOpen: boolean;
+    url: string;
+    nome: string;
+    campanhaNome?: string;
+  } | null>(null);
+
+  const processBoletimImage = (file: File): Promise<{ url: string; name: string }> => {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith("image/")) {
+        reject(new Error("Selecione um arquivo de imagem (JPEG, PNG ou WEBP)."));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1400;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL("image/jpeg", 0.82);
+            resolve({
+              url: compressed,
+              name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+            });
+          } else {
+            resolve({
+              url: e.target?.result as string,
+              name: file.name,
+            });
+          }
+        };
+        img.onerror = () => reject(new Error("Erro ao processar imagem do boletim."));
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("Erro ao ler o arquivo selecionado."));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const openCreateModal = () => {
+    setEditingCampanha(null);
+    setBoletimImagemUrl("");
+    setBoletimImagemNome("");
+    setIsModalOpen(true);
+  };
+
+  const openEditCampanhaModal = (camp: Campanha) => {
+    setEditingCampanha(camp);
+    setBoletimImagemUrl(camp.boletimImagemUrl || "");
+    setBoletimImagemNome(camp.boletimImagemNome || "");
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteCampanha = async (id: string) => {
+    if (window.confirm("Deseja realmente excluir esta campanha?")) {
+      try {
+        await deleteDoc(doc(db, COLLECTIONS.CAMPANHAS, id));
+        onToast("Campanha excluída com sucesso!");
+        setIsDetailModalOpen(false);
+      } catch (err: any) {
+        handleFirestoreError(err, OperationType.DELETE, COLLECTIONS.CAMPANHAS);
+        onToast("Erro ao excluir campanha.", "error");
+      }
+    }
+  };
+
   const getEffectiveStatus = (camp: Campanha) => {
     const today = new Date().toISOString().split("T")[0];
     if (today < camp.dataInicio) return "Pendente";
@@ -2312,16 +2400,20 @@ function CampanhasView({
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const payload = {
-      nome: formData.get("nome") as string,
+      nome: ((formData.get("nome") as string) || "").trim(),
       produto: (formData.get("produto") as string) || "Graduação",
       dataInicio: formData.get("dataInicio") as string,
       dataFim: formData.get("dataFim") as string,
-      objetivo: formData.get("objetivo") as string,
-      publicoAlvo: formData.get("publicoAlvo") as string,
-      conflitos: formData.get("conflitos") as string,
-      nomeBolsas: formData.get("nomeBolsas") as string,
-      dis: formData.get("dis") as string,
-      quemLancaraBolsa: formData.get("quemLancaraBolsa") as string,
+      status: (formData.get("status") as string) || "Ativa",
+      publicoAlvo: ((formData.get("publicoAlvo") as string) || "").trim(),
+      descontos: ((formData.get("descontos") as string) || "").trim(),
+      conflitos: ((formData.get("conflitos") as string) || "").trim(),
+      dis: ((formData.get("dis") as string) || "").trim(),
+      quemLancaraBolsa: ((formData.get("quemLancaraBolsa") as string) || "").trim(),
+      nomeBolsas: ((formData.get("nomeBolsas") as string) || "").trim(),
+      objetivo: ((formData.get("objetivo") as string) || "").trim(),
+      boletimImagemUrl: boletimImagemUrl || "",
+      boletimImagemNome: boletimImagemNome || "",
       updatedAt: serverTimestamp(),
     };
 
@@ -2341,16 +2433,18 @@ function CampanhasView({
           doc(db, COLLECTIONS.CAMPANHAS, editingCampanha.id),
           payload,
         );
-        onToast("Campanha atualizada!");
+        onToast("Campanha atualizada com sucesso!");
       } else {
         await addDoc(collection(db, COLLECTIONS.CAMPANHAS), {
           ...payload,
           createdAt: serverTimestamp(),
         });
-        onToast("Campanha criada!");
+        onToast("Campanha cadastrada com sucesso!");
       }
       setIsModalOpen(false);
       setEditingCampanha(null);
+      setBoletimImagemUrl("");
+      setBoletimImagemNome("");
     } catch (err: any) {
       handleFirestoreError(err, OperationType.WRITE, COLLECTIONS.CAMPANHAS);
       onToast("Erro ao salvar campanha.", "error");
@@ -2364,7 +2458,13 @@ function CampanhasView({
       "Data Início": c.dataInicio,
       "Data Fim": c.dataFim,
       Status: c.status,
-      Objetivo: c.objetivo,
+      "A quem se endereça": c.publicoAlvo || "",
+      Descontos: c.descontos || "",
+      Conflitos: c.conflitos || "",
+      DIS: c.dis || "",
+      "Quem lançará a bolsa": c.quemLancaraBolsa || "",
+      "Nome das bolsas": c.nomeBolsas || "",
+      Objetivo: c.objetivo || "",
     }));
     exportToExcel(data, "Campanhas");
   };
@@ -2450,10 +2550,7 @@ function CampanhasView({
         <h2 className="text-2xl font-bold text-slate-800">Campanhas</h2>
         <div className="flex space-x-2">
           <button
-            onClick={() => {
-              setEditingCampanha(null);
-              setIsModalOpen(true);
-            }}
+            onClick={openCreateModal}
             className="bg-blue-600 text-white px-4 py-2 rounded-xl flex items-center space-x-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
           >
             <Plus size={20} />
@@ -2590,25 +2687,25 @@ function CampanhasView({
           return (
             <div
               key={camp.id}
-              className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between cursor-pointer hover:shadow-md transition-all"
+              className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between cursor-pointer hover:shadow-md transition-all space-y-4"
               onClick={() => {
                 setSelectedCampanha(camp);
                 setIsDetailModalOpen(true);
               }}
             >
               <div>
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-bold text-slate-900">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="text-lg font-bold text-slate-900 leading-tight">
                     {camp.nome}
                   </h3>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                     <span
                       className={cn(
                         "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
                         effectiveStatus === "Ativa"
-                          ? "bg-emerald-100 text-emerald-600"
+                          ? "bg-emerald-100 text-emerald-700"
                           : effectiveStatus === "Pendente"
-                            ? "bg-blue-100 text-blue-600"
+                            ? "bg-blue-100 text-blue-700"
                             : "bg-slate-100 text-slate-600",
                       )}
                     >
@@ -2619,17 +2716,39 @@ function CampanhasView({
                     </span>
                   </div>
                 </div>
-                <p className="text-sm text-slate-500 mb-4 line-clamp-2">
-                  {camp.objetivo}
-                </p>
-                <div className="flex items-center space-x-4 text-xs text-slate-400">
-                  <div className="flex items-center space-x-1">
-                    <Calendar size={14} />
-                    <span>
-                      {camp.dataInicio} - {camp.dataFim}
-                    </span>
+
+                {camp.descontos && (
+                  <div className="mb-2 text-xs font-semibold text-emerald-700 bg-emerald-50/90 px-2.5 py-1 rounded-lg border border-emerald-200/60 line-clamp-1">
+                    <span className="font-bold text-emerald-800">Descontos:</span> {camp.descontos}
                   </div>
+                )}
+
+                {camp.publicoAlvo && (
+                  <div className="mb-2 text-xs text-slate-600 line-clamp-1">
+                    <span className="font-semibold text-slate-400">Público:</span> {camp.publicoAlvo}
+                  </div>
+                )}
+
+                {camp.objetivo && (
+                  <p className="text-sm text-slate-500 line-clamp-2">
+                    {camp.objetivo}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-100">
+                <div className="flex items-center space-x-1.5">
+                  <Calendar size={14} className="text-slate-400" />
+                  <span>
+                    {camp.dataInicio} - {camp.dataFim}
+                  </span>
                 </div>
+                {camp.boletimImagemUrl && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                    <ImageIcon size={12} />
+                    Boletim
+                  </span>
+                )}
               </div>
             </div>
           );
@@ -2641,6 +2760,7 @@ function CampanhasView({
         )}
       </div>
 
+      {/* Modal de Detalhes da Campanha */}
       <AnimatePresence>
         {isDetailModalOpen && selectedCampanha && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -2648,60 +2768,225 @@ function CampanhasView({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-lg space-y-6"
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
             >
-              <h2 className="text-2xl font-bold text-slate-900">
-                {selectedCampanha.nome}
-              </h2>
-              <div className="space-y-4">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/60">
                 <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase">
-                    Período
-                  </p>
-                  <p className="text-sm text-slate-700">
-                    {selectedCampanha.dataInicio} - {selectedCampanha.dataFim}
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span
+                      className={cn(
+                        "px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase",
+                        getEffectiveStatus(selectedCampanha) === "Ativa"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : getEffectiveStatus(selectedCampanha) === "Pendente"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-slate-100 text-slate-600",
+                      )}
+                    >
+                      {getEffectiveStatus(selectedCampanha)}
+                    </span>
+                    <span className="px-2.5 py-0.5 bg-sky-100 text-sky-800 rounded-full text-[11px] font-bold uppercase">
+                      {selectedCampanha.produto || "Graduação"}
+                    </span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {selectedCampanha.nome}
+                  </h2>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase">
-                    Produto
-                  </p>
-                  <p className="text-sm font-semibold text-sky-700">
-                    {selectedCampanha.produto || "Graduação"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase">
-                    Objetivo
-                  </p>
-                  <p className="text-sm text-slate-700">
-                    {selectedCampanha.objetivo}
-                  </p>
-                </div>
-              </div>
-              <div className="flex space-x-4 pt-4">
                 <button
                   onClick={() => setIsDetailModalOpen(false)}
-                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
                 >
-                  Fechar
+                  <X size={22} />
                 </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Período de Vigência
+                    </p>
+                    <p className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                      <Calendar size={16} className="text-blue-600" />
+                      {selectedCampanha.dataInicio} até {selectedCampanha.dataFim}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      A quem se endereça a campanha
+                    </p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {selectedCampanha.publicoAlvo || "Não informado"}
+                    </p>
+                  </div>
+
+                  <div className="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-100">
+                    <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                      Descontos
+                    </p>
+                    <p className="text-sm font-bold text-emerald-900">
+                      {selectedCampanha.descontos || "Não informado"}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Conflitos / Regras
+                    </p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {selectedCampanha.conflitos || "Sem restrições informadas"}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      DIS
+                    </p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {selectedCampanha.dis || "Não informado"}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Quem lançará a bolsa
+                    </p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {selectedCampanha.quemLancaraBolsa || "Não informado"}
+                    </p>
+                  </div>
+
+                  <div className="md:col-span-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Nome das bolsas
+                    </p>
+                    <p className="text-sm font-medium text-slate-800">
+                      {selectedCampanha.nomeBolsas || "Não informado"}
+                    </p>
+                  </div>
+
+                  {selectedCampanha.objetivo && (
+                    <div className="md:col-span-2 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Objetivo / Regulamento
+                      </p>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                        {selectedCampanha.objetivo}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Boletim Informativo Anexado */}
+                <div className="border border-slate-200 rounded-2xl p-4 bg-white">
+                  <p className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                    <ImageIcon size={16} className="text-blue-600" />
+                    Boletim Informativo da Campanha
+                  </p>
+                  {selectedCampanha.boletimImagemUrl ? (
+                    <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div
+                        onClick={() =>
+                          setPreviewBoletimModal({
+                            isOpen: true,
+                            url: selectedCampanha.boletimImagemUrl!,
+                            nome: selectedCampanha.boletimImagemNome || "boletim",
+                            campanhaNome: selectedCampanha.nome,
+                          })
+                        }
+                        className="relative w-32 h-24 rounded-lg overflow-hidden bg-black/5 cursor-pointer border border-slate-200 hover:opacity-90 transition-opacity shrink-0"
+                        title="Clique para ampliar o boletim"
+                      >
+                        <img
+                          src={selectedCampanha.boletimImagemUrl}
+                          alt="Boletim da Campanha"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+                          <Eye size={20} className="text-white" />
+                        </div>
+                      </div>
+
+                      <div className="flex-1 text-center sm:text-left truncate">
+                        <h4 className="text-xs font-bold text-slate-800 truncate">
+                          {selectedCampanha.boletimImagemNome || "boletim_campanha.jpg"}
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Imagem do boletim anexada à campanha
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPreviewBoletimModal({
+                              isOpen: true,
+                              url: selectedCampanha.boletimImagemUrl!,
+                              nome: selectedCampanha.boletimImagemNome || "boletim",
+                              campanhaNome: selectedCampanha.nome,
+                            })
+                          }
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-bold transition-colors"
+                        >
+                          <Eye size={14} />
+                          Visualizar
+                        </button>
+                        <a
+                          href={selectedCampanha.boletimImagemUrl}
+                          download={selectedCampanha.boletimImagemNome || "boletim_campanha.jpg"}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                        >
+                          <Download size={14} />
+                          Baixar
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-400 italic py-2">
+                      Nenhum boletim informativo anexado a esta campanha.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 md:p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
                 <button
-                  onClick={() => {
-                    setEditingCampanha(selectedCampanha);
-                    setIsDetailModalOpen(false);
-                    setIsModalOpen(true);
-                  }}
-                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
+                  type="button"
+                  onClick={() => handleDeleteCampanha(selectedCampanha.id)}
+                  className="px-4 py-2.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl font-bold text-sm transition-all flex items-center gap-1.5"
                 >
-                  Editar Campanha
+                  <Trash2 size={16} />
+                  Excluir
                 </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsDetailModalOpen(false)}
+                    className="px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all"
+                  >
+                    Fechar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsDetailModalOpen(false);
+                      openEditCampanhaModal(selectedCampanha);
+                    }}
+                    className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center gap-2 shadow-md shadow-blue-200"
+                  >
+                    <Edit2 size={16} />
+                    Editar Campanha
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
+      {/* Modal de Cadastro / Edição da Campanha */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -2709,107 +2994,375 @@ function CampanhasView({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden"
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
             >
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-900">
-                  {editingCampanha ? "Editar Campanha" : "Nova Campanha"}
-                </h3>
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/60">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {editingCampanha ? "Editar Campanha" : "Nova Campanha"}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Preencha as informações detalhadas e anexe o boletim informativo
+                  </p>
+                </div>
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
                 >
                   <X size={24} />
                 </button>
               </div>
-              <form onSubmit={handleSave} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">
-                    Nome da Campanha
-                  </label>
-                  <input
-                    name="nome"
-                    defaultValue={editingCampanha?.nome}
-                    required
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">
-                    Produto
-                  </label>
-                  <select
-                    name="produto"
-                    defaultValue={editingCampanha?.produto || "Graduação"}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="Graduação">Graduação</option>
-                    <option value="Pós Graduação">Pós Graduação</option>
-                    <option value="Técnico">Técnico</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Início
-                    </label>
-                    <input
-                      type="date"
-                      name="dataInicio"
-                      defaultValue={editingCampanha?.dataInicio}
-                      required
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
+
+              <form onSubmit={handleSave} className="flex-1 flex flex-col overflow-hidden">
+                <div className="p-6 overflow-y-auto space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Nome da Campanha */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Nome da Campanha <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        name="nome"
+                        defaultValue={editingCampanha?.nome}
+                        required
+                        placeholder="Ex: Campanha Vestibular 2025.1"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Produto */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Produto <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        name="produto"
+                        defaultValue={editingCampanha?.produto || "Graduação"}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                      >
+                        <option value="Graduação">Graduação</option>
+                        <option value="Pós Graduação">Pós Graduação</option>
+                        <option value="Técnico">Técnico</option>
+                        <option value="EAD">EAD</option>
+                        <option value="Presencial">Presencial</option>
+                      </select>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Status <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        name="status"
+                        defaultValue={editingCampanha?.status || "Ativa"}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                      >
+                        <option value="Ativa">Ativa</option>
+                        <option value="Pausada">Pausada</option>
+                        <option value="Finalizada">Finalizada</option>
+                      </select>
+                    </div>
+
+                    {/* Data Início */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Data de Início <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="dataInicio"
+                        defaultValue={editingCampanha?.dataInicio}
+                        required
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Data Fim */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Data de Término <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="dataFim"
+                        defaultValue={editingCampanha?.dataFim}
+                        required
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* A quem se endereça a campanha */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        A quem se endereça a campanha
+                      </label>
+                      <input
+                        name="publicoAlvo"
+                        defaultValue={editingCampanha?.publicoAlvo}
+                        placeholder="Ex: Calouros, Transferência externa, Reabertura..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Quem lançará a bolsa */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Quem lançará a bolsa
+                      </label>
+                      <input
+                        name="quemLancaraBolsa"
+                        defaultValue={editingCampanha?.quemLancaraBolsa}
+                        placeholder="Ex: Consultor comercial, Matriz, Sistema automático..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Descontos */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Descontos
+                      </label>
+                      <input
+                        name="descontos"
+                        defaultValue={editingCampanha?.descontos}
+                        placeholder="Ex: Até 70% no 1º semestre, 50% restante do curso..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Conflitos */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Conflitos
+                      </label>
+                      <input
+                        name="conflitos"
+                        defaultValue={editingCampanha?.conflitos}
+                        placeholder="Ex: Não cumulativo com ProUni, FIES ou outros convênios..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* DIS */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        DIS
+                      </label>
+                      <input
+                        name="dis"
+                        defaultValue={editingCampanha?.dis}
+                        placeholder="Ex: Diluição Solidária R$ 49,00 nos 3 primeiros meses..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Nome das bolsas */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Nome das bolsas
+                      </label>
+                      <input
+                        name="nomeBolsas"
+                        defaultValue={editingCampanha?.nomeBolsas}
+                        placeholder="Ex: Bolsa Mérito Enem, Bolsa Transferência 50%..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Objetivo */}
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Objetivo / Regulamento da Campanha
+                      </label>
+                      <textarea
+                        name="objetivo"
+                        defaultValue={editingCampanha?.objetivo}
+                        rows={3}
+                        placeholder="Descreva as regras, regulamento e objetivos da campanha..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+
+                    {/* Botão para upload de imagem com o boletim */}
+                    <div className="md:col-span-2 bg-blue-50/50 border border-blue-100 p-4 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                            <ImageIcon size={16} className="text-blue-600" />
+                            Boletim Informativo (Imagem)
+                          </label>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Faça o upload do boletim informativo com o regulamento ou tabela de descontos
+                          </p>
+                        </div>
+                        {boletimImagemUrl && (
+                          <span className="text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-0.5 rounded-full">
+                            Imagem Anexada
+                          </span>
+                        )}
+                      </div>
+
+                      {boletimImagemUrl ? (
+                        <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-blue-200 shadow-sm">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <img
+                              src={boletimImagemUrl}
+                              alt="Boletim"
+                              className="w-12 h-12 rounded-lg object-cover border border-slate-200 shrink-0"
+                            />
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-slate-800 truncate max-w-[280px]">
+                                {boletimImagemNome || "boletim_campanha.jpg"}
+                              </p>
+                              <span className="text-[10px] text-emerald-600 font-semibold">
+                                Imagem carregada e pronta para salvar
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewBoletimModal({
+                                  isOpen: true,
+                                  url: boletimImagemUrl,
+                                  nome: boletimImagemNome || "boletim",
+                                  campanhaNome: "Pré-visualização do Boletim",
+                                })
+                              }
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors"
+                              title="Visualizar em tamanho real"
+                            >
+                              <Eye size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setBoletimImagemUrl("");
+                                setBoletimImagemNome("");
+                              }}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors"
+                              title="Remover imagem do boletim"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-blue-300 hover:border-blue-500 bg-white/70 hover:bg-white rounded-2xl p-5 cursor-pointer transition-all text-center">
+                          <Upload size={28} className="text-blue-600 mb-1.5" />
+                          <span className="text-xs font-bold text-slate-800">
+                            {uploadingBoletim ? "Processando imagem..." : "Clique para anexar a imagem do boletim"}
+                          </span>
+                          <span className="text-[11px] text-slate-400 mt-0.5">
+                            Formatos: JPEG, PNG ou WEBP (máx. 1400px)
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            disabled={uploadingBoletim}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              try {
+                                setUploadingBoletim(true);
+                                const res = await processBoletimImage(file);
+                                setBoletimImagemUrl(res.url);
+                                setBoletimImagemNome(res.name);
+                                onToast("Boletim carregado com sucesso!", "success");
+                              } catch (err: any) {
+                                onToast(err.message || "Erro ao processar imagem.", "error");
+                              } finally {
+                                setUploadingBoletim(false);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">
-                      Fim
-                    </label>
-                    <input
-                      type="date"
-                      name="dataFim"
-                      defaultValue={editingCampanha?.dataFim}
-                      required
-                      className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    defaultValue={editingCampanha?.status || "Ativa"}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
+
+                <div className="p-4 md:p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/60">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-5 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-sm transition-colors"
                   >
-                    <option value="Ativa">Ativa</option>
-                    <option value="Pausada">Pausada</option>
-                    <option value="Finalizada">Finalizada</option>
-                  </select>
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={uploadingBoletim}
+                    className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Check size={18} />
+                    {editingCampanha ? "Salvar Alterações" : "Cadastrar Campanha"}
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">
-                    Objetivo
-                  </label>
-                  <textarea
-                    name="objetivo"
-                    defaultValue={editingCampanha?.objetivo}
-                    rows={3}
-                    className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-                >
-                  {editingCampanha ? "Salvar Alterações" : "Criar Campanha"}
-                </button>
               </form>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Lightbox / Preview do Boletim em tamanho real */}
+      {previewBoletimModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-4 px-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <div className="flex items-center gap-2 truncate">
+                <ImageIcon size={20} className="text-blue-600 shrink-0" />
+                <div className="truncate">
+                  <h3 className="text-sm md:text-base font-bold text-slate-800 truncate">
+                    {previewBoletimModal.campanhaNome || "Boletim da Campanha"}
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate">
+                    {previewBoletimModal.nome}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={previewBoletimModal.url}
+                  download={previewBoletimModal.nome}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                >
+                  <Download size={14} />
+                  Baixar
+                </a>
+                <button
+                  onClick={() => setPreviewBoletimModal(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 md:p-6 overflow-auto flex items-center justify-center bg-slate-900/5 max-h-[75vh]">
+              <img
+                src={previewBoletimModal.url}
+                alt={previewBoletimModal.nome}
+                className="max-h-[70vh] max-w-full object-contain rounded-xl shadow-lg border border-slate-200"
+              />
+            </div>
+
+            <div className="p-3 px-6 border-t border-slate-100 flex justify-end bg-white">
+              <button
+                type="button"
+                onClick={() => setPreviewBoletimModal(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3053,12 +3606,29 @@ function FiesProuniView({
     }
 
     const cleanCpf = cpf.replace(/\D/g, "");
-    const isDuplicate = data.some(
-      (item) => item.cpf === cleanCpf && item.id !== editingEntry?.id,
-    );
-    if (isDuplicate) {
-      onToast("Este CPF já está cadastrado no FIES/Prouni.", "error");
-      return;
+    if (!editingEntry) {
+      // Novo cadastro: impede CPF já cadastrado
+      const isDuplicate = data.some(
+        (item) => (item.cpf || "").replace(/\D/g, "") === cleanCpf,
+      );
+      if (isDuplicate) {
+        onToast("Este CPF já está cadastrado no FIES/Prouni.", "error");
+        return;
+      }
+    } else {
+      // Edição de cadastro existente: só valida se o CPF foi alterado para o CPF de outro candidato
+      const originalCpf = (editingEntry.cpf || "").replace(/\D/g, "");
+      if (cleanCpf !== originalCpf) {
+        const isDuplicate = data.some(
+          (item) =>
+            item.id !== editingEntry.id &&
+            (item.cpf || "").replace(/\D/g, "") === cleanCpf,
+        );
+        if (isDuplicate) {
+          onToast("O novo CPF informado já pertence a outro candidato cadastrado no FIES/Prouni.", "error");
+          return;
+        }
+      }
     }
 
     const payload = {

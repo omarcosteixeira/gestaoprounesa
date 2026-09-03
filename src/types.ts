@@ -84,11 +84,15 @@ export interface Campanha {
   status?: string;
   produto?: string;
   publicoAlvo?: string;
+  descontos?: string;
   conflitos?: string;
   nomeBolsas?: string;
   dis?: string;
   quemLancaraBolsa?: string;
+  boletimImagemUrl?: string;
+  boletimImagemNome?: string;
   createdAt: any;
+  updatedAt?: any;
 }
 
 export interface SalesContact {
@@ -677,6 +681,10 @@ export interface IsencaoEntry {
   formaIngresso?: string;
   inseridoDigitaliza: 'Sim' | 'Não';
   status: 'Pendente' | 'Solicitado' | 'Deferido';
+  comprovanteDeferidoUrl?: string;
+  comprovanteDeferidoNome?: string;
+  comprovanteDeferidoTipo?: string;
+  dataDeferimento?: any;
   boletoPago: boolean;
   resultado?: 'Convertido' | 'Sem interesse';
   observacaoResultado?: string;

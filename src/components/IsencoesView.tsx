@@ -28,6 +28,11 @@ import {
   User,
   Download,
   Upload,
+  Eye,
+  Paperclip,
+  ExternalLink,
+  FileDown,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import * as XLSX from "xlsx";
@@ -77,6 +82,118 @@ export function IsencoesView({
   const [formDigitaliza, setFormDigitaliza] = useState<"Sim" | "Não">("Não");
   const [formStatus, setFormStatus] = useState<"Pendente" | "Solicitado" | "Deferido">("Pendente");
   const [formBoletoPago, setFormBoletoPago] = useState(false);
+  const [formComprovanteUrl, setFormComprovanteUrl] = useState("");
+  const [formComprovanteNome, setFormComprovanteNome] = useState("");
+  const [formComprovanteTipo, setFormComprovanteTipo] = useState("");
+  const [formUploading, setFormUploading] = useState(false);
+
+  // Modal para confirmar deferimento e anexar resposta/prévia do coordenador
+  const [deferimentoModal, setDeferimentoModal] = useState<{
+    isOpen: boolean;
+    entry: IsencaoEntry | null;
+    fileUrl: string;
+    fileName: string;
+    fileTipo: string;
+    uploading: boolean;
+  }>({
+    isOpen: false,
+    entry: null,
+    fileUrl: "",
+    fileName: "",
+    fileTipo: "",
+    uploading: false,
+  });
+
+  // Modal de visualização do documento/imagem
+  const [viewAttachmentModal, setViewAttachmentModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    candidateName: string;
+    curso: string;
+    url: string;
+    name: string;
+    tipo: string;
+  } | null>(null);
+
+  // Helper para processar e comprimir arquivo (PDF ou JPEG/PNG)
+  const processUploadedFile = (file: File): Promise<{ url: string; name: string; type: string }> => {
+    return new Promise((resolve, reject) => {
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const isImg = file.type.startsWith("image/") || /\.(jpe?g|png|webp)$/i.test(file.name);
+
+      if (!isPdf && !isImg) {
+        reject(new Error("Formato não suportado. Envie um arquivo em PDF ou imagem JPEG/PNG."));
+        return;
+      }
+
+      if (isPdf) {
+        if (file.size > 950 * 1024) {
+          reject(new Error("O arquivo PDF ultrapassa o limite de 950 KB. Por favor, utilize um arquivo menor ou comprimido."));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            url: e.target?.result as string,
+            name: file.name,
+            type: "application/pdf",
+          });
+        };
+        reader.onerror = () => reject(new Error("Falha ao ler o arquivo PDF."));
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // Imagem: comprime via Canvas para otimizar tamanho
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1280;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL("image/jpeg", 0.78);
+            resolve({
+              url: compressed,
+              name: file.name.replace(/\.[^/.]+$/, "") + ".jpg",
+              type: "image/jpeg",
+            });
+          } else {
+            resolve({
+              url: e.target?.result as string,
+              name: file.name,
+              type: file.type || "image/jpeg",
+            });
+          }
+        };
+        img.onerror = () => {
+          resolve({
+            url: e.target?.result as string,
+            name: file.name,
+            type: file.type || "image/jpeg",
+          });
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => reject(new Error("Falha ao processar a imagem."));
+      reader.readAsDataURL(file);
+    });
+  };
 
   const openAddModal = () => {
     setEditingEntry(null);
@@ -91,6 +208,9 @@ export function IsencoesView({
     setFormDigitaliza("Não");
     setFormStatus("Pendente");
     setFormBoletoPago(false);
+    setFormComprovanteUrl("");
+    setFormComprovanteNome("");
+    setFormComprovanteTipo("");
     setIsModalOpen(true);
   };
 
@@ -107,6 +227,9 @@ export function IsencoesView({
     setFormDigitaliza(entry.inseridoDigitaliza || "Não");
     setFormStatus(entry.status || "Pendente");
     setFormBoletoPago(entry.boletoPago || false);
+    setFormComprovanteUrl(entry.comprovanteDeferidoUrl || "");
+    setFormComprovanteNome(entry.comprovanteDeferidoNome || "");
+    setFormComprovanteTipo(entry.comprovanteDeferidoTipo || "");
     setIsModalOpen(true);
   };
 
@@ -171,7 +294,7 @@ export function IsencoesView({
     }
 
     setLoading(true);
-    const entryData = {
+    const entryData: any = {
       nome: formNome.trim(),
       cpf: formCpf.trim(),
       telefone: formTelefone.trim(),
@@ -186,6 +309,17 @@ export function IsencoesView({
       unidade: profile.unidade || "",
       updatedAt: serverTimestamp(),
     };
+
+    if (formStatus === "Deferido") {
+      if (formComprovanteUrl) {
+        entryData.comprovanteDeferidoUrl = formComprovanteUrl;
+        entryData.comprovanteDeferidoNome = formComprovanteNome || "previa_isencao_coordenador";
+        entryData.comprovanteDeferidoTipo = formComprovanteTipo || "application/pdf";
+      }
+      if (!editingEntry?.dataDeferimento) {
+        entryData.dataDeferimento = new Date().toISOString();
+      }
+    }
 
     try {
       if (editingEntry) {
@@ -231,6 +365,17 @@ export function IsencoesView({
   };
 
   const handleToggleStatus = async (entry: IsencaoEntry, newStatus: "Pendente" | "Solicitado" | "Deferido") => {
+    if (newStatus === "Deferido") {
+      setDeferimentoModal({
+        isOpen: true,
+        entry: entry,
+        fileUrl: entry.comprovanteDeferidoUrl || "",
+        fileName: entry.comprovanteDeferidoNome || "",
+        fileTipo: entry.comprovanteDeferidoTipo || "",
+        uploading: false,
+      });
+      return;
+    }
     try {
       await updateDoc(doc(db, COLLECTIONS.ISENCOES, entry.id), {
         status: newStatus,
@@ -239,6 +384,38 @@ export function IsencoesView({
       onToast(`Status alterado para ${newStatus}!`, "success");
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, COLLECTIONS.ISENCOES);
+    }
+  };
+
+  const handleConfirmDeferimento = async () => {
+    if (!deferimentoModal.entry) return;
+    try {
+      setDeferimentoModal((prev) => ({ ...prev, uploading: true }));
+      const entryId = deferimentoModal.entry.id;
+      const updateData: any = {
+        status: "Deferido",
+        updatedAt: serverTimestamp(),
+        dataDeferimento: deferimentoModal.entry.dataDeferimento || new Date().toISOString(),
+      };
+      if (deferimentoModal.fileUrl) {
+        updateData.comprovanteDeferidoUrl = deferimentoModal.fileUrl;
+        updateData.comprovanteDeferidoNome = deferimentoModal.fileName || "resposta_coordenador";
+        updateData.comprovanteDeferidoTipo = deferimentoModal.fileTipo || "application/pdf";
+      }
+      await updateDoc(doc(db, COLLECTIONS.ISENCOES, entryId), updateData);
+      onToast("Isenção marcada como Deferida com sucesso!", "success");
+      setDeferimentoModal({
+        isOpen: false,
+        entry: null,
+        fileUrl: "",
+        fileName: "",
+        fileTipo: "",
+        uploading: false,
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, COLLECTIONS.ISENCOES);
+      onToast("Erro ao deferir isenção.", "error");
+      setDeferimentoModal((prev) => ({ ...prev, uploading: false }));
     }
   };
 
@@ -758,6 +935,48 @@ export function IsencoesView({
                       >
                         {item.status}
                       </span>
+                      {item.status === "Deferido" && (
+                        <div className="mt-1 flex flex-col items-center">
+                          {item.comprovanteDeferidoUrl ? (
+                            <button
+                              onClick={() =>
+                                setViewAttachmentModal({
+                                  isOpen: true,
+                                  title: "Resposta do Coordenador - Prévia de Isenção",
+                                  candidateName: item.nome,
+                                  curso: item.curso,
+                                  url: item.comprovanteDeferidoUrl!,
+                                  name: item.comprovanteDeferidoNome || "previa_isencao",
+                                  tipo: item.comprovanteDeferidoTipo || (item.comprovanteDeferidoUrl?.startsWith("data:application/pdf") ? "application/pdf" : "image/jpeg"),
+                                })
+                              }
+                              title="Visualizar parecer do coordenador"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-md transition-colors"
+                            >
+                              <Paperclip size={12} className="text-emerald-600" />
+                              Ver Prévia
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                setDeferimentoModal({
+                                  isOpen: true,
+                                  entry: item,
+                                  fileUrl: "",
+                                  fileName: "",
+                                  fileTipo: "",
+                                  uploading: false,
+                                })
+                              }
+                              title="Anexar resposta do coordenador com a prévia"
+                              className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 hover:text-emerald-700 hover:underline transition-colors"
+                            >
+                              <Upload size={10} />
+                              Anexar Prévia
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="p-4 text-center">
                       <button
@@ -1036,6 +1255,106 @@ export function IsencoesView({
                     <option value="Deferido">Deferido</option>
                   </select>
                 </div>
+
+                {formStatus === "Deferido" && (
+                  <div className="md:col-span-2 bg-emerald-50/70 border border-emerald-200 p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                          <FileText size={16} className="text-emerald-700" />
+                          Resposta do Coordenador com Prévia de Isenção
+                        </h4>
+                        <p className="text-[11px] text-emerald-700/80 mt-0.5">
+                          Anexe o arquivo em PDF ou imagem (JPEG/PNG) contendo a prévia do coordenador
+                        </p>
+                      </div>
+                      {formComprovanteUrl && (
+                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full">
+                          Anexado
+                        </span>
+                      )}
+                    </div>
+
+                    {formComprovanteUrl ? (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-emerald-200">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          {formComprovanteTipo === "application/pdf" || formComprovanteUrl.startsWith("data:application/pdf") ? (
+                            <FileText size={20} className="text-rose-500 shrink-0" />
+                          ) : (
+                            <ImageIcon size={20} className="text-emerald-600 shrink-0" />
+                          )}
+                          <div className="truncate text-xs font-medium text-slate-700">
+                            {formComprovanteNome || "previa_isencao_coordenador"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setViewAttachmentModal({
+                                isOpen: true,
+                                title: "Prévia de Isenção - Parecer do Coordenador",
+                                candidateName: formNome || "Candidato",
+                                curso: formCurso || "",
+                                url: formComprovanteUrl,
+                                name: formComprovanteNome || "documento",
+                                tipo: formComprovanteTipo,
+                              })
+                            }
+                            className="p-1.5 text-slate-500 hover:text-emerald-700 rounded hover:bg-slate-100 transition-colors"
+                            title="Visualizar anexo"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormComprovanteUrl("");
+                              setFormComprovanteNome("");
+                              setFormComprovanteTipo("");
+                            }}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 rounded hover:bg-rose-50 transition-colors"
+                            title="Remover anexo"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white/70 hover:bg-white rounded-xl p-4 cursor-pointer transition-all text-center">
+                        <Upload size={24} className="text-emerald-600 mb-1" />
+                        <span className="text-xs font-bold text-emerald-800">
+                          {formUploading ? "Processando arquivo..." : "Clique para selecionar o arquivo da prévia"}
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">
+                          Formatos aceitos: PDF ou JPEG/PNG (máx 950 KB)
+                        </span>
+                        <input
+                          type="file"
+                          accept=".pdf,image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={formUploading}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              setFormUploading(true);
+                              const res = await processUploadedFile(file);
+                              setFormComprovanteUrl(res.url);
+                              setFormComprovanteNome(res.name);
+                              setFormComprovanteTipo(res.type);
+                              onToast("Arquivo da prévia carregado!", "success");
+                            } catch (err: any) {
+                              onToast(err.message || "Erro ao carregar arquivo.", "error");
+                            } finally {
+                              setFormUploading(false);
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Boleto Pago toggle card */}
@@ -1120,6 +1439,273 @@ export function IsencoesView({
                 className="px-4 py-2 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Deferimento & Anexar Prévia do Coordenador */}
+      {deferimentoModal.isOpen && deferimentoModal.entry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-emerald-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    Confirmar Deferimento de Isenção
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Candidato: <span className="font-semibold text-slate-700">{deferimentoModal.entry.nome}</span> ({deferimentoModal.entry.curso})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  setDeferimentoModal({
+                    isOpen: false,
+                    entry: null,
+                    fileUrl: "",
+                    fileName: "",
+                    fileTipo: "",
+                    uploading: false,
+                  })
+                }
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-xs text-slate-600 space-y-1">
+                <div>
+                  <span className="font-semibold text-slate-700">CPF:</span> {deferimentoModal.entry.cpf}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">Curso Solicitado:</span> {deferimentoModal.entry.curso}
+                </div>
+                {deferimentoModal.entry.cursoOrigem && (
+                  <div>
+                    <span className="font-semibold text-slate-700">Origem:</span> {deferimentoModal.entry.cursoOrigem} ({deferimentoModal.entry.universidadeOrigem || "IES não informada"})
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <FileText size={16} className="text-emerald-600" />
+                    Resposta do Coordenador com Prévia de Isenção
+                  </span>
+                  <span className="text-[11px] font-normal text-slate-400">PDF ou JPEG/PNG</span>
+                </label>
+
+                {deferimentoModal.fileUrl ? (
+                  <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        {deferimentoModal.fileTipo === "application/pdf" || deferimentoModal.fileUrl.startsWith("data:application/pdf") ? (
+                          <FileText size={24} className="text-rose-500 shrink-0" />
+                        ) : (
+                          <ImageIcon size={24} className="text-emerald-600 shrink-0" />
+                        )}
+                        <div>
+                          <div className="text-xs font-bold text-slate-800 truncate max-w-[260px]">
+                            {deferimentoModal.fileName || "resposta_coordenador"}
+                          </div>
+                          <span className="text-[10px] text-emerald-700 font-semibold">
+                            Arquivo pronto para salvar
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewAttachmentModal({
+                              isOpen: true,
+                              title: "Prévia de Isenção - Resposta do Coordenador",
+                              candidateName: deferimentoModal.entry?.nome || "",
+                              curso: deferimentoModal.entry?.curso || "",
+                              url: deferimentoModal.fileUrl,
+                              name: deferimentoModal.fileName || "resposta_coordenador",
+                              tipo: deferimentoModal.fileTipo,
+                            })
+                          }
+                          className="p-1.5 text-slate-500 hover:text-emerald-700 rounded-lg hover:bg-white transition-colors"
+                          title="Visualizar anexo"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDeferimentoModal((prev) => ({
+                              ...prev,
+                              fileUrl: "",
+                              fileName: "",
+                              fileTipo: "",
+                            }))
+                          }
+                          className="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-white transition-colors"
+                          title="Remover anexo"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {deferimentoModal.fileTipo !== "application/pdf" && !deferimentoModal.fileUrl.startsWith("data:application/pdf") && (
+                      <div className="relative rounded-lg overflow-hidden border border-emerald-200 max-h-36 flex items-center justify-center bg-black/5">
+                        <img
+                          src={deferimentoModal.fileUrl}
+                          alt="Prévia do Coordenador"
+                          className="max-h-36 object-contain"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/20 hover:bg-emerald-50/50 rounded-2xl p-6 cursor-pointer transition-all text-center">
+                    <Upload size={28} className="text-emerald-600 mb-2" />
+                    <span className="text-xs font-bold text-slate-700">
+                      {deferimentoModal.uploading ? "Processando documento..." : "Clique ou arraste a resposta do coordenador"}
+                    </span>
+                    <span className="text-[11px] text-slate-400 mt-1">
+                      Formatos: PDF ou foto/imagem JPEG (máx 950 KB)
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf,image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={deferimentoModal.uploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          setDeferimentoModal((prev) => ({ ...prev, uploading: true }));
+                          const res = await processUploadedFile(file);
+                          setDeferimentoModal((prev) => ({
+                            ...prev,
+                            fileUrl: res.url,
+                            fileName: res.name,
+                            fileTipo: res.type,
+                            uploading: false,
+                          }));
+                          onToast("Arquivo carregado com sucesso!", "success");
+                        } catch (err: any) {
+                          onToast(err.message || "Erro ao carregar arquivo.", "error");
+                          setDeferimentoModal((prev) => ({ ...prev, uploading: false }));
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+              <button
+                type="button"
+                onClick={() =>
+                  setDeferimentoModal({
+                    isOpen: false,
+                    entry: null,
+                    fileUrl: "",
+                    fileName: "",
+                    fileTipo: "",
+                    uploading: false,
+                  })
+                }
+                className="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeferimento}
+                disabled={deferimentoModal.uploading}
+                className="px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <Check size={18} />
+                Confirmar Deferimento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Visualizador do Arquivo Anexado (PDF ou Imagem) */}
+      {viewAttachmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-slate-100 bg-slate-50">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl shrink-0">
+                  <FileText size={20} />
+                </div>
+                <div className="truncate">
+                  <h3 className="text-sm md:text-base font-bold text-slate-800 truncate">
+                    {viewAttachmentModal.title}
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate">
+                    {viewAttachmentModal.candidateName} • {viewAttachmentModal.curso}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={viewAttachmentModal.url}
+                  download={viewAttachmentModal.name || "previa_isencao"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm"
+                >
+                  <Download size={14} />
+                  Baixar
+                </a>
+                <button
+                  onClick={() => setViewAttachmentModal(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 md:p-6 overflow-y-auto flex-1 flex items-center justify-center bg-slate-100/50">
+              {viewAttachmentModal.tipo === "application/pdf" || viewAttachmentModal.url.startsWith("data:application/pdf") ? (
+                <iframe
+                  src={viewAttachmentModal.url}
+                  title="Parecer do Coordenador"
+                  className="w-full h-[65vh] rounded-xl border border-slate-200 bg-white shadow-inner"
+                />
+              ) : (
+                <div className="max-w-full max-h-[65vh] flex items-center justify-center">
+                  <img
+                    src={viewAttachmentModal.url}
+                    alt="Resposta do Coordenador"
+                    className="max-h-[65vh] max-w-full object-contain rounded-xl shadow-md border border-slate-200"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-white text-xs text-slate-500">
+              <span className="truncate max-w-xs">{viewAttachmentModal.name}</span>
+              <button
+                type="button"
+                onClick={() => setViewAttachmentModal(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+              >
+                Fechar
               </button>
             </div>
           </div>
