@@ -8382,6 +8382,7 @@ export default function App() {
                   leads={leads}
                   gap={gap}
                   onSendWhatsApp={sendAppWhatsApp}
+                  empresasParceiras={empresasParceiras}
                 />
               )}
               {currentView === "empresas" && (
