@@ -1,12 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  ZoomableGroup,
-} from "react-simple-maps";
+import { geoMercator, geoPath } from "d3-geo";
 import {
   MapPin,
   ExternalLink,
@@ -54,11 +48,22 @@ export default function Mapa3D({
   const [zoom, setZoom] = useState<number>(1);
   const [showCard, setShowCard] = useState<boolean>(false);
   const [center, setCenter] = useState<[number, number]>([-42.5, -22.2]); // Approx center of RJ state
-  const [mapGeoUrl, setMapGeoUrl] = useState<string>("");
+  const [geoData, setGeoData] = useState<any>(null);
+  const [loadingMap, setLoadingMap] = useState<boolean>(true);
 
   useEffect(() => {
     // Fetch RJ Municipalities GeoJSON from IBGE
-    setMapGeoUrl("https://raw.githubusercontent.com/tbrugz/geodata-br/master/geojson/geojs-33-mun.json");
+    setLoadingMap(true);
+    fetch("https://raw.githubusercontent.com/tbrugz/geodata-br/master/geojson/geojs-33-mun.json")
+      .then((res) => res.json())
+      .then((data) => {
+        setGeoData(data);
+        setLoadingMap(false);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar mapa do RJ:", err);
+        setLoadingMap(false);
+      });
   }, []);
 
   // Map Filter/Search
@@ -342,6 +347,50 @@ export default function Mapa3D({
     return values.length > 0 ? Math.max(...values) : 1;
   }, [leadDensity]);
 
+  const projection = useMemo(() => {
+    return geoMercator()
+      .center(center)
+      .scale(12000 * zoom)
+      .translate([450, 300]);
+  }, [center, zoom]);
+
+  const pathGenerator = useMemo(() => {
+    return geoPath().projection(projection);
+  }, [projection]);
+
+  const filteredGeographies = useMemo(() => {
+    if (!geoData || !geoData.features) return [];
+    if (filterCidade === "Todas") return geoData.features;
+    return geoData.features.filter(
+      (geo: any) =>
+        (geo.properties?.name || "").toLowerCase() === filterCidade.toLowerCase()
+    );
+  }, [geoData, filterCidade]);
+
+  const isDragging = useRef<boolean>(false);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !dragStart.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+
+    const scale = 12000 * zoom;
+    const factor = 180 / (Math.PI * scale);
+    setCenter(([lng, lat]) => [lng - dx * factor, lat + dy * factor]);
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    dragStart.current = null;
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
       {/* LEFT SIDEBAR */}
@@ -558,81 +607,70 @@ export default function Mapa3D({
             </button>
           </div>
 
-          <ComposableMap
-            projection="geoMercator"
-            projectionConfig={{ scale: 12000 }}
-            className="w-full h-full"
-          >
-            <ZoomableGroup
-              zoom={zoom}
-              center={center}
-              onMoveEnd={({ coordinates, zoom }: { coordinates: [number, number]; zoom: number }) => {
-                setCenter(coordinates);
-                setZoom(zoom);
-              }}
+          {loadingMap ? (
+            <div className="flex flex-col items-center justify-center space-y-2 text-slate-400">
+              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-semibold">Carregando mapa do RJ...</span>
+            </div>
+          ) : (
+            <svg
+              viewBox="0 0 900 600"
+              className="w-full h-full cursor-grab active:cursor-grabbing select-none"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
             >
-              {mapGeoUrl && (
-                <Geographies geography={mapGeoUrl}>
-                  {({ geographies }: { geographies: any[] }) => {
-                    const filteredGeographies = filterCidade === "Todas"
-                      ? geographies
-                      : geographies.filter((geo: any) => geo.properties?.name?.toLowerCase() === filterCidade.toLowerCase());
+              <g>
+                {filteredGeographies.map((geo: any, idx: number) => {
+                  const cityName = geo.properties?.name || "";
+                  const regionColor = getRegionColor(cityName);
+                  const pathD = pathGenerator(geo);
+                  if (!pathD) return null;
 
-                    return filteredGeographies.map((geo: any) => {
-                      const cityName = geo.properties?.name || "";
-                      const regionColor = getRegionColor(cityName);
-
-                      // Update center automatically based on the selected city's geometry center approximation
-                      // using the first coordinate of its boundary. React simple maps handles this in a more complex way,
-                      // but we can just let the user zoom or we can center on the marker.
-                      
-                      return (
-                        <Geography
-                          key={geo.rsmKey}
-                          geography={geo}
-                          fill={regionColor}
-                          stroke="#ffffff"
-                          strokeWidth={0.5}
-                          style={{
-                            default: { outline: "none", transition: "all 250ms" },
-                            hover: { fill: "#cbd5e1", outline: "none" },
-                            pressed: { fill: "#94a3b8", outline: "none" },
-                          }}
-                        />
-                      );
-                    });
-                  }}
-                </Geographies>
-              )}
+                  return (
+                    <path
+                      key={geo.properties?.id || geo.id || idx}
+                      d={pathD}
+                      fill={regionColor}
+                      stroke="#ffffff"
+                      strokeWidth={0.7}
+                      className="transition-colors hover:fill-slate-300 outline-none"
+                    >
+                      <title>{cityName}</title>
+                    </path>
+                  );
+                })}
+              </g>
 
               {/* Heatmap Layer */}
               {showHeatmap && empresasWithPositions.map((emp) => {
                 const count = leadDensity[emp.id] || 0;
                 if (count === 0) return null;
-                
+                const projected = projection(emp.pos);
+                if (!projected) return null;
+                const [x, y] = projected;
                 const normalizedDensity = count / maxLeadCount;
                 const radius = 5 + (normalizedDensity * 25);
-                const opacity = 0.2 + (normalizedDensity * 0.4);
-                
+
                 return (
-                  <Marker key={`heat-${emp.id}`} coordinates={emp.pos}>
+                  <g key={`heat-${emp.id}`} transform={`translate(${x}, ${y})`} pointerEvents="none">
                     <circle 
                       r={radius} 
-                      fill="rgba(249, 115, 22, 0.4)" // Orange-500
+                      fill="rgba(249, 115, 22, 0.4)"
                       stroke="rgba(249, 115, 22, 0.2)"
                       strokeWidth={1}
-                      style={{ pointerEvents: 'none' }}
                       className="animate-pulse"
                     />
                     <circle 
                       r={radius * 0.6} 
-                      fill="rgba(234, 88, 12, 0.3)" // Orange-600
-                      style={{ pointerEvents: 'none' }}
+                      fill="rgba(234, 88, 12, 0.3)"
                     />
-                  </Marker>
+                  </g>
                 );
               })}
 
+              {/* Markers */}
               {empresasWithPositions.map((emp) => {
                 const isSelected = selectedEmpresa?.id === emp.id;
                 const status = emp.statusEmpresa || "Não visitada";
@@ -642,12 +680,17 @@ export default function Mapa3D({
                 else if (status === "Em tratativa") pinColor = "#f59e0b"; // amber
                 else if (status === "Cancelada") pinColor = "#ef4444"; // red
 
+                const projected = projection(emp.pos);
+                if (!projected) return null;
+                const [x, y] = projected;
+
                 return (
-                  <Marker 
-                     key={emp.id} 
-                     coordinates={emp.pos}
-                     data-city-marker="true"
-                    onClick={() => {
+                  <g 
+                    key={emp.id} 
+                    transform={`translate(${x}, ${y})`}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       onSelect(emp.id);
                       setShowCard(true);
                       setCenter(emp.pos);
@@ -660,7 +703,7 @@ export default function Mapa3D({
                         fill={isSelected ? "#ffffff" : pinColor}
                         stroke={isSelected ? "#3b82f6" : "#ffffff"}
                         strokeWidth={1.5}
-                        className="cursor-pointer drop-shadow-md transition-all duration-200"
+                        className="drop-shadow-md transition-all duration-200"
                         style={{
                           transformOrigin: "bottom center",
                           transform: isSelected ? "scale(1.2)" : "scale(1)",
@@ -675,7 +718,7 @@ export default function Mapa3D({
                         style={{
                           fontFamily: "Inter, sans-serif",
                           fill: "#1e293b",
-                          fontSize: (10 / zoom) + "px",
+                          fontSize: "11px",
                           fontWeight: "bold",
                           pointerEvents: "none",
                         }}
@@ -684,11 +727,11 @@ export default function Mapa3D({
                         {emp.nome}
                       </text>
                     )}
-                  </Marker>
+                  </g>
                 );
               })}
-            </ZoomableGroup>
-          </ComposableMap>
+            </svg>
+          )}
         </div>
 
         
