@@ -63,6 +63,8 @@ import {
   Image as ImageIcon,
   FileText,
   Shield,
+  MapPin,
+  Award,
 } from "lucide-react";
 import { UnidadesRegionalView } from "./UnidadesRegionalView";
 import { CadastroSmRegionalView } from "./CadastroSmRegionalView";
@@ -70,6 +72,7 @@ import { CadastroTarefasView } from "./CadastroTarefasView";
 import { AdminClubeLocalView } from "./AdminClubeLocalView";
 import { AdminFuncionariosView } from "./AdminFuncionariosView";
 import MetaSMView from "./MetaSMView";
+import MetaRVVView from "./MetaRVVView";
 import MetaCursosView from "./MetaCursosView";
 import CrescimentoAnualAdmin from "./CrescimentoAnualAdmin";
 import { WhatsAppMessageEditor } from "./WhatsAppMessageEditor";
@@ -77,6 +80,7 @@ import { AdminFolgasView } from "./AdminFolgasView";
 import { AdminBomDiaView } from "./AdminBomDiaView";
 import { AdminForecastView } from "./AdminForecastView";
 import { AdminQgLigacoesView } from "./AdminQgLigacoesView";
+import { AdminAcaoRuaView } from "./AdminAcaoRuaView";
 import { AdminPlannerView } from "./AdminPlannerView";
 import { AdminPeriodoCaptacaoView } from "./AdminPeriodoCaptacaoView";
 import { AdminWhatsappApiView } from "./AdminWhatsappApiView";
@@ -87,7 +91,7 @@ import { FormulariosView } from "./FormulariosView";
 import { AdminBackupSegurancaView } from "./AdminBackupSegurancaView";
 import { MetasUnidadeRegionalView } from "./MetasUnidadeRegionalView";
 import MetaDiaView from "./MetaDiaView";
-import { MetaUnidadeRegional, MetaDia } from "../types";
+import { MetaUnidadeRegional, MetaDia, AcaoRua, MetaRVV } from "../types";
 
 interface Props {
   profile: UserProfile;
@@ -100,6 +104,7 @@ interface Props {
   uniqueUnidades?: string[];
   metaDia?: MetaDia[];
   metaSM?: MetaSM[];
+  metaRVV?: MetaRVV[];
   metaCursos?: MetaCurso[];
   metasUnidadeRegional?: MetaUnidadeRegional[];
   analysisSchemes?: AnalysisScheme[];
@@ -111,6 +116,7 @@ interface Props {
   bomDia?: BomDiaCaptacao[];
   forecast?: ForecastCaptacao[];
   qgLigacoes?: QgLigacao[];
+  acaoRua?: AcaoRua[];
   planner?: PlannerTask[];
   periodos?: PeriodoCaptacao[];
   links?: LinkUtil[];
@@ -154,7 +160,8 @@ export function AdminMainView({
   clubeResgates = [],
   uniqueUnidades = [],
   metaDia: metaDiaProp,
-  metaSM = [],
+  metaSM: metaSMProp = [],
+  metaRVV: metaRVVProp = [],
   metaCursos = [],
   metasUnidadeRegional = [],
   analysisSchemes = [],
@@ -166,6 +173,7 @@ export function AdminMainView({
   bomDia: bomDiaProp,
   forecast: forecastProp,
   qgLigacoes: qgLigacoesProp,
+  acaoRua: acaoRuaProp,
   planner: plannerProp,
   periodos: periodosProp,
   links: linksProp,
@@ -187,6 +195,7 @@ export function AdminMainView({
     | "funcionarios"
     | "metaDia"
     | "metaSM"
+    | "metaRVV"
     | "metaCursos"
     | "metasUnidadeRegional"
     | "crescimento"
@@ -194,6 +203,7 @@ export function AdminMainView({
     | "bomDia"
     | "forecast"
     | "qgLigacoes"
+    | "acaoRua"
     | "planner"
     | "periodos"
     | "gestaoWhatsapp"
@@ -209,10 +219,13 @@ export function AdminMainView({
   const [localBomDia, setLocalBomDia] = useState<BomDiaCaptacao[]>([]);
   const [localForecast, setLocalForecast] = useState<ForecastCaptacao[]>([]);
   const [localQgLigacoes, setLocalQgLigacoes] = useState<QgLigacao[]>([]);
+  const [localAcaoRua, setLocalAcaoRua] = useState<AcaoRua[]>([]);
   const [localPlanner, setLocalPlanner] = useState<PlannerTask[]>([]);
   const [localPeriodos, setLocalPeriodos] = useState<PeriodoCaptacao[]>([]);
   const [localLinks, setLocalLinks] = useState<LinkUtil[]>([]);
   const [localMetaDia, setLocalMetaDia] = useState<MetaDia[]>([]);
+  const [localMetaSM, setLocalMetaSM] = useState<MetaSM[]>([]);
+  const [localMetaRVV, setLocalMetaRVV] = useState<MetaRVV[]>([]);
 
   useEffect(() => {
     if (!metaDiaProp) {
@@ -260,6 +273,33 @@ export function AdminMainView({
   }, [qgLigacoesProp]);
 
   useEffect(() => {
+    if (!acaoRuaProp) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.ACAO_RUA), (s) => {
+        setLocalAcaoRua(s.docs.map((d) => ({ id: d.id, ...d.data() }) as AcaoRua));
+      });
+      return () => unsub();
+    }
+  }, [acaoRuaProp]);
+
+  useEffect(() => {
+    if (!metaSMProp || metaSMProp.length === 0) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.META_SM), (s) => {
+        setLocalMetaSM(s.docs.map((d) => ({ id: d.id, ...d.data() }) as MetaSM));
+      });
+      return () => unsub();
+    }
+  }, [metaSMProp]);
+
+  useEffect(() => {
+    if (!metaRVVProp || metaRVVProp.length === 0) {
+      const unsub = onSnapshot(collection(db, COLLECTIONS.META_RVV), (s) => {
+        setLocalMetaRVV(s.docs.map((d) => ({ id: d.id, ...d.data() }) as MetaRVV));
+      });
+      return () => unsub();
+    }
+  }, [metaRVVProp]);
+
+  useEffect(() => {
     if (!plannerProp) {
       const unsub = onSnapshot(collection(db, COLLECTIONS.PLANNER), (s) => {
         setLocalPlanner(s.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerTask));
@@ -290,10 +330,13 @@ export function AdminMainView({
   const activeBomDia = bomDiaProp || localBomDia;
   const activeForecast = forecastProp || localForecast;
   const activeQgLigacoes = qgLigacoesProp || localQgLigacoes;
+  const activeAcaoRua = acaoRuaProp || localAcaoRua;
   const activePlanner = plannerProp || localPlanner;
   const activePeriodos = periodosProp || localPeriodos;
   const activeLinks = linksProp || localLinks;
   const activeMetaDia = metaDiaProp || localMetaDia;
+  const activeMetaSM = (metaSMProp && metaSMProp.length > 0) ? metaSMProp : localMetaSM;
+  const activeMetaRVV = (metaRVVProp && metaRVVProp.length > 0) ? metaRVVProp : localMetaRVV;
 
   // User Management States
   const [searchTerm, setSearchTerm] = useState("");
@@ -477,6 +520,7 @@ export function AdminMainView({
     { id: "funcionarios", label: "Docentes & Administrativos", icon: GraduationCap },
     { id: "metaDia", label: "Meta Dia", icon: Target },
     { id: "metaSM", label: "Metas SM", icon: Target },
+    { id: "metaRVV", label: "Metas RVV", icon: Award },
     { id: "metaCursos", label: "Metas Cursos", icon: BookOpen },
     { id: "metasUnidadeRegional", label: "Metas Unidade Regional", icon: Target },
     { id: "crescimento", label: "Crescimento Anual", icon: TrendingUp },
@@ -484,6 +528,7 @@ export function AdminMainView({
     { id: "bomDia", label: "Bom Dia Captação", icon: Sun },
     { id: "forecast", label: "Forecast", icon: TrendingUp },
     { id: "qgLigacoes", label: "QG de Ligação", icon: PhoneCall },
+    { id: "acaoRua", label: "Ação de Rua", icon: MapPin },
     { id: "planner", label: "Planner da Semana", icon: Calendar },
     { id: "periodos", label: "Período da Captação", icon: CalendarRange },
     { id: "gestaoWhatsapp", label: "Gestão do WhatsApp", icon: MessageSquare },
@@ -563,6 +608,13 @@ export function AdminMainView({
       {activeSubTab === "qgLigacoes" && (
         <AdminQgLigacoesView
           qgLigacoes={activeQgLigacoes}
+          onToast={onToast}
+        />
+      )}
+
+      {activeSubTab === "acaoRua" && (
+        <AdminAcaoRuaView
+          acaoRua={activeAcaoRua}
           onToast={onToast}
         />
       )}
@@ -673,7 +725,11 @@ export function AdminMainView({
       )}
 
       {activeSubTab === "metaSM" && (
-        <MetaSMView metaSM={metaSM} onToast={onToast} />
+        <MetaSMView metaSM={activeMetaSM} onToast={onToast} />
+      )}
+
+      {activeSubTab === "metaRVV" && (
+        <MetaRVVView metaRVV={activeMetaRVV} onToast={onToast} />
       )}
 
       {activeSubTab === "metaCursos" && (

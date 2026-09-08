@@ -200,7 +200,9 @@ import {
   Ligacao,
   AnalysisScheme,
   PeriodAnalysis,
-  SolicitacaoManutencao
+  SolicitacaoManutencao,
+  AcaoRua,
+  MetaRVV,
 } from "./types";
 import { OPENROUTER_MODELS } from "./ai-config";
 import CrescimentoAnualAdmin from "./components/CrescimentoAnualAdmin";
@@ -5224,9 +5226,11 @@ export default function App() {
   const [forecast, setForecast] = useState<ForecastCaptacao[]>([]);
   const [metaDia, setMetaDia] = useState<MetaDia[]>([]);
   const [metaSM, setMetaSM] = useState<MetaSM[]>([]);
+  const [metaRVV, setMetaRVV] = useState<MetaRVV[]>([]);
   const [metaCursos, setMetaCursos] = useState<MetaCurso[]>([]);
   const [metasUnidadeRegional, setMetasUnidadeRegional] = useState<MetaUnidadeRegional[]>([]);
   const [qgLigacoes, setQgLigacoes] = useState<QgLigacao[]>([]);
+  const [acaoRua, setAcaoRua] = useState<AcaoRua[]>([]);
   const [planner, setPlanner] = useState<PlannerTask[]>([]);
   const [periodos, setPeriodos] = useState<PeriodoCaptacao[]>([]);
   const [calendarioAcoes, setCalendarioAcoes] = useState<CalendarioAcao[]>([]);
@@ -6681,6 +6685,20 @@ export default function App() {
       );
     }
 
+    let unsubMetaRVV = () => {};
+    if (profile && (VIEW_PERMISSIONS.dashboard.includes(profile.role) || VIEW_PERMISSIONS.admin.includes(profile.role))) {
+      unsubMetaRVV = onSnapshot(
+        collection(db, COLLECTIONS.META_RVV),
+        (snap) => {
+          setMetaRVV(
+            snap.docs.map((d) => ({ id: d.id, ...d.data() }) as MetaRVV),
+          );
+        },
+        (err) =>
+          handleFirestoreError(err, OperationType.LIST, COLLECTIONS.META_RVV),
+      );
+    }
+
     let unsubMetaCursos = () => {};
     if (profile && VIEW_PERMISSIONS.dashboard.includes(profile.role)) {
       unsubMetaCursos = onSnapshot(
@@ -6723,6 +6741,24 @@ export default function App() {
             err,
             OperationType.LIST,
             COLLECTIONS.QG_LIGACOES,
+          ),
+      );
+    }
+
+    let unsubAcaoRua = () => {};
+    if (profile && VIEW_PERMISSIONS.dashboard.includes(profile.role)) {
+      unsubAcaoRua = onSnapshot(
+        collection(db, COLLECTIONS.ACAO_RUA),
+        (snap) => {
+          setAcaoRua(
+            snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AcaoRua),
+          );
+        },
+        (err) =>
+          handleFirestoreError(
+            err,
+            OperationType.LIST,
+            COLLECTIONS.ACAO_RUA,
           ),
       );
     }
@@ -7295,9 +7331,11 @@ export default function App() {
       unsubForecast();
       unsubMetaDia();
       unsubMetaSM();
+      unsubMetaRVV();
       unsubMetaCursos();
       unsubMetasUnidadeRegional();
       unsubQgLigacoes();
+      unsubAcaoRua();
       unsubPeriodos();
       unsubCalendario();
       unsubEmpresas();
@@ -8174,6 +8212,7 @@ export default function App() {
                   metaCursos={metaCursos}
                   metasUnidadeRegional={metasUnidadeRegional}
                   qgLigacoes={qgLigacoes}
+                  acaoRua={acaoRua}
                   users={users}
                 />
               )}
@@ -8464,6 +8503,7 @@ export default function App() {
                   uniqueUnidades={uniqueUnidades}
                   metaDia={metaDia}
                   metaSM={metaSM}
+                  metaRVV={metaRVV}
                   metaCursos={metaCursos}
                   metasUnidadeRegional={metasUnidadeRegional}
                   analysisSchemes={analysisSchemes}
@@ -8475,6 +8515,7 @@ export default function App() {
                   forecast={forecast}
                   periodos={periodos}
                   qgLigacoes={qgLigacoes}
+                  acaoRua={acaoRua}
                   planner={planner}
                   links={links}
                   botStatuses={botStatuses}
@@ -9768,6 +9809,7 @@ function DashboardView({
   metaCursos,
   metasUnidadeRegional = [],
   qgLigacoes,
+  acaoRua = [],
   users,
 }: {
   leads: Lead[];
@@ -9784,6 +9826,7 @@ function DashboardView({
   metaCursos: MetaCurso[];
   metasUnidadeRegional?: MetaUnidadeRegional[];
   qgLigacoes: QgLigacao[];
+  acaoRua?: AcaoRua[];
   users: UserProfile[];
 }) {
   const isRegional = profile?.role === ROLES.REGIONAL;
@@ -9844,6 +9887,7 @@ function DashboardView({
     forecast: true,
     periodo: true,
     qgLigacoes: true,
+    acaoRua: true,
     metaSM: true,
     metaCursos: true,
     metaUnidadeRegional: true,
@@ -11269,6 +11313,46 @@ function DashboardView({
         </section>
       )}
 
+      {/* Ação de Rua Widget */}
+      {!isRegional && widgets.acaoRua !== false && acaoRua && acaoRua.length > 0 && (
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-slate-900 flex items-center">
+              <span className="bg-amber-100 text-amber-600 p-2 rounded-xl mr-3">
+                <MapPin size={20} />
+              </span>
+              Ação de Rua
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {acaoRua.map((ar) => (
+              <div
+                key={ar.id}
+                className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex flex-col justify-between items-start"
+              >
+                <div className="flex items-center space-x-2 text-amber-600 mb-2 font-bold">
+                  <MapPin size={16} />
+                  <span>{ar.nome}</span>
+                </div>
+                <div className="text-sm font-semibold text-slate-700">
+                  {Array.isArray(ar.diaSemana)
+                    ? ar.diaSemana.join(", ")
+                    : ar.diaSemana}
+                </div>
+                <div className="text-xs text-slate-500 font-medium bg-amber-100/50 px-2 py-1 rounded-md mt-2">
+                  {ar.horario}
+                </div>
+                <div className="w-full text-right mt-2 pt-2 border-t border-slate-200/60">
+                  <span className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">
+                    Atualizado: {ar.createdAt?.seconds ? new Date(ar.createdAt.seconds * 1000).toLocaleDateString("pt-BR") : ar.createdAt ? new Date(ar.createdAt).toLocaleDateString("pt-BR") : "-"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Forecasts (Complete - All cards) */}
       {(isRegional || widgets.forecast) && forecast.filter((f) => !f.oculto).length > 0 && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
@@ -11670,6 +11754,7 @@ function DashboardView({
                       { id: "links", label: "Links Úteis", icon: ExternalLink },
                       { id: "planner", label: "Planner da Semana", icon: Calendar },
                       { id: "qgLigacoes", label: "QG Ligações", icon: Phone },
+                      { id: "acaoRua", label: "Ação de Rua", icon: MapPin },
                       {
                         id: "aniversarios",
                         label: "Aniversariantes do Mês",

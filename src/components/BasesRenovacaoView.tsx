@@ -67,7 +67,7 @@ export function BasesRenovacaoView({
     email: "",
     cpf: "",
     curso: "",
-    semestre: "",
+    matricula: "",
     nomeBase: "Base Líquida",
   });
 
@@ -78,7 +78,10 @@ export function BasesRenovacaoView({
         (item.nome && item.nome.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (item.telefone && item.telefone.includes(searchTerm)) ||
         (item.cpf && item.cpf.includes(searchTerm)) ||
-        (item.curso && item.curso.toLowerCase().includes(searchTerm.toLowerCase()));
+        (item.curso && item.curso.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.email && item.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.matricula && item.matricula.includes(searchTerm)) ||
+        (item.numeroMatricula && item.numeroMatricula.includes(searchTerm));
       const matchStatus = !statusFilter || item.status === statusFilter;
       return matchSearch && matchStatus;
     });
@@ -184,6 +187,9 @@ export function BasesRenovacaoView({
     try {
       await addDoc(collection(db, COLLECTIONS.BASES_RENOVACAO), {
         ...formData,
+        semestre: formData.matricula || "",
+        numeroMatricula: formData.matricula || "",
+        matricula: formData.matricula || "",
         cpf: formData.cpf.replace(/\D/g, ""),
         telefone: formData.telefone.replace(/\D/g, ""),
         status: "Pendente",
@@ -199,7 +205,7 @@ export function BasesRenovacaoView({
         email: "",
         cpf: "",
         curso: "",
-        semestre: "",
+        matricula: "",
         nomeBase: "Base Líquida",
       });
     } catch (err: any) {
@@ -214,7 +220,7 @@ export function BasesRenovacaoView({
       CPF: b.cpf || "",
       Email: b.email || "",
       Curso: b.curso,
-      Semestre: b.semestre || "",
+      "Número de Matrícula": b.matricula || b.numeroMatricula || b.semestre || "",
       Status: b.status,
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -315,7 +321,7 @@ export function BasesRenovacaoView({
                   />
                 </th>
                 <th className="px-6 py-4">Aluno</th>
-                <th className="px-6 py-4">Curso / Semestre</th>
+                <th className="px-6 py-4">Curso / Matrícula</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
@@ -333,13 +339,23 @@ export function BasesRenovacaoView({
                   <td className="px-6 py-4">
                     <div className="font-bold text-slate-900">{item.nome}</div>
                     <div className="text-xs text-slate-500">{formatPhone(item.telefone)}</div>
+                    {item.email && (
+                      <div className="text-xs text-blue-600 font-medium flex items-center gap-1 mt-0.5">
+                        <Mail size={12} className="shrink-0" />
+                        <span className="truncate max-w-[200px]">{item.email}</span>
+                      </div>
+                    )}
                     {item.cpf && (
                       <div className="text-xs text-slate-400">{formatCPF(item.cpf)}</div>
                     )}
                   </td>
                   <td className="px-6 py-4">
                     <div className="font-medium text-slate-800">{item.curso}</div>
-                    <div className="text-xs text-slate-500">{item.semestre || "-"}</div>
+                    <div className="text-xs text-slate-500 font-semibold mt-0.5">
+                      {item.matricula || item.numeroMatricula || item.semestre
+                        ? `Matrícula: ${item.matricula || item.numeroMatricula || item.semestre}`
+                        : "-"}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <select
@@ -446,6 +462,13 @@ export function BasesRenovacaoView({
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <input
+                type="email"
+                placeholder="E-mail do Aluno"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <input
                 placeholder="Curso"
                 required
                 value={formData.curso}
@@ -453,9 +476,9 @@ export function BasesRenovacaoView({
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <input
-                placeholder="Semestre (Ex: 2025.1)"
-                value={formData.semestre}
-                onChange={(e) => setFormData({ ...formData, semestre: e.target.value })}
+                placeholder="Número de Matrícula"
+                value={formData.matricula}
+                onChange={(e) => setFormData({ ...formData, matricula: e.target.value })}
                 className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               />
               <button

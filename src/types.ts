@@ -33,6 +33,8 @@ export interface UserProfile {
     forecast: boolean;
     periodo: boolean;
     qgLigacoes?: boolean;
+    acaoRua?: boolean;
+    metaRVV?: boolean;
     aniversarios?: boolean;
     metaSM?: boolean;
     metaCursos?: boolean;
@@ -152,6 +154,7 @@ export interface BaseEntry {
   semestre: string;
   periodo?: string;
   numeroMatricula?: string;
+  matricula?: string;
   metodologia: string;
   formaIngresso: string;
   status: 'Pendente' | 'Interessado' | 'Convertido' | 'Não tem interesse' | 'Sem retorno' | 'Contato via Sales';
@@ -522,6 +525,37 @@ export interface QgLigacao {
   diaSemana: string | string[];
   horario: string;
   createdAt: any;
+}
+
+export interface AcaoRua {
+  id: string;
+  nome: string;
+  diaSemana: string | string[];
+  horario: string;
+  local?: string;
+  observacoes?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface MetaRVV {
+  id: string;
+  mesAno: string;
+  realFinDig: number;
+  metaFinDig: number;
+  atingDigPercent?: number;
+  multDigi: number;
+  multConvDigi: number;
+  realFinPres: number;
+  metaFinPres: number;
+  atingPresPercent?: number;
+  multPres: number;
+  multConvPres: number;
+  totalMultiploRVV?: number;
+  statusPagamento: 'Paga' | 'Contestada' | 'Pendente';
+  observacao?: string;
+  createdAt?: any;
+  updatedAt?: any;
 }
 
 export interface BotConfig {
