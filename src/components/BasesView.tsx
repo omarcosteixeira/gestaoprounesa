@@ -326,7 +326,7 @@ export function BasesView({
   // New States for Sub-tabs and Candidates Editing
   const [basesSubTab, setBasesSubTab] = useState<
     "dashboard" | "lista" | "novo"
-  >("dashboard");
+  >("lista");
   const [editingCandidate, setEditingCandidate] = useState<BaseEntry | null>(
     null,
   );
@@ -567,21 +567,38 @@ export function BasesView({
       }
     }
 
-    const matchesSearch = b.nome
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch =
+      !term ||
+      (b.nome && b.nome.toLowerCase().includes(term)) ||
+      (b.telefone && b.telefone.replace(/\D/g, "").includes(term.replace(/\D/g, ""))) ||
+      (b.cpf && b.cpf.replace(/\D/g, "").includes(term.replace(/\D/g, "")));
+
     const matchesBase =
       baseFilter.length === 0 || baseFilter.includes(b.nomeBase);
     const matchesStatus = !statusFilter || b.status === statusFilter;
     const matchesProduto = !produtoFilter || b.produto === produtoFilter;
     const matchesCurso =
-      !cursoFilter || b.curso.toLowerCase().includes(cursoFilter.toLowerCase());
+      !cursoFilter || (b.curso && b.curso.trim().toLowerCase() === cursoFilter.trim().toLowerCase());
     const matchesSemestre =
       !semestreFilter ||
-      (b.semestre &&
-        b.semestre.toLowerCase().includes(semestreFilter.toLowerCase()));
+      (b.semestre && b.semestre.trim().toLowerCase() === semestreFilter.trim().toLowerCase());
 
-    const isBlocked = invalidBaseIds.has(b.id);
+    const isBlocked =
+      invalidBaseIds.has(b.id) ||
+      gap.some(
+        (g) =>
+          (g.cpf && b.cpf && g.cpf.replace(/\D/g, "") === b.cpf.replace(/\D/g, "")) ||
+          (g.telefone && b.telefone && g.telefone.replace(/\D/g, "") === b.telefone.replace(/\D/g, "")) ||
+          (g.nome && b.nome && g.nome.toLowerCase().trim() === b.nome.toLowerCase().trim()),
+      ) ||
+      basesRenovacao.some(
+        (br) =>
+          (br.cpf && b.cpf && br.cpf.replace(/\D/g, "") === b.cpf.replace(/\D/g, "")) ||
+          (br.telefone && b.telefone && br.telefone.replace(/\D/g, "") === b.telefone.replace(/\D/g, "")) ||
+          (br.nome && b.nome && br.nome.toLowerCase().trim() === b.nome.toLowerCase().trim()),
+      );
+
     const matchesBlocked =
       blockedFilter === "all" ||
       (blockedFilter === "blocked" && isBlocked) ||
@@ -597,9 +614,13 @@ export function BasesView({
       matchesBlocked
     );
   });
-  const uniqueBases = Array.from(new Set(bases.map((b) => b.nomeBase))).sort();
+  const uniqueBases = Array.from(
+    new Set(bases.map((b) => b.nomeBase).filter(Boolean)),
+  ).sort();
   const uniqueProdutos = ["Graduação", "Técnico", "Pós-graduação"];
-  const uniqueCursos = Array.from(new Set(bases.map((b) => b.curso))).sort();
+  const uniqueCursos = Array.from(
+    new Set(bases.map((b) => b.curso).filter(Boolean)),
+  ).sort();
   const uniqueSemestres = Array.from(
     new Set(bases.map((b) => b.semestre).filter(Boolean)),
   ).sort();
@@ -1072,7 +1093,7 @@ export function BasesView({
           )}
         >
           <Database size={16} />
-          <span>Lista de Candidatos</span>
+          <span>Bases a Trabalhar</span>
         </button>
         <button
           onClick={() => setBasesSubTab("novo")}
@@ -1482,51 +1503,87 @@ export function BasesView({
       {/* Lista Sub-tab */}
       {basesSubTab === "lista" && (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <h3 className="text-xl font-bold text-slate-900 whitespace-nowrap">
-              Candidatos na Base ({filteredBases.length})
+          <div className="p-6 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight tracking-tight shrink-0">
+              Bases a<br />Trabalhar
             </h3>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-[200px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                <input
-                  type="text"
-                  placeholder="Buscar candidato..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="flex flex-col gap-2.5">
+              {/* Linha 1 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative min-w-[190px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Buscar por nome..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 placeholder:text-slate-400"
+                  />
+                </div>
+                <MultiSelect
+                  options={uniqueBases}
+                  selectedValues={baseFilter}
+                  onChange={setBaseFilter}
+                  placeholder="Todas as Bases"
+                  allLabel="Todas as Bases"
                 />
+                <select
+                  value={produtoFilter}
+                  onChange={(e) => setProdutoFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 cursor-pointer"
+                >
+                  <option value="">Todos os Produtos</option>
+                  {uniqueProdutos.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <select
+                  value={cursoFilter}
+                  onChange={(e) => setCursoFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 min-w-[220px] max-w-[340px] truncate cursor-pointer"
+                >
+                  <option value="">Todos os Cursos</option>
+                  {uniqueCursos.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
-              <MultiSelect
-                options={uniqueBases}
-                selectedValues={baseFilter}
-                onChange={setBaseFilter}
-                placeholder="Todas as Bases"
-                allLabel="Todas as Bases"
-              />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              >
-                <option value="">Todos os Status</option>
-                <option value="Pendente">Pendente</option>
-                <option value="Interessado">Interessado</option>
-                <option value="Convertido">Convertido</option>
-                <option value="Sem retorno">Sem retorno</option>
-                <option value="Não tem interesse">Não tem interesse</option>
-                <option value="Contato via Sales">Contato via Sales</option>
-              </select>
-              <select
-                value={produtoFilter}
-                onChange={(e) => setProdutoFilter(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              >
-                <option value="">Todos os Produtos</option>
-                {uniqueProdutos.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+
+              {/* Linha 2 */}
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={semestreFilter}
+                  onChange={(e) => setSemestreFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 cursor-pointer"
+                >
+                  <option value="">Todos os Semestres</option>
+                  {uniqueSemestres.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 cursor-pointer"
+                >
+                  <option value="">Todos Status</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Interessado">Interessado</option>
+                  <option value="Convertido">Convertido</option>
+                  <option value="Sem retorno">Sem retorno</option>
+                  <option value="Não tem interesse">Não tem interesse</option>
+                  <option value="Contato via Sales">Contato via Sales</option>
+                </select>
+                <select
+                  value={blockedFilter}
+                  onChange={(e) => setBlockedFilter(e.target.value as any)}
+                  className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 cursor-pointer"
+                >
+                  <option value="all">Verificação: Todos</option>
+                  <option value="blocked">Verificação: Bloqueados</option>
+                  <option value="unblocked">Verificação: Ativos</option>
+                </select>
+              </div>
             </div>
           </div>
 
