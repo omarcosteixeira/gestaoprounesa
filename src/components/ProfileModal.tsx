@@ -20,6 +20,8 @@ import {
   FileText,
   Copy,
   Link,
+  KeyRound,
+  Database,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -249,9 +251,70 @@ export function ProfileModal({
   const cleanInputNumber = botNumberInput.replace(/\D/g, "");
   const cleanSavedNumber = (profile?.botNumber || "").replace(/\D/g, "");
 
-  // Get current status of the saved bot number
-  const botInfo = cleanSavedNumber ? botStatuses[cleanSavedNumber] : null;
-  const botStatus = botInfo?.status || "offline";
+  // Local state for fast polling and connection methods inside modal
+  const [localBotStatuses, setLocalBotStatuses] = useState<Record<string, any>>({});
+  const [connectingMethod, setConnectingMethod] = useState<"qr" | "code" | null>(null);
+  const [injecting, setInjecting] = useState(false);
+  const [saveSessionInDb, setSaveSessionInDb] = useState(true);
+
+  // Merge external and local bot statuses for ultra-fast UI response
+  const mergedStatuses = { ...botStatuses, ...localBotStatuses };
+  const botInfo = cleanSavedNumber
+    ? mergedStatuses[cleanSavedNumber] ||
+      mergedStatuses[cleanSavedNumber.replace(/^55/, "")] ||
+      mergedStatuses[`55${cleanSavedNumber}`] ||
+      Object.entries(mergedStatuses).find(([k, v]: [string, any]) =>
+        k.replace(/\D/g, "") === cleanSavedNumber ||
+        k.replace(/\D/g, "") === cleanSavedNumber.replace(/^55/, "") ||
+        v?.botNumber?.replace(/\D/g, "") === cleanSavedNumber
+      )?.[1]
+    : null;
+
+  const isOnline = botInfo?.status === "online" || (botInfo as any)?.connected === true;
+  const isPairing =
+    botInfo?.status === "pairing" ||
+    botInfo?.status === "connecting" ||
+    (!isOnline && (Boolean(botInfo?.qrUrl) || Boolean(botInfo?.qrCode) || Boolean(botInfo?.pairingCode)));
+  const botStatus = isOnline ? "online" : isPairing ? "pairing" : (botInfo?.status || "offline");
+  const qrUrl = botInfo?.qrUrl || botInfo?.qrCode || (botInfo as any)?.qr;
+
+  // Real-time polling every 3 seconds while modal is open
+  const fetchBotStatus = async () => {
+    if (!botConfig?.url) return;
+    try {
+      const cleanUrl = botConfig.url.endsWith("/")
+        ? botConfig.url.slice(0, -1)
+        : botConfig.url;
+      const res = await fetch(`${cleanUrl}/api/status`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.bots && typeof data.bots === "object") {
+          setLocalBotStatuses(data.bots);
+        } else if (data && typeof data === "object") {
+          if (data.status || data.qrUrl || data.pairingCode) {
+            const num = (data.botNumber || cleanSavedNumber || cleanInputNumber).replace(/\D/g, "");
+            if (num) {
+              setLocalBotStatuses((prev) => ({
+                ...prev,
+                [num]: { ...prev[num], ...data },
+              }));
+            }
+          } else {
+            setLocalBotStatuses(data);
+          }
+        }
+      }
+    } catch {
+      // ignore network errors in polling
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !botConfig?.url) return;
+    fetchBotStatus();
+    const interval = setInterval(fetchBotStatus, 3000);
+    return () => clearInterval(interval);
+  }, [isOpen, botConfig?.url, cleanSavedNumber]);
 
   const handleSaveBotNumber = async () => {
     if (!profile?.uid) return;
@@ -279,7 +342,7 @@ export function ProfileModal({
     }
   };
 
-  const handleConnect = async () => {
+  const handleConnect = async (method: "qr" | "code" = "qr") => {
     const numberToConnect = cleanSavedNumber || cleanInputNumber;
     if (!numberToConnect) {
       onToast("Informe um número de WhatsApp primeiro.", "error");
@@ -294,6 +357,7 @@ export function ProfileModal({
     }
 
     setConnecting(true);
+    setConnectingMethod(method);
     const cleanUrl = botConfig.url.endsWith("/")
       ? botConfig.url.slice(0, -1)
       : botConfig.url;
@@ -302,18 +366,32 @@ export function ProfileModal({
       const res = await fetch(`${cleanUrl}/api/connect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botNumber: numberToConnect }),
+        body: JSON.stringify({
+          botNumber: numberToConnect,
+          method: method,
+        }),
       });
 
       if (!res.ok) {
-        onToast(`Erro da API do bot: ${res.status} ${res.statusText}`, "error");
+        const errData = await res.json().catch(() => ({}));
+        onToast(`Erro da API do bot: ${errData.error || res.statusText}`, "error");
         return;
       }
 
-      onToast(
-        "Solicitação de conexão enviada! Aguardando QR Code/Pairing Code...",
-        "success",
-      );
+      if (method === "qr") {
+        onToast(
+          "Solicitação enviada! Gerando QR Code para leitura no WhatsApp...",
+          "success",
+        );
+      } else {
+        onToast(
+          "Solicitação enviada! Aguardando Código de Pareamento...",
+          "success",
+        );
+      }
+
+      setTimeout(fetchBotStatus, 1000);
+      setTimeout(fetchBotStatus, 2500);
     } catch (err: any) {
       onToast(
         `Erro ao conectar com o servidor do bot: ${err.message}`,
@@ -321,6 +399,93 @@ export function ProfileModal({
       );
     } finally {
       setConnecting(false);
+      setConnectingMethod(null);
+    }
+  };
+
+  const handleInjectSession = async (customSessionData?: any) => {
+    const rawData = customSessionData || sessionJSON;
+    if (!rawData) {
+      onToast("Informe ou cole os dados da sessão primeiro.", "error");
+      return;
+    }
+
+    const numberToConnect = cleanSavedNumber || cleanInputNumber;
+    if (!numberToConnect) {
+      onToast("Informe um número de WhatsApp primeiro.", "error");
+      return;
+    }
+    if (!botConfig?.url) {
+      onToast("URL de conexão do bot não configurada.", "error");
+      return;
+    }
+
+    setInjecting(true);
+    const cleanUrl = botConfig.url.endsWith("/")
+      ? botConfig.url.slice(0, -1)
+      : botConfig.url;
+
+    try {
+      let payloadSessionData: any;
+      if (typeof rawData === "string") {
+        const trimmed = rawData.trim();
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          try {
+            payloadSessionData = JSON.parse(trimmed);
+          } catch {
+            payloadSessionData = trimmed;
+          }
+        } else {
+          payloadSessionData = trimmed;
+        }
+      } else {
+        payloadSessionData = rawData;
+      }
+
+      const res = await fetch(`${cleanUrl}/api/inject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          botNumber: numberToConnect,
+          sessionData: payloadSessionData,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        onToast(`Erro na injeção: ${errData.error || res.statusText}`, "error");
+        return;
+      }
+
+      if (saveSessionInDb && profile?.uid) {
+        try {
+          const stringToSave =
+            typeof payloadSessionData === "string"
+              ? payloadSessionData
+              : JSON.stringify(payloadSessionData);
+          await updateDoc(doc(db, COLLECTIONS.USERS, profile.uid), {
+            savedSessionData: stringToSave,
+            sessionSavedAt: serverTimestamp(),
+          });
+          setProfile((prev) =>
+            prev ? { ...prev, savedSessionData: stringToSave } : null,
+          );
+        } catch (dbErr) {
+          console.warn("Não foi possível salvar sessão no banco:", dbErr);
+        }
+      }
+
+      onToast("Sucesso! Sessão injetada. O bot está iniciando...", "success");
+      setShowInjectUI(false);
+      setSessionJSON("");
+      setTimeout(fetchBotStatus, 2000);
+      setTimeout(fetchBotStatus, 4000);
+    } catch (err: any) {
+      onToast(`Erro ao injetar sessão: ${err.message}`, "error");
+    } finally {
+      setInjecting(false);
     }
   };
 
@@ -751,121 +916,161 @@ export function ProfileModal({
                             </div>
                           </div>
 
-                          {/* Connection Trigger Button */}
-                          <div className="flex flex-col gap-2">
-                            <button
-                              onClick={handleConnect}
-                              disabled={connecting}
-                              className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-200"
-                            >
-                              {connecting ? (
-                                <>
-                                  <RefreshCw size={16} className="animate-spin" />
-                                  <span>Solicitando Conexão...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Smartphone size={16} />
-                                  <span>Conectar Tradicional</span>
-                                </>
-                              )}
-                            </button>
+                          {/* Connection Trigger Buttons */}
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {/* 1. Conectar via QR Code (Nova Funcionalidade) */}
+                              <button
+                                onClick={() => handleConnect("qr")}
+                                disabled={connecting}
+                                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/10 cursor-pointer"
+                              >
+                                {connecting && connectingMethod === "qr" ? (
+                                  <>
+                                    <RefreshCw size={14} className="animate-spin" />
+                                    <span>Gerando QR Code...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <QrIcon size={16} />
+                                    <span>Conectar via QR Code</span>
+                                  </>
+                                )}
+                              </button>
 
+                              {/* 2. Conectar via Código (Como já funcionava) */}
+                              <button
+                                onClick={() => handleConnect("code")}
+                                disabled={connecting}
+                                className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-slate-900/10 cursor-pointer"
+                              >
+                                {connecting && connectingMethod === "code" ? (
+                                  <>
+                                    <RefreshCw size={14} className="animate-spin" />
+                                    <span>Solicitando Código...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Smartphone size={16} />
+                                    <span>Conectar via Código</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* 3. Injeção de Sessão (Nova Rota /api/inject) */}
                             <button
                               onClick={() => setShowInjectUI(!showInjectUI)}
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+                              className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 py-2.5 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                             >
-                              <Link size={16} />
-                              <span>Injetar Sessão (Extensão)</span>
+                              <Link size={15} />
+                              <span>
+                                {showInjectUI
+                                  ? "Ocultar Injeção de Sessão"
+                                  : "Injetar Sessão (JSON / Base64 / Banco)"}
+                              </span>
                             </button>
+
+                            {/* Injetar direto do banco se já houver sessão salva */}
+                            {profile?.savedSessionData && !showInjectUI && (
+                              <button
+                                onClick={() => handleInjectSession(profile.savedSessionData)}
+                                disabled={injecting}
+                                className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 py-2 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                              >
+                                <Database size={14} />
+                                <span>
+                                  {injecting
+                                    ? "Injetando sessão salva..."
+                                    : "Reconectar Usando Sessão Salva no Banco"}
+                                </span>
+                              </button>
+                            )}
                           </div>
 
                           {showInjectUI && (
                             <motion.div
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: "auto" }}
-                              className="bg-blue-50 border border-blue-200 p-4 rounded-xl space-y-3 overflow-hidden"
+                              className="bg-blue-50/70 border border-blue-200 p-4 rounded-xl space-y-3 overflow-hidden"
                             >
-                              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[10px] text-amber-800 leading-relaxed mb-2">
-                                <p className="font-bold flex items-center gap-1 mb-1">
+                              <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[10px] text-amber-800 leading-relaxed">
+                                <p className="font-bold flex items-center gap-1 mb-1 text-amber-900">
                                   <AlertCircle size={12} />
-                                  SOP - Instruções:
+                                  Injeção de Sessão (JSON direto ou Base64):
                                 </p>
                                 <ol className="list-decimal ml-3 space-y-1">
-                                  <li>Logue no WhatsApp Web em aba anônima.</li>
-                                  <li>Copie o JSON pela extensão <strong>PESK Linker</strong>.</li>
-                                  <li>Cole abaixo e clique em Injetar.</li>
-                                  <li>Feche a aba do WhatsApp Web imediatamente.</li>
+                                  <li>
+                                    Abra o WhatsApp Web oficial em aba anônima e faça login.
+                                  </li>
+                                  <li>
+                                    Copie o código de sessão gerado pela extensão ou o arquivo{" "}
+                                    <code>creds.json</code>.
+                                  </li>
+                                  <li>Cole o JSON ou código em Base64 no campo abaixo.</li>
+                                  <li>
+                                    Clique em <strong>Injetar e Conectar</strong>. A API
+                                    aceita texto JSON direto ou Base64.
+                                  </li>
                                 </ol>
                               </div>
+
+                              {profile?.savedSessionData && (
+                                <div className="flex items-center justify-between bg-white p-2.5 rounded-lg border border-blue-200 text-xs">
+                                  <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                                    <Database size={14} className="text-blue-600" />
+                                    <span>Sessão anterior salva no banco de dados</span>
+                                  </div>
+                                  <button
+                                    onClick={() => handleInjectSession(profile.savedSessionData)}
+                                    disabled={injecting}
+                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer"
+                                  >
+                                    {injecting ? "Injetando..." : "Injetar do Banco"}
+                                  </button>
+                                </div>
+                              )}
 
                               <textarea
                                 value={sessionJSON}
                                 onChange={(e) => setSessionJSON(e.target.value)}
-                                placeholder="Cole o JSON da extensão aqui..."
+                                placeholder="Cole aqui o JSON (creds.json) ou Base64 da sessão..."
                                 rows={4}
-                                className="w-full bg-white border border-blue-200 rounded-lg p-2 text-[10px] font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full bg-white border border-blue-200 rounded-lg p-2.5 text-[10px] font-mono focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                               />
 
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id="saveSessionInDb"
+                                  checked={saveSessionInDb}
+                                  onChange={(e) => setSaveSessionInDb(e.target.checked)}
+                                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 cursor-pointer"
+                                />
+                                <label
+                                  htmlFor="saveSessionInDb"
+                                  className="text-[11px] text-slate-600 cursor-pointer select-none font-medium"
+                                >
+                                  Salvar sessão no banco de dados para reconexões automáticas
+                                </label>
+                              </div>
+
                               <button
-                                onClick={async () => {
-                                  if (!sessionJSON) {
-                                    onToast("Cole o JSON primeiro.", "error");
-                                    return;
-                                  }
-                                  try {
-                                    const sessionDataObj =
-                                      JSON.parse(sessionJSON);
-                                    const numberToConnect =
-                                      cleanSavedNumber || cleanInputNumber;
-                                    if (!numberToConnect) {
-                                      onToast(
-                                        "Número não identificado.",
-                                        "error",
-                                      );
-                                      return;
-                                    }
-
-                                    const cleanUrl = botConfig.url.endsWith("/")
-                                      ? botConfig.url.slice(0, -1)
-                                      : botConfig.url;
-
-                                    const res = await fetch(
-                                      `${cleanUrl}/api/inject`,
-                                      {
-                                        method: "POST",
-                                        headers: {
-                                          "Content-Type": "application/json",
-                                        },
-                                        body: JSON.stringify({
-                                          botNumber: numberToConnect,
-                                          sessionData: sessionDataObj,
-                                        }),
-                                      },
-                                    );
-
-                                    if (!res.ok) {
-                                      const errData = await res.json();
-                                      onToast(
-                                        `Erro: ${errData.error || res.statusText}`,
-                                        "error",
-                                      );
-                                      return;
-                                    }
-
-                                    onToast(
-                                      "Sucesso! Sessão injetada com sucesso.",
-                                      "success",
-                                    );
-                                    setShowInjectUI(false);
-                                    setSessionJSON("");
-                                  } catch (e: any) {
-                                    onToast(`Erro: ${e.message}`, "error");
-                                  }
-                                }}
-                                className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-xs hover:bg-blue-700 transition"
+                                onClick={() => handleInjectSession()}
+                                disabled={injecting || !sessionJSON.trim()}
+                                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                               >
-                                Injetar e Conectar Agora
+                                {injecting ? (
+                                  <>
+                                    <RefreshCw size={14} className="animate-spin" />
+                                    <span>Injetando Sessão na API...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Link size={14} />
+                                    <span>Injetar e Conectar Agora</span>
+                                  </>
+                                )}
                               </button>
                             </motion.div>
                           )}
@@ -879,22 +1084,118 @@ export function ProfileModal({
                     </div>
                   )}
 
-                  {/* Real-time QR and pairing code container pulled from server status */}
-                  {botInfo && botStatus === "pairing" && (
+                  {/* QR Code Container when qrUrl is present */}
+                  {botStatus !== "online" && qrUrl && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-3 bg-white p-5 rounded-2xl border-2 border-emerald-400 shadow-md text-center flex flex-col items-center gap-3"
+                    >
+                      <div className="flex items-center justify-between w-full border-b border-slate-100 pb-2.5">
+                        <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+                          <QrIcon size={18} />
+                          <span>QR Code para Conexão</span>
+                        </div>
+                        <button
+                          onClick={() => handleConnect("qr")}
+                          disabled={connecting}
+                          className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center gap-1 cursor-pointer"
+                          title="Gerar novo QR Code"
+                        >
+                          <RefreshCw
+                            size={12}
+                            className={connecting && connectingMethod === "qr" ? "animate-spin" : ""}
+                          />
+                          <span>Atualizar QR</span>
+                        </button>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-slate-200 shadow-sm inline-block">
+                        <img
+                          src={qrUrl}
+                          alt="QR Code WhatsApp"
+                          className="w-56 h-56 object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+
+                      <div className="text-center space-y-1">
+                        <p className="text-xs font-bold text-slate-800">
+                          Escaneie com seu WhatsApp
+                        </p>
+                        <p className="text-[11px] text-slate-500 max-w-xs leading-relaxed">
+                          No WhatsApp do seu celular, vá em{" "}
+                          <strong>Aparelhos Conectados</strong> &gt;{" "}
+                          <strong>Conectar um Aparelho</strong> e aponte a câmera
+                          para o QR Code acima.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Pairing Code Container when pairingCode is present */}
+                  {botStatus !== "online" && !qrUrl && botInfo?.pairingCode && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-3 bg-white p-5 rounded-2xl border-2 border-slate-300 shadow-md text-center flex flex-col items-center gap-3"
+                    >
+                      <div className="flex items-center justify-between w-full border-b border-slate-100 pb-2.5">
+                        <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                          <Smartphone size={18} />
+                          <span>Código de Pareamento</span>
+                        </div>
+                        <button
+                          onClick={() => handleConnect("code")}
+                          disabled={connecting}
+                          className="text-[11px] text-slate-700 hover:text-slate-900 font-bold flex items-center gap-1 cursor-pointer"
+                          title="Gerar novo código"
+                        >
+                          <RefreshCw
+                            size={12}
+                            className={connecting && connectingMethod === "code" ? "animate-spin" : ""}
+                          />
+                          <span>Novo Código</span>
+                        </button>
+                      </div>
+
+                      <div className="bg-slate-900 text-white font-mono text-2xl font-bold tracking-widest px-6 py-3 rounded-xl shadow flex items-center gap-3">
+                        <span>{botInfo.pairingCode}</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(botInfo.pairingCode!);
+                            onToast("Código copiado!", "success");
+                          }}
+                          className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition-colors cursor-pointer"
+                          title="Copiar código"
+                        >
+                          <Copy size={16} />
+                        </button>
+                      </div>
+
+                      <p className="text-[11px] text-slate-500 max-w-xs leading-relaxed">
+                        Abra a notificação recebida no WhatsApp do celular e insira
+                        este código para autorizar a conexão.
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {/* Waiting container when in pairing state but code/QR not ready yet */}
+                  {botInfo && botStatus === "pairing" && !qrUrl && !botInfo?.pairingCode && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-3 bg-white p-4 rounded-xl border-2 border-dashed border-slate-200 text-center flex flex-col gap-2 items-center shadow-inner"
+                      className="mt-3 bg-white p-4 rounded-xl border-2 border-dashed border-amber-300 text-center flex flex-col gap-2 items-center shadow-inner"
                     >
-                      <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center animate-pulse">
-                        <RefreshCw size={20} />
+                      <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center animate-pulse">
+                        <RefreshCw size={20} className="animate-spin" />
                       </div>
                       <p className="text-xs font-bold text-slate-700">
-                        Aguardando injeção de sessão via extensão.
+                        Aguardando o servidor gerar a conexão...
                       </p>
-                      <p className="text-[10px] text-slate-500 max-w-[220px]">
-                        O QR Code nativo está desabilitado por segurança. Use a
-                        extensão PESK Linker para conectar este número.
+                      <p className="text-[10px] text-slate-500 max-w-[240px]">
+                        O servidor está preparando os dados. O painel verifica o
+                        status a cada 3 segundos e exibirá aqui assim que estiver
+                        pronto.
                       </p>
                     </motion.div>
                   )}

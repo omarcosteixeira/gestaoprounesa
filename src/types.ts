@@ -19,6 +19,8 @@ export interface UserProfile {
   blocked?: boolean;
   mustChangePassword?: boolean;
   botNumber?: string;
+  savedSessionData?: string;
+  sessionSavedAt?: any;
   unidade?: string;
   servidor?: 'principal' | 'comercial' | 'unesa';
   linkadoA?: string; // used for Promotor/rua to link to FDV

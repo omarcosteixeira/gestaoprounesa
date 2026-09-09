@@ -98,7 +98,11 @@ export function AdminWhatsappApiView({
       if (callBotApi) {
         const res = await callBotApi("/api/status");
         if (setBotStatuses && res) {
-          setBotStatuses(res);
+          if (res.bots && typeof res.bots === "object") {
+            setBotStatuses(res.bots);
+          } else {
+            setBotStatuses(res);
+          }
         }
         onToast("Conexão com a API testada com sucesso!");
       } else {
@@ -363,23 +367,47 @@ export function AdminWhatsappApiView({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {botList.map(([key, data]) => {
               const isOnline = data?.status === "online" || data?.connected === true;
+              const qrUrl = data?.qrUrl || data?.qrCode;
               return (
                 <div
                   key={key}
-                  className="p-4 rounded-xl border border-slate-100 bg-slate-50/70 flex items-center justify-between"
+                  className="p-4 rounded-xl border border-slate-100 bg-slate-50/70 flex flex-col justify-between gap-2.5"
                 >
-                  <div className="space-y-1">
-                    <span className="text-xs font-bold text-slate-800">{key}</span>
-                    <div className="text-[11px] text-slate-500">{data?.name || data?.pushname || "Instância WhatsApp"}</div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-slate-800">{key}</span>
+                      <div className="text-[11px] text-slate-500">
+                        {data?.name || data?.pushname || "Instância WhatsApp"}
+                      </div>
+                    </div>
+                    <span
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
+                        isOnline ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                      }`}
+                    >
+                      {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
+                      <span>{isOnline ? "Online" : "Desconectado"}</span>
+                    </span>
                   </div>
-                  <span
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
-                      isOnline ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
-                    }`}
-                  >
-                    {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-                    <span>{isOnline ? "Online" : "Desconectado"}</span>
-                  </span>
+
+                  {!isOnline && qrUrl && (
+                    <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center space-y-1">
+                      <img
+                        src={qrUrl}
+                        alt={`QR Code ${key}`}
+                        className="w-32 h-32 object-contain mx-auto"
+                      />
+                      <span className="text-[10px] text-slate-500 font-semibold block">
+                        Escaneie para conectar
+                      </span>
+                    </div>
+                  )}
+
+                  {!isOnline && !qrUrl && data?.pairingCode && (
+                    <div className="bg-slate-900 text-white font-mono text-center text-xs font-bold py-1.5 px-2 rounded-lg">
+                      Código: {data.pairingCode}
+                    </div>
+                  )}
                 </div>
               );
             })}

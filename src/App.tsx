@@ -7401,8 +7401,22 @@ export default function App() {
     const checkBotStatus = async () => {
       try {
         const data = await callBotApi("/api/status");
-        if (data && data.bots) {
-          setBotStatuses(data.bots);
+        if (data) {
+          if (data.bots && typeof data.bots === "object") {
+            setBotStatuses(data.bots);
+          } else if (typeof data === "object") {
+            if (data.status || data.qrUrl || data.pairingCode) {
+              const num = (data.botNumber || profile?.botNumber || "").replace(/\D/g, "");
+              if (num) {
+                setBotStatuses((prev) => ({
+                  ...prev,
+                  [num]: { ...prev[num], ...data },
+                }));
+              }
+            } else {
+              setBotStatuses(data);
+            }
+          }
         }
       } catch (e: any) {
         console.debug("Bot check fail via proxy:", e.message);
@@ -7921,19 +7935,24 @@ export default function App() {
                       return;
                     }
                     try {
-                      let sessionDataObj;
-                      try {
-                        sessionDataObj = JSON.parse(injectSessionData);
-                      } catch (e) {
-                        showToast("JSON inválido! Copie novamente da extensão.", "error");
-                        return;
+                      let sessionDataPayload: any;
+                      const trimmed = injectSessionData.trim();
+                      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+                        try {
+                          sessionDataPayload = JSON.parse(trimmed);
+                        } catch {
+                          sessionDataPayload = trimmed;
+                        }
+                      } else {
+                        // Accept Base64 or plain string directly as per API specs
+                        sessionDataPayload = trimmed;
                       }
 
                       await callBotApi("/api/inject", {
                         method: "POST",
                         body: { 
                           botNumber: injectBotNumber,
-                          sessionData: sessionDataObj
+                          sessionData: sessionDataPayload
                         }
                       });
                       
