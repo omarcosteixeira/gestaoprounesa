@@ -54,6 +54,7 @@ export function IsencoesView({
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [digitalizaFilter, setDigitalizaFilter] = useState<string>("");
   const [boletoFilter, setBoletoFilter] = useState<string>("");
+  const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<IsencaoEntry | null>(null);
@@ -357,10 +358,49 @@ export function IsencoesView({
     if (window.confirm("Deseja realmente excluir este registro de isenção?")) {
       try {
         await deleteDoc(doc(db, COLLECTIONS.ISENCOES, id));
+        setSelectedEntries((prev) => prev.filter((item) => item !== id));
         onToast("Registro excluído com sucesso!", "success");
       } catch (err) {
         handleFirestoreError(err, OperationType.DELETE, COLLECTIONS.ISENCOES);
       }
+    }
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedEntries(filteredIsencoes.map((item) => item.id));
+    } else {
+      setSelectedEntries([]);
+    }
+  };
+
+  const toggleSelectEntry = (id: string) => {
+    setSelectedEntries((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedEntries.length === 0) return;
+    if (
+      !window.confirm(
+        `Deseja realmente excluir ${selectedEntries.length} registro(s) de isenção selecionado(s)?`
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await Promise.all(
+        selectedEntries.map((id) => deleteDoc(doc(db, COLLECTIONS.ISENCOES, id)))
+      );
+      onToast(`${selectedEntries.length} isenção(ões) excluída(s) com sucesso!`, "success");
+      setSelectedEntries([]);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, COLLECTIONS.ISENCOES);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -525,12 +565,17 @@ export function IsencoesView({
 
   // EXPORT TO EXCEL
   const handleExportExcel = () => {
-    if (filteredIsencoes.length === 0) {
+    const list =
+      selectedEntries.length > 0
+        ? filteredIsencoes.filter((item) => selectedEntries.includes(item.id))
+        : filteredIsencoes;
+
+    if (list.length === 0) {
       onToast("Não existem dados para exportar.", "error");
       return;
     }
 
-    const dataToExport = filteredIsencoes.map((item) => ({
+    const dataToExport = list.map((item) => ({
       Nome: item.nome,
       CPF: item.cpf,
       Telefone: item.telefone,
@@ -861,10 +906,72 @@ export function IsencoesView({
 
       {/* Table view */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Selection & Bulk Actions Bar */}
+        <div className="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center bg-slate-50/70 gap-3">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  filteredIsencoes.length > 0 &&
+                  selectedEntries.length === filteredIsencoes.length
+                ) {
+                  setSelectedEntries([]);
+                } else {
+                  setSelectedEntries(filteredIsencoes.map((i) => i.id));
+                }
+              }}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer",
+                selectedEntries.length > 0 &&
+                  selectedEntries.length === filteredIsencoes.length
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                  : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+              )}
+            >
+              <Check size={14} />
+              {selectedEntries.length > 0 &&
+              selectedEntries.length === filteredIsencoes.length
+                ? "Desmarcar Todos"
+                : "Selecionar Todos"}
+            </button>
+
+            <span className="text-xs font-bold text-slate-500">
+              {selectedEntries.length > 0
+                ? `${selectedEntries.length} de ${filteredIsencoes.length} selecionado(s)`
+                : `Total: ${filteredIsencoes.length} registros`}
+            </span>
+          </div>
+
+          {selectedEntries.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={loading}
+                className="text-rose-600 font-bold bg-rose-50 border border-rose-200 px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 hover:bg-rose-100 transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 size={14} /> Excluir em Massa ({selectedEntries.length})
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase tracking-wider">
+                <th className="p-4 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredIsencoes.length > 0 &&
+                      selectedEntries.length === filteredIsencoes.length
+                    }
+                    onChange={(e) => toggleSelectAll(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="p-4">Candidato</th>
                 <th className="p-4">CPF / Telefone</th>
                 <th className="p-4">Oportunidade</th>
@@ -882,13 +989,29 @@ export function IsencoesView({
             <tbody className="divide-y divide-slate-100 text-sm">
               {filteredIsencoes.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-slate-400">
+                  <td colSpan={13} className="p-8 text-center text-slate-400">
                     Nenhuma isenção cadastrada ou compatível com os filtros.
                   </td>
                 </tr>
               ) : (
                 filteredIsencoes.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={item.id}
+                    className={cn(
+                      "transition-colors",
+                      selectedEntries.includes(item.id)
+                        ? "bg-blue-50/40 hover:bg-blue-50/60"
+                        : "hover:bg-slate-50/50"
+                    )}
+                  >
+                    <td className="p-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedEntries.includes(item.id)}
+                        onChange={() => toggleSelectEntry(item.id)}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                    </td>
                     <td className="p-4">
                       <div className="font-bold text-slate-800">{item.nome}</div>
                       {item.createdByNome && (
