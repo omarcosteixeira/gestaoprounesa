@@ -127,6 +127,7 @@ export const COLLECTIONS = new Proxy({} as any, {
       CLUBE_PARCEIROS: `artifacts/${currentProjectId}/public/data/clube_parceiros`,
       CLUBE_RESGATES: `artifacts/${currentProjectId}/public/data/clube_resgates`,
       CLUBE_EMPRESAS_VALIDADORAS: `artifacts/${currentProjectId}/public/data/clube_empresas_validadoras`,
+      TEAMS_ALERT_LOGS: `artifacts/${currentProjectId}/public/data/teams_alert_logs`,
     };
     return paths[prop];
   }

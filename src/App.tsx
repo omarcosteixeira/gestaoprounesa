@@ -148,6 +148,7 @@ import {
   validateCPF,
   formatCPF,
 } from "./lib/utils";
+import { enqueueTeamsAlert, executeDirectTeamsDispatch } from "./lib/teamsService";
 import * as XLSX from "xlsx";
 import { EmailMarketingView } from "./components/EmailMarketingView";
 import { RelatoriosView } from "./components/RelatoriosView";
@@ -5482,6 +5483,32 @@ export default function App() {
     }
   };
 
+  const sendAppTeams = async (
+    teamsChatId: string,
+    rawMessage: string,
+    userName?: string,
+    userEmail?: string,
+    origem?: string,
+    customInstruction?: string,
+  ) => {
+    if (!teamsChatId || !teamsChatId.trim()) return;
+
+    enqueueTeamsAlert(
+      {
+        chatId: teamsChatId.trim(),
+        mensagem: rawMessage.trim(),
+        processarComIA: botConfig?.teamsProcessWithAI !== false,
+        instrucaoIA: customInstruction || botConfig?.teamsDefaultInstruction,
+        targetUrl: botConfig?.teamsBotUrl,
+        apiKey: botConfig?.teamsApiKey,
+        userName,
+        userEmail,
+        origem: origem || "Notificação do LeadsPro",
+      },
+      botConfig,
+    );
+  };
+
   const handleSendBotMessage = async (
     telefone: string,
     message: string,
@@ -5836,6 +5863,19 @@ export default function App() {
       // Telegram sending
       if (u.telegram) {
         await sendAppTelegram(u.telegram, message);
+      }
+
+      // Microsoft Teams sending
+      const teamsId = u.teamsChatId || u.teams_chat_id;
+      if (teamsId) {
+        const rawTeamsAlert = `Nova notificação de atividade no LeadsPro.\nAtividade: ${taskTitle}\nTipo: ${taskType}\nResponsável: ${u.nome || u.name || "Colaborador"}\nUnidade: ${u.unidade || "Geral"}\nPor favor, acesse o sistema de gestão para acompanhar o andamento.`;
+        sendAppTeams(
+          teamsId,
+          rawTeamsAlert,
+          u.nome || u.name,
+          u.email,
+          `Atividade: ${taskType}`
+        );
       }
     }
   };

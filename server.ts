@@ -113,6 +113,159 @@ async function startServer() {
     }
   });
 
+  // API endpoint para envio de alertas para Microsoft Teams via Bot no Railway
+  app.post("/api/enviar-aviso-teams", async (req, res) => {
+    try {
+      const {
+        chatId,
+        mensagem,
+        processarComIA = true,
+        instrucaoIA,
+        targetUrl: customTargetUrl,
+        apiKey: customApiKey,
+        userName,
+      } = req.body;
+
+      if (!chatId || typeof chatId !== "string" || !chatId.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "O parâmetro 'chatId' (string Base64 do Teams) é obrigatório.",
+        });
+      }
+
+      if (!mensagem || typeof mensagem !== "string" || !mensagem.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "O parâmetro 'mensagem' com o conteúdo da notificação é obrigatório.",
+        });
+      }
+
+      const endpointUrl =
+        customTargetUrl ||
+        process.env.TEAMS_BOT_URL ||
+        "";
+
+      const apiKey =
+        customApiKey ||
+        process.env.TEAMS_API_KEY ||
+        "";
+
+      if (!endpointUrl) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "A URL da API do Microsoft Teams no Railway não foi informada ou configurada (TEAMS_BOT_URL). Configure no painel de Administração ou envie no corpo da requisição.",
+        });
+      }
+
+      if (!apiKey) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "A chave de API x-api-key da API do Teams não foi informada ou configurada (TEAMS_API_KEY). Configure no painel de Administração ou envie no corpo da requisição.",
+        });
+      }
+
+      const payload: Record<string, any> = {
+        chatId: chatId.trim(),
+        mensagem: mensagem.trim(),
+        processarComIA: processarComIA !== false,
+      };
+
+      if (instrucaoIA && typeof instrucaoIA === "string" && instrucaoIA.trim()) {
+        payload.instrucaoIA = instrucaoIA.trim();
+      }
+
+      // Plano B / Fallback: tentar até 3 vezes com espaçamento se houver erro transitório (ex: HTTP 500 ou timeout)
+      const MAX_ATTEMPTS = 3;
+      let lastError = "";
+      let lastStatus = 500;
+      let lastData: any = null;
+
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout para permitir IA do OpenRouter responder
+
+        try {
+          console.log(`[TEAMS DISPATCH] Tentativa ${attempt}/${MAX_ATTEMPTS} para usuário: ${userName || "N/A"}`);
+          const response = await fetch(endpointUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey.trim(),
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          lastStatus = response.status;
+
+          const contentType = response.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            lastData = await response.json().catch(() => ({}));
+          } else {
+            lastData = { text: await response.text().catch(() => "") };
+          }
+
+          if (response.ok) {
+            // Log de auditoria conforme exigência do guia
+            console.log(
+              `[AUDIT LOG - TEAMS] Aviso enviado via Teams com sucesso. Destinatário: ${chatId.substring(0, 25)}... | Usuário: ${userName || "N/A"} | Data: ${new Date().toISOString()}`
+            );
+
+            return res.status(200).json({
+              success: true,
+              status: 200,
+              message: "Aviso enviado via Teams com sucesso",
+              data: lastData,
+              attempt,
+            });
+          }
+
+          lastError =
+            (lastData && (lastData.error || lastData.mensagem || lastData.text)) ||
+            `HTTP ${response.status}: ${response.statusText}`;
+
+          console.warn(
+            `[TEAMS DISPATCH] Tentativa ${attempt} falhou com HTTP ${response.status}: ${lastError}`
+          );
+
+          // Se for erro 401 ou 403 (chave errada) ou 400 (parâmetro inválido), não adianta tentar novamente
+          if (response.status === 401 || response.status === 403 || response.status === 400) {
+            break;
+          }
+        } catch (err: any) {
+          clearTimeout(timeoutId);
+          lastError = err.message || "Falha de rede ao conectar com o Railway";
+          console.warn(`[TEAMS DISPATCH] Tentativa ${attempt} falhou com erro de conexão: ${lastError}`);
+        }
+
+        if (attempt < MAX_ATTEMPTS) {
+          // Espaçamento exponencial/linear entre tentativas (1.5s, 3s)
+          await new Promise((resolve) => setTimeout(resolve, attempt * 1500));
+        }
+      }
+
+      console.error(
+        `[AUDIT LOG - TEAMS] Falha definitiva após ${MAX_ATTEMPTS} tentativas: ${lastError}`
+      );
+
+      return res.status(lastStatus >= 400 ? lastStatus : 502).json({
+        success: false,
+        status: lastStatus,
+        error: `Falha ao enviar aviso via Teams após ${MAX_ATTEMPTS} tentativas: ${lastError}`,
+        data: lastData,
+      });
+    } catch (outerErr: any) {
+      console.error("[TEAMS DISPATCH ERROR]", outerErr);
+      return res.status(500).json({
+        success: false,
+        error: `Erro interno no servidor ao processar envio do Teams: ${outerErr.message}`,
+      });
+    }
+  });
+
   // API endpoint for Brevo E-mail Marketing sending
   app.post("/api/send-email", async (req, res) => {
     try {

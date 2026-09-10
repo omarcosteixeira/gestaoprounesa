@@ -16,6 +16,8 @@ export interface UserProfile {
   role: UserRole;
   chavePix?: string;
   telegram?: string;
+  teamsChatId?: string; // Microsoft Teams Base64 ConversationReference (>1000 chars)
+  teams_chat_id?: string; // Compatibility alias
   blocked?: boolean;
   mustChangePassword?: boolean;
   botNumber?: string;
@@ -572,7 +574,31 @@ export interface BotConfig {
   aiModel?: string;
   telegramBotUrl?: string;
   telegramApiKey?: string;
+  teamsBotUrl?: string; // Endpoint: https://[SEU_DOMINIO_NO_RAILWAY]/api/enviar-aviso-teams
+  teamsApiKey?: string; // Senha x-api-key criada no Railway
+  teamsProcessWithAI?: boolean; // Se deve enviar com processarComIA: true
+  teamsDefaultInstruction?: string; // Instrução opcional para a IA
   updatedAt?: any;
+}
+
+export interface TeamsAlertLog {
+  id?: string;
+  chatId?: string;
+  chatIdExcerpt?: string;
+  userName?: string;
+  userEmail?: string;
+  mensagem: string;
+  processarComIA: boolean;
+  instrucaoIA?: string;
+  status: 'sucesso' | 'erro' | 'pendente' | 'success' | 'error';
+  httpCode?: number;
+  resposta?: any;
+  error?: string | null;
+  tentativas?: number;
+  attempts?: number;
+  origem?: string;
+  createdAt?: any;
+  sentAt?: any;
 }
 
 export interface SolicitacaoFolga {

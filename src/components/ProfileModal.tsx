@@ -22,6 +22,9 @@ import {
   Link,
   KeyRound,
   Database,
+  Bot,
+  Clipboard,
+  Info,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -42,6 +45,7 @@ import {
   OperationType,
 } from "../firebase";
 import { UserProfile, BotConfig, SolicitacaoFolga } from "../types";
+import { executeDirectTeamsDispatch } from "../lib/teamsService";
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -89,6 +93,15 @@ export function ProfileModal({
   );
   const [isEditingTelegram, setIsEditingTelegram] = useState(false);
   const [submittingTelegram, setSubmittingTelegram] = useState(false);
+
+  // Microsoft Teams Bot State (ConversationReference Base64 String)
+  const [teamsInput, setTeamsInput] = useState(
+    profile?.teamsChatId || profile?.teams_chat_id || "",
+  );
+  const [isEditingTeams, setIsEditingTeams] = useState(false);
+  const [submittingTeams, setSubmittingTeams] = useState(false);
+  const [testingTeams, setTestingTeams] = useState(false);
+  const [showTeamsGuide, setShowTeamsGuide] = useState(false);
 
   const [showInjectUI, setShowInjectUI] = useState(false);
   const [sessionJSON, setSessionJSON] = useState("");
@@ -160,6 +173,11 @@ export function ProfileModal({
     }
   }, [profile?.telegram]);
 
+  useEffect(() => {
+    const currentTeamsId = profile?.teamsChatId || profile?.teams_chat_id || "";
+    setTeamsInput(currentTeamsId);
+  }, [profile?.teamsChatId, profile?.teams_chat_id]);
+
   const handleSaveBirthDate = async () => {
     if (!profile?.uid) return;
     setSubmittingBirthDate(true);
@@ -211,6 +229,87 @@ export function ProfileModal({
       onToast("Erro ao atualizar Telegram.", "error");
     } finally {
       setSubmittingTelegram(false);
+    }
+  };
+
+  const handleSaveTeams = async () => {
+    if (!profile?.uid) return;
+    setSubmittingTeams(true);
+    try {
+      const cleanVal = teamsInput.trim();
+      const updatedData = {
+        teamsChatId: cleanVal,
+        teams_chat_id: cleanVal,
+        updatedAt: serverTimestamp(),
+      };
+      await updateDoc(doc(db, COLLECTIONS.USERS, profile.uid), updatedData);
+
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              teamsChatId: cleanVal,
+              teams_chat_id: cleanVal,
+            }
+          : null,
+      );
+      onToast("ID do Microsoft Teams atualizado com sucesso!", "success");
+      setIsEditingTeams(false);
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        OperationType.UPDATE,
+        `${COLLECTIONS.USERS}/${profile.uid}`,
+      );
+      onToast("Erro ao atualizar ID do Teams.", "error");
+    } finally {
+      setSubmittingTeams(false);
+    }
+  };
+
+  const handlePasteTeamsFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setTeamsInput(text.trim());
+        setIsEditingTeams(true);
+        onToast("Código do Teams colado com sucesso!", "success");
+      }
+    } catch (err) {
+      onToast("Não foi possível ler da área de transferência. Cole manualmente no campo.", "error");
+    }
+  };
+
+  const handleTestTeamsNotification = async () => {
+    const chatIdToTest = (teamsInput || profile?.teamsChatId || profile?.teams_chat_id || "").trim();
+    if (!chatIdToTest) {
+      onToast("Cole e salve o seu ID do Teams antes de testar.", "error");
+      return;
+    }
+
+    setTestingTeams(true);
+    try {
+      const result = await executeDirectTeamsDispatch(
+        {
+          chatId: chatIdToTest,
+          mensagem: `Teste de Vinculação LeadsPro: Olá ${profile?.name || profile?.nome || "Colaborador"}! Seu Microsoft Teams foi configurado com sucesso. A partir de agora, você receberá aqui notificações em tempo real de novas visitas, tarefas agendadas e planos de ação.`,
+          processarComIA: true,
+          userName: profile?.name || profile?.nome || "Usuário",
+          userEmail: profile?.email,
+          origem: "Teste no Perfil do Usuário",
+        },
+        botConfig
+      );
+
+      if (result.success) {
+        onToast("Mensagem de teste enviada com sucesso ao seu Microsoft Teams!", "success");
+      } else {
+        onToast(`Falha no envio: ${result.error || "Verifique o bot no Railway"}`, "error");
+      }
+    } catch (err: any) {
+      onToast(`Erro ao testar envio: ${err.message}`, "error");
+    } finally {
+      setTestingTeams(false);
     }
   };
 
@@ -740,6 +839,168 @@ export function ProfileModal({
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Microsoft Teams Bot Integration */}
+                  <div className="mt-4 pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 rounded-lg bg-[#464EB8]/10 text-[#464EB8] flex items-center justify-center font-bold text-xs">
+                          T
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">
+                            Microsoft Teams
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            Bot de Alertas & Notificações
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {(profile?.teamsChatId || profile?.teams_chat_id) ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Vinculado
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                            Não vinculado
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setShowTeamsGuide(!showTeamsGuide)}
+                          className="text-[10px] text-blue-600 hover:text-blue-700 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                        >
+                          <Info size={12} />
+                          Ajuda
+                        </button>
+                      </div>
+                    </div>
+
+                    {showTeamsGuide && (
+                      <div className="mb-3 p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-xs text-blue-900 leading-relaxed">
+                        <p className="font-bold mb-1 flex items-center gap-1">
+                          <Bot size={14} className="text-blue-600" />
+                          Como obter o código no Microsoft Teams:
+                        </p>
+                        <ol className="list-decimal list-inside space-y-1 text-[11px] text-blue-800">
+                          <li>Abra o Microsoft Teams e envie uma mensagem qualquer para o bot oficial da empresa.</li>
+                          <li>O bot responderá informando o seu código de identificação (chave longa em <strong>Base64</strong>).</li>
+                          <li>Copie o código inteiro e cole no campo abaixo.</li>
+                          <li>Clique em <strong>Salvar</strong> e faça um <strong>Teste de Notificação</strong>!</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {isEditingTeams ? (
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <textarea
+                            rows={3}
+                            value={teamsInput}
+                            onChange={(e) => setTeamsInput(e.target.value)}
+                            placeholder="Cole aqui o código Base64 gigante recebido do Bot do Teams..."
+                            className="w-full text-xs font-mono bg-white border border-slate-300 rounded-xl p-2.5 text-slate-800 outline-none focus:ring-2 focus:ring-[#464EB8]/20 focus:border-[#464EB8] transition-all break-all resize-none leading-relaxed"
+                          />
+                          {teamsInput && (
+                            <span className="absolute bottom-2 right-2 text-[10px] font-mono bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded border border-slate-200">
+                              {teamsInput.length} caracteres
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={handlePasteTeamsFromClipboard}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Clipboard size={12} />
+                            Colar
+                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingTeams(false);
+                                setTeamsInput(profile?.teamsChatId || profile?.teams_chat_id || "");
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              disabled={submittingTeams}
+                              onClick={handleSaveTeams}
+                              className="px-3 py-1.5 bg-[#464EB8] hover:bg-[#3b429f] disabled:bg-[#464EB8]/50 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                            >
+                              {submittingTeams ? (
+                                <RefreshCw size={12} className="animate-spin" />
+                              ) : (
+                                <Check size={12} />
+                              )}
+                              Salvar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            {(profile?.teamsChatId || profile?.teams_chat_id) ? (
+                              <div>
+                                <span className="text-[11px] font-mono text-slate-700 block truncate select-all">
+                                  {profile.teamsChatId || profile.teams_chat_id}
+                                </span>
+                                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                                  Tamanho da chave: {(profile.teamsChatId || profile.teams_chat_id || "").length} caracteres Base64
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-slate-500 italic">
+                                Nenhum código do Teams vinculado. Clique em "Vincular" para receber notificações no Teams.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingTeams(true)}
+                            className="text-xs text-[#464EB8] hover:text-[#3b429f] font-bold hover:underline cursor-pointer"
+                          >
+                            {(profile?.teamsChatId || profile?.teams_chat_id) ? "Alterar Código" : "Vincular Código"}
+                          </button>
+
+                          {(profile?.teamsChatId || profile?.teams_chat_id) && (
+                            <button
+                              type="button"
+                              disabled={testingTeams}
+                              onClick={handleTestTeamsNotification}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 transition-colors shadow-xs cursor-pointer"
+                            >
+                              {testingTeams ? (
+                                <>
+                                  <RefreshCw size={11} className="animate-spin text-[#464EB8]" />
+                                  <span>Enviando...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Send size={11} className="text-[#464EB8]" />
+                                  <span>Testar Alerta no Teams</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Link de Cadastro Público */}
