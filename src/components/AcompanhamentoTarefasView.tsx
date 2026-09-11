@@ -23,6 +23,7 @@ interface Props {
   users?: UserProfile[];
   profile?: UserProfile;
   onToast: (msg: string, type?: "success" | "error") => void;
+  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => void;
 }
 
 const STATUS_CONFIG: Record<
@@ -84,6 +85,7 @@ export function AcompanhamentoTarefasView({
   users = [],
   profile,
   onToast,
+  onSendNotification,
 }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -95,6 +97,17 @@ export function AcompanhamentoTarefasView({
       await updateDoc(doc(db, COLLECTIONS.TAREFAS, id), {
         status: newStatus,
       });
+
+      const t = tarefas.find((item) => item.id === id);
+      if (t && onSendNotification && t.envolvidosIds && t.envolvidosIds.length > 0) {
+        onSendNotification(
+          t.responsavelNome || "",
+          t.titulo,
+          `Status Atualizado para "${newStatus}"`,
+          t.envolvidosIds
+        );
+      }
+
       onToast(`Status da tarefa atualizado para "${newStatus}"!`);
     } catch (err: any) {
       console.error("Erro ao alterar status:", err);

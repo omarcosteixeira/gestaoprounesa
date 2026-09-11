@@ -121,7 +121,7 @@ interface Props {
   periodos?: PeriodoCaptacao[];
   links?: LinkUtil[];
   botStatuses?: Record<string, any>;
-  onSendTaskNotification?: (textToSearch: string, taskTitle: string, taskType: string) => void;
+  onSendTaskNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => void;
   setBotStatuses?: React.Dispatch<React.SetStateAction<any>>;
   callBotApi?: (path: string, options?: any) => Promise<any>;
   setShowInjectModal?: (show: boolean) => void;

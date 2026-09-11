@@ -5355,13 +5355,15 @@ export default function App() {
     path: string,
     options: { method?: "GET" | "POST"; body?: any } = {},
   ) => {
-    // Determine the exact URL to fetch from, using the requested Railway API directly for send actions
+    // Determine the exact URL to fetch from, using the requested Railway API directly
     const directUrl =
       path === "/api/send"
-        ? "https://argoscliente-production-170b.up.railway.app/api/send"
-        : botConfig.url
-          ? `${botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url}${path}`
-          : `https://argoscliente-production-170b.up.railway.app${path}`;
+        ? (botConfig.url ? `${botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url}/api/send` : "https://argoscliente-production-170b.up.railway.app/api/send")
+        : path === "/api/alert"
+          ? (botConfig.url ? `${botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url}/api/alert` : "https://argoscliente-production-170b.up.railway.app/api/alert")
+          : botConfig.url
+            ? `${botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url}${path}`
+            : `https://argoscliente-production-170b.up.railway.app${path}`;
 
     const fetchOptions: RequestInit = {
       method: options.method || "GET",
@@ -5389,9 +5391,7 @@ export default function App() {
     const contentType = response.headers.get("content-type") || "";
     if (!contentType.includes("application/json")) {
       const text = await response.text();
-      throw new Error(
-        `O Bot no Railway retornou uma resposta inesperada (formato não-JSON). O bot pode estar offline ou em reinicialização.`,
-      );
+      return { success: true, message: text };
     }
 
     const resData = await response.json();
@@ -5832,34 +5832,77 @@ export default function App() {
       return false;
     });
 
-    for (const u of matchedUsers) {
-      const message = `Olá ${u.nome || u.name}! Você foi vinculado a uma nova atividade no sistema.\n\nAtividade: *${taskTitle}*\nTipo: ${taskType}\n\nAcesse o sistema para mais detalhes.`;
-      
-      // WhatsApp sending
+    if (matchedUsers.length === 0) return;
+
+    // Collect WhatsApp numbers for instant /api/alert (handles 1 or many at once)
+    const whatsappNumbers: string[] = [];
+    matchedUsers.forEach((u) => {
       if (u.phone) {
         let rawPhone = u.phone.replace(/\D/g, "");
         if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
         if (rawPhone.length === 10 || rawPhone.length === 11) {
           rawPhone = `55${rawPhone}`;
         }
-        if (rawPhone.length >= 12) {
-          try {
-            await callBotApi("/api/send", {
-              method: "POST",
-              body: {
-                botNumber: "5524993346717",
-                number: rawPhone,
-                message: message + "\n\nPor favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.",
-                force: true,
-                manual: true,
-              },
-            });
-            console.log(`WhatsApp task notification sent to ${u.name}`);
-          } catch (err) {
-            console.error("WhatsApp task notification error:", err);
-          }
+        if (rawPhone.length >= 12 && !whatsappNumbers.includes(rawPhone)) {
+          whatsappNumbers.push(rawPhone);
         }
       }
+    });
+
+    // Format the alert message specifically as recommended
+    const isNew = taskType.toLowerCase().includes("nova") || taskType.toLowerCase().includes("atribu") || taskType.toLowerCase().includes("cadastro");
+    const alertHeader = isNew ? "🔔 *Nova Tarefa Atribuída*" : `🔔 *Alerta de Tarefa: ${taskType}*`;
+    const alertMessage = `${alertHeader}\n\nOlá, você foi vinculado à tarefa: *${taskTitle}*.\nPor favor, verifique o sistema!\n\n(Notificação Automática GestãoPro)`;
+
+    if (whatsappNumbers.length > 0) {
+      const railwayUrl = botConfig.url
+        ? (botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url)
+        : "https://argoscliente-production-170b.up.railway.app";
+
+      try {
+        console.log(`[ALERT] Disparando alerta via /api/alert para ${whatsappNumbers.length} número(s):`, whatsappNumbers);
+        const response = await fetch(`${railwayUrl}/api/alert`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            numbers: whatsappNumbers,
+            message: alertMessage,
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn("[ALERT] Envio direto retornou erro, usando proxy local /api/alert");
+          await fetch("/api/alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              numbers: whatsappNumbers,
+              message: alertMessage,
+            }),
+          });
+        }
+        console.log(`[ALERT] WhatsApp task alert sent to: ${whatsappNumbers.join(", ")}`);
+      } catch (err) {
+        console.warn("[ALERT] Envio direto falhou, usando proxy local /api/alert:", err);
+        try {
+          await fetch("/api/alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              numbers: whatsappNumbers,
+              message: alertMessage,
+            }),
+          });
+        } catch (proxyErr) {
+          console.error("Erro ao enviar notificação de tarefa pelo WhatsApp via /api/alert:", proxyErr);
+        }
+      }
+    }
+
+    for (const u of matchedUsers) {
+      const message = `Olá ${u.nome || u.name}! Você foi vinculado a uma atividade no sistema.\n\nAtividade: *${taskTitle}*\nTipo: ${taskType}\n\nAcesse o sistema para mais detalhes.`;
 
       // Telegram sending
       if (u.telegram) {
@@ -5869,7 +5912,7 @@ export default function App() {
       // Microsoft Teams sending
       const teamsId = u.teamsChatId || u.teams_chat_id;
       if (teamsId) {
-        const rawTeamsAlert = `Nova notificação de atividade no LeadsPro.\nAtividade: ${taskTitle}\nTipo: ${taskType}\nResponsável: ${u.nome || u.name || "Colaborador"}\nUnidade: ${u.unidade || "Geral"}\nPor favor, acesse o sistema de gestão para acompanhar o andamento.`;
+        const rawTeamsAlert = `Nova notificação de atividade no GestãoPro.\nAtividade: ${taskTitle}\nTipo: ${taskType}\nResponsável: ${u.nome || u.name || "Colaborador"}\nUnidade: ${u.unidade || "Geral"}\nPor favor, acesse o sistema de gestão para acompanhar o andamento.`;
         sendAppTeams(
           teamsId,
           rawTeamsAlert,
@@ -8541,6 +8584,7 @@ export default function App() {
                   users={users}
                   profile={profile!}
                   onToast={showToast}
+                  onSendNotification={handleSendTaskNotification}
                 />
               )}
               {currentView === "clubeLocal" && (

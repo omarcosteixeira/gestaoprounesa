@@ -95,6 +95,9 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
           status,
         });
         onToast("Atividade atualizada com sucesso!");
+        if (onSendNotification) {
+          onSendNotification(responsavelNome.trim(), titulo.trim(), "Tarefa Atualizada", envolvidosIds);
+        }
       } else {
         await addDoc(collection(db, COLLECTIONS.TAREFAS), {
           titulo: titulo.trim(),
@@ -112,8 +115,7 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
         });
         onToast("Atividade cadastrada com sucesso!");
         if (onSendNotification) {
-          // Enviar notificação para o responsável via texto (legado) E para os envolvidos explicitamente
-          onSendNotification(responsavelNome.trim(), titulo.trim(), "Acompanhamento de Tarefas", envolvidosIds);
+          onSendNotification(responsavelNome.trim(), titulo.trim(), "Nova Tarefa Atribuída", envolvidosIds);
         }
       }
       setIsModalOpen(false);
@@ -140,6 +142,15 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
   const handleStatusQuickChange = async (id: string, newStatus: typeof STATUS_OPTIONS[number]) => {
     try {
       await updateDoc(doc(db, COLLECTIONS.TAREFAS, id), { status: newStatus });
+      const t = tarefas.find((item) => item.id === id);
+      if (t && onSendNotification && t.envolvidosIds && t.envolvidosIds.length > 0) {
+        onSendNotification(
+          t.responsavelNome || "",
+          t.titulo,
+          `Status Atualizado para "${newStatus}"`,
+          t.envolvidosIds
+        );
+      }
       onToast(`Status alterado para "${newStatus}"`);
     } catch (err: any) {
       console.error("Erro ao atualizar status:", err);

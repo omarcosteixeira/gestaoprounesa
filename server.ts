@@ -105,31 +105,38 @@ async function startServer() {
           if (shouldNotify) {
             console.log(`[CRON] Notifying task "${task.titulo}" (${notificationType})`);
             const recipients = task.envolvidosIds.map((uid: string) => usersMap.get(uid)).filter(Boolean);
+            const message = `🔔 *${notificationType}*\n\nAtividade: *${task.titulo}*\nPrazo: ${task.dataPrazo}\nStatus: ${task.status}\n\nPor favor, verifique o andamento desta tarefa no sistema.`;
 
+            // Collect WhatsApp numbers for instant dispatch via /api/alert
+            const whatsappNumbers: string[] = [];
             for (const u of recipients) {
-              const message = `🔔 *${notificationType}*\n\nAtividade: *${task.titulo}*\nPrazo: ${task.dataPrazo}\nStatus: ${task.status}\n\nPor favor, verifique o andamento desta tarefa no sistema.`;
-
-              // Send WhatsApp
-              if (u.phone && botConfig.url) {
+              if (u.phone) {
                 let rawPhone = u.phone.replace(/\D/g, "");
                 if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
                 if (rawPhone.length === 10 || rawPhone.length === 11) rawPhone = `55${rawPhone}`;
-                
-                if (rawPhone.length >= 12) {
-                  fetch(`${botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url}/api/send`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      botNumber: "5524993346717",
-                      number: rawPhone,
-                      message: message + "\n\n(Notificação Automática)",
-                      force: true,
-                      manual: true
-                    })
-                  }).catch(e => console.error("[CRON] WhatsApp Error:", e.message));
+                if (rawPhone.length >= 12 && !whatsappNumbers.includes(rawPhone)) {
+                  whatsappNumbers.push(rawPhone);
                 }
               }
+            }
 
+            // Send WhatsApp alerts via /api/alert (no botNumber needed, handles 1 or multiple numbers at once)
+            if (whatsappNumbers.length > 0 && botConfig.url) {
+              const baseUrl = botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url;
+              fetch(`${baseUrl}/api/alert`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  numbers: whatsappNumbers,
+                  message: message + "\n\n(Notificação Automática GestãoPro)"
+                })
+              })
+              .then(res => res.json().catch(() => ({})))
+              .then(data => console.log("[CRON] WhatsApp /api/alert response:", data))
+              .catch(e => console.error("[CRON] WhatsApp /api/alert Error:", e.message));
+            }
+
+            for (const u of recipients) {
               // Send Telegram
               if (u.telegram && botConfig.telegramBotUrl) {
                 fetch(botConfig.telegramBotUrl, {
@@ -216,6 +223,64 @@ async function startServer() {
       }
     });
     res.json(routes);
+  });
+
+  // API endpoint for instant task alerts via WhatsApp Railway bot (/api/alert)
+  app.post("/api/alert", async (req, res) => {
+    try {
+      const { numbers, message } = req.body;
+      if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
+        return res.status(400).json({ success: false, error: "O parâmetro 'numbers' deve ser um array com os números destinatários." });
+      }
+      if (!message || typeof message !== "string") {
+        return res.status(400).json({ success: false, error: "O parâmetro 'message' é obrigatório." });
+      }
+
+      // Resolve Railway URL from bot_config or use default production bot link
+      let railwayUrl = "https://argoscliente-production-170b.up.railway.app";
+      const instances = getFirestoreInstances();
+      for (const instance of instances) {
+        try {
+          const snap = await instance.db.collection(`artifacts/${instance.projectId}/public/data/bot_config`).limit(1).get();
+          if (!snap.empty) {
+            const data = snap.docs[0].data();
+            if (data?.url) {
+              railwayUrl = data.url.endsWith("/") ? data.url.slice(0, -1) : data.url;
+              break;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      console.log(`[ALERT ROUTE] Disparando alerta para ${numbers.length} número(s) via ${railwayUrl}/api/alert`);
+
+      const botResponse = await fetch(`${railwayUrl}/api/alert`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          numbers,
+          message,
+        }),
+      });
+
+      const contentType = botResponse.headers.get("content-type") || "";
+      let responseData: any;
+      if (contentType.includes("application/json")) {
+        responseData = await botResponse.json().catch(() => ({}));
+      } else {
+        const text = await botResponse.text().catch(() => "");
+        responseData = { success: botResponse.ok, message: text };
+      }
+
+      return res.status(botResponse.status).json(responseData);
+    } catch (err: any) {
+      console.error("[ALERT ROUTE] Erro ao processar /api/alert:", err);
+      return res.status(500).json({ success: false, error: err.message || "Erro interno ao processar alerta" });
+    }
   });
 
   // API endpoint for testing bot connections and sending messages (Proxy)
