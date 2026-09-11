@@ -5820,14 +5820,15 @@ export default function App() {
     }
   };
 
-  const handleSendTaskNotification = async (textToSearch: string, taskTitle: string, taskType: string) => {
-    if (!textToSearch) return;
+  const handleSendTaskNotification = async (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => {
+    if (!textToSearch && (!userIds || userIds.length === 0)) return;
     const lowerText = textToSearch.toLowerCase();
     
-    // Find all users mentioned in the text
+    // Find all users mentioned in the text OR explicitly selected
     const matchedUsers = users.filter((u) => {
+      if (userIds && userIds.includes(u.uid)) return true;
       const nome = (u.nome || u.name || "").trim().toLowerCase();
-      if (nome.length > 2 && lowerText.includes(nome)) return true;
+      if (nome.length > 2 && lowerText && lowerText.includes(nome)) return true;
       return false;
     });
 

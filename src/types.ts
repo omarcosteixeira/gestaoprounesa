@@ -956,11 +956,16 @@ export interface Tarefa {
   descricao?: string;
   unidade?: string;
   responsavelNome?: string;
+  envolvidosIds?: string[];
+  envolvidosNomes?: string[];
   dataPrazo?: string;
   status: 'Em Andamento' | 'Parado' | 'Atrasado' | 'Deferido' | 'Cancelado';
   creatorId?: string;
   creatorNome?: string;
   servidor?: string;
+  notificado3d?: boolean;
+  notificado1d?: boolean;
+  notificadoHoje?: boolean;
   createdAt?: any;
 }
 

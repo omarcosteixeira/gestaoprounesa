@@ -7,10 +7,180 @@ import { OpenRouter } from "@openrouter/sdk";
 import { OPENROUTER_MODELS, DEFAULT_MODEL } from "./src/ai-config";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import cron from "node-cron";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Function to get Firestore instances for all configured servers
+  const getFirestoreInstances = () => {
+    const servers = [
+      { id: "principal", projectId: "gestaopro-761e1", env: process.env.FIREBASE_SERVICE_ACCOUNT_PRINCIPAL },
+      { id: "comercial", projectId: "gestaodeleadspro-d4230", env: process.env.FIREBASE_SERVICE_ACCOUNT_COMERCIAL },
+      { id: "unesa", projectId: "unesa-gestaopro", env: process.env.FIREBASE_SERVICE_ACCOUNT_UNESA }
+    ];
+
+    return servers.map(s => {
+      const appName = `admin_cron_${s.id}`;
+      const existingApps = getApps();
+      let appInstance = existingApps.find(a => a.name === appName);
+
+      if (!appInstance) {
+        const options: any = { projectId: s.projectId };
+        if (s.env) {
+          try {
+            options.credential = cert(JSON.parse(s.env));
+          } catch (e) {
+            console.error(`Error parsing credentials for ${s.id}:`, e);
+          }
+        }
+        appInstance = initializeApp(options, appName);
+      }
+      return { id: s.id, projectId: s.projectId, db: getFirestore(appInstance) };
+    });
+  };
+
+  // Task reminder job
+  const runTaskReminders = async () => {
+    console.log("[CRON] Running task reminders check...");
+    const instances = getFirestoreInstances();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (const instance of instances) {
+      try {
+        const currentProjectId = instance.projectId;
+        const TAREFAS_COL = `artifacts/${currentProjectId}/public/data/tarefas`;
+        const USERS_COL = `artifacts/${currentProjectId}/public/data/users`;
+        const BOT_CONFIG_COL = `artifacts/${currentProjectId}/public/data/bot_config`;
+
+        // Get Bot Config
+        const botConfigSnap = await instance.db.collection(BOT_CONFIG_COL).limit(1).get();
+        if (botConfigSnap.empty) continue;
+        const botConfig = botConfigSnap.docs[0].data();
+        if (!botConfig.active) continue;
+
+        // Get All Users (for contact info)
+        const usersSnap = await instance.db.collection(USERS_COL).get();
+        const usersMap = new Map();
+        usersSnap.forEach(doc => {
+          usersMap.set(doc.id, { id: doc.id, ...doc.data() });
+        });
+
+        // Get Tasks in Progress
+        const tasksSnap = await instance.db.collection(TAREFAS_COL)
+          .where("status", "==", "Em Andamento")
+          .get();
+
+        for (const taskDoc of tasksSnap.docs) {
+          const task = { id: taskDoc.id, ...taskDoc.data() } as any;
+          if (!task.dataPrazo || !task.envolvidosIds || task.envolvidosIds.length === 0) continue;
+
+          const deadlineDate = new Date(task.dataPrazo);
+          deadlineDate.setHours(0, 0, 0, 0);
+          
+          const diffTime = deadlineDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          let shouldNotify = false;
+          let notificationType = "";
+          let updateField = "";
+
+          if (diffDays === 3 && !task.notificado3d) {
+            shouldNotify = true;
+            notificationType = "Lembrete: Faltam 3 dias para a conclusão";
+            updateField = "notificado3d";
+          } else if (diffDays === 1 && !task.notificado1d) {
+            shouldNotify = true;
+            notificationType = "Aviso: Sua tarefa finaliza amanhã!";
+            updateField = "notificado1d";
+          } else if (diffDays === 0 && !task.notificadoHoje) { // Extra: Dia da finalização
+            shouldNotify = true;
+            notificationType = "Aviso: Hoje é o prazo final da sua tarefa!";
+            updateField = "notificadoHoje";
+          }
+
+          if (shouldNotify) {
+            console.log(`[CRON] Notifying task "${task.titulo}" (${notificationType})`);
+            const recipients = task.envolvidosIds.map((uid: string) => usersMap.get(uid)).filter(Boolean);
+
+            for (const u of recipients) {
+              const message = `🔔 *${notificationType}*\n\nAtividade: *${task.titulo}*\nPrazo: ${task.dataPrazo}\nStatus: ${task.status}\n\nPor favor, verifique o andamento desta tarefa no sistema.`;
+
+              // Send WhatsApp
+              if (u.phone && botConfig.url) {
+                let rawPhone = u.phone.replace(/\D/g, "");
+                if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
+                if (rawPhone.length === 10 || rawPhone.length === 11) rawPhone = `55${rawPhone}`;
+                
+                if (rawPhone.length >= 12) {
+                  fetch(`${botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url}/api/send`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      botNumber: "5524993346717",
+                      number: rawPhone,
+                      message: message + "\n\n(Notificação Automática)",
+                      force: true,
+                      manual: true
+                    })
+                  }).catch(e => console.error("[CRON] WhatsApp Error:", e.message));
+                }
+              }
+
+              // Send Telegram
+              if (u.telegram && botConfig.telegramBotUrl) {
+                fetch(botConfig.telegramBotUrl, {
+                  method: "POST",
+                  headers: { 
+                    "Content-Type": "application/json",
+                    "x-api-key": botConfig.telegramApiKey || ""
+                  },
+                  body: JSON.stringify({
+                    chatId: u.telegram.trim(),
+                    mensagem: message
+                  })
+                }).catch(e => console.error("[CRON] Telegram Error:", e.message));
+              }
+
+              // Send Teams
+              const teamsId = u.teamsChatId || u.teams_chat_id;
+              if (teamsId && botConfig.teamsBotUrl) {
+                fetch(botConfig.teamsBotUrl, {
+                  method: "POST",
+                  headers: { 
+                    "Content-Type": "application/json",
+                    "x-api-key": botConfig.teamsApiKey || ""
+                  },
+                  body: JSON.stringify({
+                    chatId: teamsId.trim(),
+                    mensagem: message,
+                    processarComIA: botConfig.teamsProcessWithAI !== false
+                  })
+                }).catch(e => console.error("[CRON] Teams Error:", e.message));
+              }
+            }
+
+            // Mark as notified
+            await instance.db.doc(`${TAREFAS_COL}/${task.id}`).update({
+              [updateField]: true,
+              updatedAt: FieldValue.serverTimestamp()
+            });
+          }
+        }
+      } catch (err: any) {
+        console.error(`[CRON] Error processing server ${instance.id}:`, err.message);
+      }
+    }
+  };
+
+  // Schedule cron (Every day at 09:00 AM)
+  cron.schedule("0 9 * * *", runTaskReminders);
+  
+  // Also run once on startup (optional, maybe wait 1 min)
+  setTimeout(runTaskReminders, 60000);
 
   // Generous limit for HTML files or base64 embedded images
   app.use(express.json({ limit: "50mb" }));

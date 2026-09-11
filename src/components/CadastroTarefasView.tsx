@@ -9,14 +9,16 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { Tarefa, UnidadeRegional, UserProfile } from "../types";
-import { Plus, Trash2, Edit2, Search, CheckSquare, Clock, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Edit2, Search, CheckSquare, Clock, AlertCircle, Users as UsersIcon } from "lucide-react";
+import { MultiSelect } from "./MultiSelect";
 
 interface Props {
   tarefas: Tarefa[];
   unidades: UnidadeRegional[];
+  users?: UserProfile[];
   profile?: UserProfile;
   onToast: (msg: string, type?: "success" | "error") => void;
-  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string) => void;
+  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => void;
 }
 
 const STATUS_OPTIONS = [
@@ -27,7 +29,7 @@ const STATUS_OPTIONS = [
   "Cancelado",
 ] as const;
 
-export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSendNotification }: Props) {
+export function CadastroTarefasView({ tarefas, unidades, users = [], profile, onToast, onSendNotification }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [unidadeFilter, setUnidadeFilter] = useState("TODAS");
   const [statusFilter, setStatusFilter] = useState("TODOS");
@@ -39,6 +41,7 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
   const [descricao, setDescricao] = useState("");
   const [unidade, setUnidade] = useState("");
   const [responsavelNome, setResponsavelNome] = useState("");
+  const [envolvidosIds, setEnvolvidosIds] = useState<string[]>([]);
   const [dataPrazo, setDataPrazo] = useState("");
   const [status, setStatus] = useState<typeof STATUS_OPTIONS[number]>("Em Andamento");
   const [loading, setLoading] = useState(false);
@@ -50,6 +53,7 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
       setDescricao(t.descricao || "");
       setUnidade(t.unidade || (unidades[0]?.nome || ""));
       setResponsavelNome(t.responsavelNome || "");
+      setEnvolvidosIds(t.envolvidosIds || []);
       setDataPrazo(t.dataPrazo || "");
       setStatus(t.status || "Em Andamento");
     } else {
@@ -58,6 +62,7 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
       setDescricao("");
       setUnidade(unidades[0]?.nome || "");
       setResponsavelNome("");
+      setEnvolvidosIds([]);
       setDataPrazo("");
       setStatus("Em Andamento");
     }
@@ -73,12 +78,19 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
 
     setLoading(true);
     try {
+      const envolvidosNomes = envolvidosIds.map(id => {
+        const u = users.find(user => user.uid === id);
+        return u ? (u.nome || u.name) : "Usuário Desconhecido";
+      });
+
       if (editingId) {
         await updateDoc(doc(db, COLLECTIONS.TAREFAS, editingId), {
           titulo: titulo.trim(),
           descricao: descricao.trim(),
           unidade: unidade || "",
           responsavelNome: responsavelNome.trim(),
+          envolvidosIds,
+          envolvidosNomes,
           dataPrazo: dataPrazo || "",
           status,
         });
@@ -89,6 +101,8 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
           descricao: descricao.trim(),
           unidade: unidade || profile?.unidade || "",
           responsavelNome: responsavelNome.trim(),
+          envolvidosIds,
+          envolvidosNomes,
           dataPrazo: dataPrazo || "",
           status,
           creatorId: profile?.uid,
@@ -98,7 +112,8 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
         });
         onToast("Atividade cadastrada com sucesso!");
         if (onSendNotification) {
-          onSendNotification(responsavelNome.trim(), titulo.trim(), "Acompanhamento de Tarefas");
+          // Enviar notificação para o responsável via texto (legado) E para os envolvidos explicitamente
+          onSendNotification(responsavelNome.trim(), titulo.trim(), "Acompanhamento de Tarefas", envolvidosIds);
         }
       }
       setIsModalOpen(false);
@@ -370,6 +385,27 @@ export function CadastroTarefasView({ tarefas, unidades, profile, onToast, onSen
                     className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1 flex items-center gap-1">
+                  <UsersIcon size={12} className="text-blue-500" />
+                  Compartilhar e Acompanhar (Envolvidos)
+                </label>
+                <MultiSelect
+                  placeholder="Selecione um ou mais usuários..."
+                  allLabel="Todos os Usuários"
+                  className="w-full"
+                  options={users.map(u => u.nome || u.name)}
+                  selectedValues={envolvidosIds.map(id => users.find(u => u.uid === id)?.nome || users.find(u => u.uid === id)?.name || "Desconhecido")}
+                  onChange={(names) => {
+                    const ids = names.map(name => users.find(u => (u.nome || u.name) === name)?.uid).filter(Boolean) as string[];
+                    setEnvolvidosIds(ids);
+                  }}
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Os envolvidos selecionados receberão notificações via WhatsApp, Teams e Telegram.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

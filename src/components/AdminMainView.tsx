@@ -697,6 +697,7 @@ export function AdminMainView({
         <CadastroTarefasView
           tarefas={tarefas}
           unidades={unidadesRegional}
+          users={users}
           profile={profile}
           onToast={onToast}
           onSendNotification={onSendTaskNotification}
