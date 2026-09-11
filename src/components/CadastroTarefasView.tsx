@@ -235,6 +235,7 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
                 <th className="p-4">Unidade</th>
                 <th className="p-4">Responsável</th>
                 <th className="p-4">Prazo</th>
+                <th className="p-4">Envolvidos</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Ações</th>
               </tr>
@@ -267,6 +268,31 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
                         </span>
                       ) : (
                         "-"
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {(t.envolvidosIds && t.envolvidosIds.length > 0) && (
+                        <div className="task-user-list flex items-center -space-x-1.5">
+                          {t.envolvidosIds.slice(0, 3).map((uid, idx) => {
+                            const user = users.find(u => u.uid === uid);
+                            const initials = (user?.nome || user?.name || "?").charAt(0).toUpperCase();
+                            return (
+                              <div
+                                key={uid}
+                                title={user?.nome || user?.name || "Usuário"}
+                                className="h-5 w-5 rounded-full ring-1 ring-white bg-blue-50 text-blue-600 flex items-center justify-center text-[8px] font-black border border-blue-100"
+                                style={{ zIndex: 5 - idx }}
+                               >
+                                {initials}
+                              </div>
+                            );
+                          })}
+                          {t.envolvidosIds.length > 3 && (
+                            <div className="h-5 w-5 rounded-full ring-1 ring-white bg-slate-50 text-slate-400 flex items-center justify-center text-[7px] font-bold border border-slate-100">
+                              +{t.envolvidosIds.length - 3}
+                            </div>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="p-4">

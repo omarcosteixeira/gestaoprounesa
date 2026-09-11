@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   User,
   Phone,
@@ -25,6 +25,8 @@ import {
   Bot,
   Clipboard,
   Info,
+  Camera,
+  Upload,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -39,7 +41,13 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import {
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "firebase/storage";
+import {
   db,
+  storage,
   COLLECTIONS,
   handleFirestoreError,
   OperationType,
@@ -115,18 +123,25 @@ export function ProfileModal({
   const [folgas, setFolgas] = useState<SolicitacaoFolga[]>([]);
   const [loadingFolgas, setLoadingFolgas] = useState(false);
 
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Load folgas for user
   useEffect(() => {
     if (!profile?.uid || activeTab !== "folgas" || !isOpen) return;
 
     setLoadingFolgas(true);
     const q = query(
-      collection(db, COLLECTIONS.SOLICITACAO_FOLGA),
+      collection(db, COLLECTIONS.USERS, profile.uid),
       where("solicitanteId", "==", profile.uid),
     );
+    // Note: The collection path for USERS is handled by the proxy in firebase.ts, but SOLICITACAO_FOLGA is separate.
+    // Fixed the collection reference to use the correct constant from COLLECTIONS proxy
+    const colRef = collection(db, COLLECTIONS.SOLICITACAO_FOLGA);
+    const qFixed = query(colRef, where("solicitanteId", "==", profile.uid));
 
     const unsubscribe = onSnapshot(
-      q,
+      qFixed,
       (snapshot) => {
         const list = snapshot.docs.map((doc) => ({
           id: doc.id,
@@ -264,6 +279,37 @@ export function ProfileModal({
       onToast("Erro ao atualizar ID do Teams.", "error");
     } finally {
       setSubmittingTeams(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.uid) return;
+
+    // Check size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      onToast("A foto deve ter no máximo 2MB.", "error");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const storageRef = ref(storage, `profiles/${profile.uid}/avatar_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const photoUrl = await getDownloadURL(storageRef);
+
+      await updateDoc(doc(db, COLLECTIONS.USERS, profile.uid), {
+        photoUrl,
+        updatedAt: serverTimestamp(),
+      });
+
+      setProfile((prev) => prev ? { ...prev, photoUrl } : null);
+      onToast("Foto de perfil atualizada com sucesso!", "success");
+    } catch (err: any) {
+      console.error("Error uploading photo:", err);
+      onToast("Erro ao fazer upload da foto. Verifique as permissões do Firebase Storage.", "error");
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -647,6 +693,49 @@ export function ProfileModal({
             <>
               {/* Section 1: Personal Data */}
               <div>
+                <div className="flex flex-col items-center mb-6">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-3xl border-4 border-slate-100 shadow-xl bg-slate-200 overflow-hidden relative">
+                      {profile?.photoUrl ? (
+                        <img 
+                          src={profile.photoUrl} 
+                          alt={profile.name} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                          <User size={40} />
+                        </div>
+                      )}
+                      
+                      {uploadingPhoto && (
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                          <RefreshCw size={24} className="text-white animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      className="absolute -bottom-2 -right-2 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg border-2 border-white transition-all transform hover:scale-110 active:scale-95 disabled:opacity-50 cursor-pointer"
+                      title="Alterar foto de perfil"
+                    >
+                      <Camera size={16} />
+                    </button>
+                    
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept="image/*"
+                      className="hidden"
+                    />
+                  </div>
+                  <h4 className="mt-4 text-sm font-black text-slate-900">{profile?.name}</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role}</p>
+                </div>
+
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
                   Informações de Perfil
                 </h3>

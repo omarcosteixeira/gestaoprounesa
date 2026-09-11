@@ -20,6 +20,7 @@ import {
 interface Props {
   tarefas: Tarefa[];
   unidades: UnidadeRegional[];
+  users?: UserProfile[];
   profile?: UserProfile;
   onToast: (msg: string, type?: "success" | "error") => void;
 }
@@ -80,6 +81,7 @@ const STATUS_CONFIG: Record<
 export function AcompanhamentoTarefasView({
   tarefas,
   unidades,
+  users = [],
   profile,
   onToast,
 }: Props) {
@@ -292,6 +294,31 @@ export function AcompanhamentoTarefasView({
                     )}
                   </div>
 
+                  {/* Task Involved Users (Avatars) */}
+                  {(t.envolvidosIds && t.envolvidosIds.length > 0) && (
+                    <div className="task-user-list flex items-center -space-x-2 overflow-hidden py-1">
+                      {t.envolvidosIds.slice(0, 5).map((uid, idx) => {
+                        const user = users.find(u => u.uid === uid);
+                        const initials = (user?.nome || user?.name || "?").charAt(0).toUpperCase();
+                        return (
+                          <div
+                            key={uid}
+                            title={user?.nome || user?.name || "Usuário"}
+                            className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-black border border-blue-200 shadow-sm transition-transform hover:scale-110 hover:z-10"
+                            style={{ zIndex: 10 - idx }}
+                          >
+                            {initials}
+                          </div>
+                        );
+                      })}
+                      {t.envolvidosIds.length > 5 && (
+                        <div className="inline-block h-6 w-6 rounded-full ring-2 ring-white bg-slate-100 text-slate-500 flex items-center justify-center text-[9px] font-bold border border-slate-200 z-0">
+                          +{t.envolvidosIds.length - 5}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Quick Status Select */}
                   <div className="pt-1 flex items-center justify-between gap-2">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -327,6 +354,7 @@ export function AcompanhamentoTarefasView({
                   <th className="p-4">Unidade</th>
                   <th className="p-4">Responsável</th>
                   <th className="p-4">Prazo</th>
+                  <th className="p-4">Envolvidos</th>
                   <th className="p-4">Status</th>
                   <th className="p-4 text-right">Alterar Status</th>
                 </tr>
@@ -348,6 +376,31 @@ export function AcompanhamentoTarefasView({
                       <td className="p-4 text-slate-600">{t.responsavelNome || "-"}</td>
                       <td className="p-4 text-slate-600 text-xs font-bold">
                         {t.dataPrazo || "-"}
+                      </td>
+                      <td className="p-4">
+                        {(t.envolvidosIds && t.envolvidosIds.length > 0) && (
+                          <div className="task-user-list flex items-center -space-x-1.5">
+                            {t.envolvidosIds.slice(0, 3).map((uid, idx) => {
+                              const user = users.find(u => u.uid === uid);
+                              const initials = (user?.nome || user?.name || "?").charAt(0).toUpperCase();
+                              return (
+                                <div
+                                  key={uid}
+                                  title={user?.nome || user?.name || "Usuário"}
+                                  className="h-5 w-5 rounded-full ring-1 ring-white bg-blue-50 text-blue-600 flex items-center justify-center text-[8px] font-black border border-blue-100"
+                                  style={{ zIndex: 5 - idx }}
+                                >
+                                  {initials}
+                                </div>
+                              );
+                            })}
+                            {t.envolvidosIds.length > 3 && (
+                              <div className="h-5 w-5 rounded-full ring-1 ring-white bg-slate-50 text-slate-400 flex items-center justify-center text-[7px] font-bold border border-slate-100">
+                                +{t.envolvidosIds.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <span

@@ -29,10 +29,13 @@ import {
   Compass,
   Layers,
   ChevronRight,
-  UserCheck
+  UserCheck,
+  Info,
+  ExternalLink
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import * as XLSX from "xlsx";
+import { motion, AnimatePresence } from "motion/react";
 
 interface Props {
   funcionarios: FuncionarioSM[];
@@ -269,10 +272,10 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  Organograma da Sala de Matrícula
+                  Organograma Sala de Matrícula
                 </h2>
                 <p className="text-xs text-slate-400 font-medium mt-0.5">
-                  Estrutura hierárquica e dados cadastrais completos da equipe SM por unidade
+                  Visualização hierárquica e distribuição da equipe SM
                 </p>
               </div>
             </div>
@@ -287,7 +290,7 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
               title="Exportar dados da equipe desta unidade em Excel"
             >
               <Download size={15} />
-              <span>Exportar Excel</span>
+              <span>Excel</span>
             </button>
 
             <button
@@ -305,13 +308,13 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-4 border-t border-slate-100">
           {/* Unit Selector */}
           <div className="lg:col-span-4 flex flex-col space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Selecionar Unidade:
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Unidade SM:
             </label>
             <select
               value={selectedUnidade}
               onChange={(e) => setSelectedUnidade(e.target.value)}
-              className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-all"
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition-all h-10"
             >
               <option value="TODAS">🏢 Todas as Unidades ({availableUnidades.length})</option>
               {availableUnidades.map((u) => (
@@ -324,7 +327,7 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
 
           {/* Search Input */}
           <div className="lg:col-span-5 flex flex-col space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Buscar Colaborador:
             </label>
             <div className="relative">
@@ -336,8 +339,8 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Nome, cargo, matrícula, e-mail, telefone..."
-                className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                placeholder="Nome, cargo, matrícula..."
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-500 transition-all h-10"
               />
               {searchTerm && (
                 <button
@@ -352,14 +355,14 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
 
           {/* Status Filter */}
           <div className="lg:col-span-3 flex flex-col space-y-1">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Status:
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              Filtrar por Status:
             </label>
-            <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold text-slate-600">
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold text-slate-600 h-10">
               <button
                 onClick={() => setStatusFilter("TODOS")}
                 className={cn(
-                  "flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer text-[11px]",
+                  "flex-1 h-full rounded-lg transition-all text-center cursor-pointer text-[10px]",
                   statusFilter === "TODOS"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "hover:text-slate-900 text-slate-500"
@@ -370,7 +373,7 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
               <button
                 onClick={() => setStatusFilter("Ativo")}
                 className={cn(
-                  "flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer text-[11px]",
+                  "flex-1 h-full rounded-lg transition-all text-center cursor-pointer text-[10px]",
                   statusFilter === "Ativo"
                     ? "bg-white text-emerald-700 shadow-sm"
                     : "hover:text-slate-900 text-slate-500"
@@ -381,7 +384,7 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
               <button
                 onClick={() => setStatusFilter("Licença")}
                 className={cn(
-                  "flex-1 py-1.5 rounded-lg transition-all text-center cursor-pointer text-[11px]",
+                  "flex-1 h-full rounded-lg transition-all text-center cursor-pointer text-[10px]",
                   statusFilter === "Licença"
                     ? "bg-white text-amber-700 shadow-sm"
                     : "hover:text-slate-900 text-slate-500"
@@ -393,151 +396,180 @@ export function OrganogramaSmView({ funcionarios, unidades }: Props) {
           </div>
         </div>
 
-        {/* Current Unit Badge & Metadata */}
+        {/* Current Unit Metadata Badge */}
         {currentUnitMeta && selectedUnidade !== "TODAS" && (
-          <div className="bg-gradient-to-r from-blue-50/60 via-slate-50 to-indigo-50/40 p-4 rounded-2xl border border-blue-100/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                <Building2 size={16} />
+              </div>
+              <div>
+                <span className="text-xs font-black text-slate-900 block leading-tight">
+                  {currentUnitMeta.nome}
+                </span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+                  {currentUnitMeta.regional || "Regional Não Definida"}
+                </span>
+              </div>
+            </div>
+            
+            <div className="h-8 w-px bg-slate-200 mx-2 hidden sm:block" />
+
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-extrabold text-blue-900 text-sm flex items-center gap-1.5">
-                <Building2 size={16} className="text-blue-600" />
-                {currentUnitMeta.nome}
-              </span>
               {currentUnitMeta.marca && (
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md font-bold text-[10px]">
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-bold text-[9px] border border-blue-100">
                   {currentUnitMeta.marca}
                 </span>
               )}
-              {currentUnitMeta.regional && (
-                <span className="px-2 py-0.5 bg-slate-200/80 text-slate-700 rounded-md font-semibold text-[10px]">
-                  {currentUnitMeta.regional}
-                </span>
-              )}
               {currentUnitMeta.nucleo && (
-                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded-md font-semibold text-[10px]">
-                  Núcleo: {currentUnitMeta.nucleo}
+                <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-md font-bold text-[9px] border border-purple-100">
+                  NÚCLEO: {currentUnitMeta.nucleo}
                 </span>
               )}
               {currentUnitMeta.cluster && (
-                <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md font-semibold text-[10px]">
+                <span className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-md font-bold text-[9px] border border-amber-100">
                   CLUSTER: {currentUnitMeta.cluster}
                 </span>
               )}
-              {currentUnitMeta.codigo && (
-                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-md font-mono text-[10px]">
-                  Cód: {currentUnitMeta.codigo}
-                </span>
-              )}
             </div>
-
-            {currentUnitMeta.endereco && (
-              <div className="text-slate-500 flex items-center gap-1 text-[11px] max-w-lg truncate">
-                <MapPin size={13} className="text-slate-400 flex-shrink-0" />
-                <span className="truncate">{currentUnitMeta.endereco}</span>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Team Composition KPI Counters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-              <Users size={12} className="text-blue-500" /> Total SM
-            </span>
-            <span className="text-xl font-black text-slate-900 mt-1">
-              {unitStaff.length}
-            </span>
-          </div>
-
-          <div className="bg-amber-50/50 p-3 rounded-2xl border border-amber-100/60 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
-              <Crown size={12} className="text-amber-500" /> Gestores
-            </span>
-            <span className="text-xl font-black text-amber-900 mt-1">
-              {gestores.length}
-            </span>
-          </div>
-
-          <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/70 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
-              <Award size={12} className="text-amber-600" /> Líderes SM
-            </span>
-            <span className="text-xl font-black text-amber-950 mt-1">
-              {lideres.length}
-            </span>
-          </div>
-
-          <div className="bg-blue-50/50 p-3 rounded-2xl border border-blue-100/60 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1">
-              <Shield size={12} className="text-blue-500" /> Sub-Líderes 02
-            </span>
-            <span className="text-xl font-black text-blue-900 mt-1">
-              {viceLideres.length}
-            </span>
-          </div>
-
-          <div className="bg-purple-50/50 p-3 rounded-2xl border border-purple-100/60 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider flex items-center gap-1">
-              <User size={12} className="text-purple-500" /> Atendentes SM
-            </span>
-            <span className="text-xl font-black text-purple-900 mt-1">
-              {administrativos.length}
-            </span>
-          </div>
-
-          <div className="bg-sky-50/50 p-3 rounded-2xl border border-sky-100/60 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wider flex items-center gap-1">
-              <GraduationCap size={12} className="text-sky-500" /> Estagiários
-            </span>
-            <span className="text-xl font-black text-sky-900 mt-1">
-              {estagiarios.length}
-            </span>
-          </div>
-
-          <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100/60 flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1">
-              <Sparkles size={12} className="text-emerald-500" /> Aprendizes
-            </span>
-            <span className="text-xl font-black text-emerald-900 mt-1">
-              {jovensAprendizes.length}
-            </span>
-          </div>
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-4 py-2 px-1 border-t border-slate-50">
+           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-2">Legenda:</span>
+           <div className="flex items-center gap-1.5 text-[10px] font-bold text-teal-600">
+             <div className="w-3 h-3 rounded-full bg-teal-500" /> Gestão
+           </div>
+           <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+             <div className="w-3 h-3 rounded-full bg-emerald-500" /> Líderes
+           </div>
+           <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600">
+             <div className="w-3 h-3 rounded-full bg-amber-500" /> Administrativo
+           </div>
+           <div className="flex items-center gap-1.5 text-[10px] font-bold text-orange-600">
+             <div className="w-3 h-3 rounded-full bg-orange-500" /> Estagiários
+           </div>
         </div>
       </div>
 
       {/* Main Organogram Hierarchy Content */}
+      <div className="bg-white/50 rounded-3xl p-8 min-h-[600px] border border-slate-100/50 shadow-inner">
+        {unitStaff.length === 0 ? (
+          <div className="h-96 flex flex-col items-center justify-center space-y-4 text-slate-300">
+            <Users size={64} strokeWidth={1} />
+            <p className="text-sm font-medium">Nenhum colaborador encontrado para os filtros selecionados.</p>
+          </div>
+        ) : (
+          <div className="org-tree overflow-x-auto pb-12 w-full flex justify-center">
+            <TreeBuilder 
+              gestores={gestores} 
+              lideres={lideres} 
+              viceLideres={viceLideres} 
+              administrativos={administrativos} 
+              estagiarios={estagiarios} 
+              jovensAprendizes={jovensAprendizes} 
+              outros={outros}
+              unitName={selectedUnidade}
+              onSelect={setSelectedColab}
+            />
+          </div>
+        )}
+      </div>
 
-      {availableUnidades.length === 0 && funcionarios.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center space-y-3 shadow-sm">
-          <Building2 size={48} className="mx-auto text-slate-300" />
-          <h3 className="text-lg font-bold text-slate-700">Nenhum colaborador ou unidade cadastrada</h3>
-        </div>
-      ) : unitStaff.length === 0 ? (
-        <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center space-y-3 shadow-sm">
-          <UserCheck size={44} className="mx-auto text-slate-300" />
-          <h3 className="text-lg font-bold text-slate-800">
-            Nenhum colaborador encontrado
-          </h3>
-        </div>
-      ) : (
-        <div className="org-tree overflow-x-auto pb-12 w-full flex justify-center">
-          <TreeBuilder 
-            gestores={gestores} 
-            lideres={lideres} 
-            viceLideres={viceLideres} 
-            administrativos={administrativos} 
-            estagiarios={estagiarios} 
-            jovensAprendizes={jovensAprendizes} 
-            outros={outros}
-            unitName={selectedUnidade}
-          />
-        </div>
-      )}
+      {/* Detail Modal / Backdrop for selected collaborator */}
+      <AnimatePresence>
+        {selectedColab && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.95, y: 20 }}
+               animate={{ opacity: 1, scale: 1, y: 0 }}
+               exit={{ opacity: 0, scale: 0.95, y: 20 }}
+               className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-white relative"
+             >
+               <div className="relative h-32 bg-gradient-to-br from-blue-600 to-indigo-700">
+                 <button 
+                   onClick={() => setSelectedColab(null)}
+                   className="absolute top-6 right-6 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition-all z-10"
+                 >
+                   <X size={20} />
+                 </button>
+                 <div className="absolute -bottom-12 left-8 w-24 h-24 rounded-3xl border-4 border-white shadow-xl bg-slate-200 overflow-hidden">
+                   {selectedColab.photoUrl ? (
+                     <img src={selectedColab.photoUrl} alt={selectedColab.nome} className="w-full h-full object-cover" />
+                   ) : (
+                     <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-100">
+                       <User size={40} />
+                     </div>
+                   )}
+                 </div>
+               </div>
+
+               <div className="pt-16 pb-8 px-8 space-y-6">
+                 <div>
+                   <h3 className="text-xl font-black text-slate-900">{selectedColab.nome}</h3>
+                   <p className="text-blue-600 font-bold text-xs uppercase tracking-widest mt-1">
+                     {selectedColab.funcao || selectedColab.cargo}
+                   </p>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                     <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Matrícula</span>
+                     <span className="text-xs font-black text-slate-700">{selectedColab.matricula || "—"}</span>
+                   </div>
+                   <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                     <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Unidade</span>
+                     <span className="text-xs font-black text-slate-700">{selectedColab.unidade || "—"}</span>
+                   </div>
+                 </div>
+
+                 <div className="space-y-3">
+                   {selectedColab.email && (
+                     <div className="flex items-center gap-3 text-slate-600">
+                       <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                         <Mail size={14} />
+                       </div>
+                       <span className="text-xs font-bold">{selectedColab.email}</span>
+                     </div>
+                   )}
+                   {(selectedColab.telefonePrincipal || selectedColab.telefone) && (
+                     <div className="flex items-center gap-3 text-slate-600">
+                       <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                         <Phone size={14} />
+                       </div>
+                       <span className="text-xs font-bold">{selectedColab.telefonePrincipal || selectedColab.telefone}</span>
+                     </div>
+                   )}
+                 </div>
+
+                 <div className="pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                         <div className={cn(
+                           "w-2 h-2 rounded-full",
+                           selectedColab.status === "Ativo" ? "bg-emerald-500" : "bg-amber-500"
+                         )} />
+                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                           {selectedColab.status || "Ativo"}
+                         </span>
+                       </div>
+                       <button className="flex items-center gap-1.5 text-xs font-black text-blue-600 hover:underline">
+                         Abrir Pasta Completa <ExternalLink size={12} />
+                       </button>
+                    </div>
+                 </div>
+               </div>
+             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 // Tree Builder Component
-function TreeBuilder({ gestores, lideres, viceLideres, administrativos, estagiarios, jovensAprendizes, outros, unitName }: any) {
+function TreeBuilder({ gestores, lideres, viceLideres, administrativos, estagiarios, jovensAprendizes, outros, unitName, onSelect }: any) {
   const levelC_all = [...viceLideres, ...administrativos, ...outros];
   const levelD_all = [...estagiarios, ...jovensAprendizes];
 
@@ -551,44 +583,37 @@ function TreeBuilder({ gestores, lideres, viceLideres, administrativos, estagiar
     return result;
   };
 
-  // Build the tree nodes recursively or statically
-  // Since we only have 4 levels, let's build it statically
-
   // Roots: Gestores. If none, dummy root.
   const roots = gestores.length > 0 ? gestores : [{ nome: "Gestão " + unitName, cargo: "Vago", id: "dummy" }];
 
   return (
-    <ul>
+    <ul className="org-list">
       {roots.map((root, rootIndex) => {
-        // Divide lideres among roots
         const myLideres = gestores.length > 0 ? chunkArray(lideres, roots.length)[rootIndex] || [] : lideres;
         
         return (
-          <li key={rootIndex}>
-            <LevelANode f={root} />
+          <li key={rootIndex} className="org-item">
+            <NodeWrapper f={root} level="A" color="teal" onSelect={onSelect} />
             {myLideres.length > 0 ? (
-              <ul>
+              <ul className="org-sublist">
                 {myLideres.map((lider, lIndex) => {
                   const myLevelC = chunkArray(levelC_all, lideres.length)[lIndex] || [];
                   return (
-                    <li key={lIndex}>
-                      <LevelBNode f={lider} />
+                    <li key={lIndex} className="org-item">
+                      <NodeWrapper f={lider} level="B" color="emerald" onSelect={onSelect} />
                       {myLevelC.length > 0 && (
-                        <ul>
+                        <ul className="org-sublist">
                           {myLevelC.map((c, cIndex) => {
-                            // divide D among ALL C
                             const flatCIndex = lIndex * myLevelC.length + cIndex; 
-                            // simpler: chunk D among C in this specific branch? No, just globally chunk D over all C.
-                            // but this is local to branch. Let's just chunk D over myLevelC
                             const myLevelD = chunkArray(levelD_all, levelC_all.length)[flatCIndex] || [];
                             return (
-                              <li key={cIndex}>
-                                <LevelCNode f={c} />
+                              <li key={cIndex} className="org-item">
+                                <NodeWrapper f={c} level="C" color="amber" onSelect={onSelect} />
                                 {myLevelD.length > 0 && (
-                                  <ul>
+                                  <ul className="org-sublist">
                                     {myLevelD.map((d, dIndex) => (
-                                      <li key={dIndex}>
-                                        <LevelDNode f={d} />
+                                      <li key={dIndex} className="org-item">
+                                        <NodeWrapper f={d} level="D" color="orange" onSelect={onSelect} />
                                       </li>
                                     ))}
                                   </ul>
@@ -603,19 +628,18 @@ function TreeBuilder({ gestores, lideres, viceLideres, administrativos, estagiar
                 })}
               </ul>
             ) : (
-              // If no lideres, connect level C directly
               levelC_all.length > 0 && (
-                <ul>
+                <ul className="org-sublist">
                   {levelC_all.map((c, cIndex) => {
                      const myLevelD = chunkArray(levelD_all, levelC_all.length)[cIndex] || [];
                      return (
-                       <li key={cIndex}>
-                         <LevelCNode f={c} />
+                       <li key={cIndex} className="org-item">
+                         <NodeWrapper f={c} level="C" color="amber" onSelect={onSelect} />
                          {myLevelD.length > 0 && (
-                           <ul>
+                           <ul className="org-sublist">
                              {myLevelD.map((d, dIndex) => (
-                               <li key={dIndex}>
-                                 <LevelDNode f={d} />
+                               <li key={dIndex} className="org-item">
+                                 <NodeWrapper f={d} level="D" color="orange" onSelect={onSelect} />
                                </li>
                              ))}
                            </ul>
@@ -633,80 +657,84 @@ function TreeBuilder({ gestores, lideres, viceLideres, administrativos, estagiar
   );
 }
 
-const AvatarPlaceholder = ({ name }: { name?: string }) => (
-  <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xl uppercase">
-    {(name || "U")[0]}
-  </div>
-);
+function NodeWrapper({ f, level, color, onSelect }: { f: any, level: string, color: string, onSelect: any }) {
+  const colorMap: any = {
+    teal: "from-teal-600 to-teal-700 border-teal-200 bg-teal-50 text-teal-800",
+    emerald: "from-emerald-500 to-emerald-600 border-emerald-200 bg-emerald-50 text-emerald-800",
+    amber: "from-amber-500 to-amber-600 border-amber-200 bg-amber-50 text-amber-800",
+    orange: "from-orange-500 to-orange-600 border-orange-200 bg-orange-50 text-orange-800",
+  };
 
-function LevelANode({ f }: { f: any }) {
+  const badgeColor: any = {
+    teal: "bg-teal-600",
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+    orange: "bg-orange-500",
+  };
+
+  const isSmall = level === "D";
+
   return (
-    <div className="flex flex-col items-center relative z-10 w-64 mb-4 mx-4 mt-8">
-      <div className="w-20 h-20 rounded-full border-[6px] border-white shadow-sm z-30 bg-slate-200 overflow-hidden absolute -top-10">
-         <AvatarPlaceholder name={f.nome} />
-      </div>
-      <div className="bg-white rounded-[2rem] shadow-lg relative w-full pt-10 pb-4 px-6 text-center overflow-hidden">
-        <div className="absolute top-0 left-0 bottom-0 w-8 bg-teal-600 rounded-l-[2rem]"></div>
-        <div className="absolute top-0 right-6 bg-teal-600 text-white text-[9px] font-bold px-3 py-1 rounded-b-xl z-20 shadow-sm">LEVEL A</div>
-        <div className="relative z-10 pl-2">
-          <div className="text-teal-600 font-extrabold text-[12px] uppercase leading-tight truncate">{f.nome}</div>
-          <div className="text-slate-400 text-[9px] mt-0.5 font-medium line-clamp-2 leading-snug">{f.funcao || f.cargo || "Gestor"}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
+    <div className={cn(
+      "org-node flex flex-col items-center group cursor-pointer perspective-1000",
+      isSmall ? "w-32 mb-6" : "w-60 mb-8"
+    )} onClick={() => f.id !== "dummy" && onSelect(f)}>
+       <motion.div 
+         whileHover={{ y: -4, scale: 1.02 }}
+         className={cn(
+           "relative bg-white rounded-2xl shadow-sm border border-slate-200 w-full overflow-hidden transition-all group-hover:shadow-xl group-hover:border-blue-200",
+           isSmall ? "p-3" : "p-4"
+         )}
+       >
+         {/* Top Accent Bar */}
+         <div className={cn("absolute top-0 left-0 right-0 h-1 bg-gradient-to-r", colorMap[color])} />
+         
+         <div className={cn("flex flex-col items-center", isSmall ? "space-y-2" : "space-y-3")}>
+            {/* Avatar Container */}
+            <div className={cn(
+              "rounded-full border-2 border-white shadow-md bg-slate-100 overflow-hidden relative flex-shrink-0",
+              isSmall ? "w-12 h-12" : "w-16 h-16"
+            )}>
+               {f.photoUrl ? (
+                 <img src={f.photoUrl} alt={f.nome} className="w-full h-full object-cover" />
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center text-slate-300 font-black text-sm uppercase">
+                    {(f.nome || "?")[0]}
+                 </div>
+               )}
+            </div>
 
-function LevelBNode({ f }: { f: any }) {
-  return (
-    <div className="flex items-center relative z-10 w-64 mb-4 mx-4 bg-white rounded-[2rem] shadow-md pr-4 py-2 mt-4 overflow-hidden">
-      <div className="absolute top-0 right-6 bg-emerald-500 text-white text-[9px] font-bold px-3 py-1 rounded-b-xl z-20 shadow-sm">LEVEL B</div>
-      <div className="absolute top-0 bottom-0 left-0 w-12 bg-emerald-500 rounded-l-[2rem]"></div>
-      
-      <div className="w-14 h-14 rounded-full border-[4px] border-white shadow-sm bg-slate-200 overflow-hidden relative z-10 -ml-1">
-         <AvatarPlaceholder name={f.nome} />
-      </div>
+            {/* Content */}
+            <div className="text-center w-full min-w-0">
+               <h4 className={cn(
+                 "font-black text-slate-800 truncate leading-tight",
+                 isSmall ? "text-[10px]" : "text-[11px]"
+               )}>
+                 {f.nome}
+               </h4>
+               <p className={cn(
+                 "text-slate-400 font-bold uppercase tracking-tighter truncate mt-0.5",
+                 isSmall ? "text-[8px]" : "text-[9px]"
+               )}>
+                 {f.funcao || f.cargo}
+               </p>
+            </div>
 
-      <div className="ml-3 text-left w-full pt-3 relative z-10">
-        <div className="text-emerald-600 font-extrabold text-[11px] uppercase leading-tight truncate">{f.nome}</div>
-        <div className="text-slate-400 text-[9px] leading-tight line-clamp-2 mt-0.5 font-medium">{f.funcao || f.cargo}</div>
-      </div>
-    </div>
-  );
-}
-
-function LevelCNode({ f }: { f: any }) {
-  return (
-    <div className="flex items-center relative z-10 w-56 mb-4 mx-4 bg-white rounded-[2rem] shadow-md pr-4 py-2 mt-4 overflow-hidden">
-      <div className="absolute top-0 right-4 bg-amber-500 text-white text-[9px] font-bold px-3 py-1 rounded-b-xl z-20 shadow-sm">LEVEL C</div>
-      <div className="absolute top-0 bottom-0 left-0 w-10 bg-amber-500 rounded-l-[2rem]"></div>
-      
-      <div className="w-12 h-12 rounded-full border-[4px] border-white shadow-sm bg-slate-200 overflow-hidden relative z-10 ml-0">
-         <AvatarPlaceholder name={f.nome} />
-      </div>
-
-      <div className="ml-2 text-left w-full pt-3 relative z-10">
-        <div className="text-amber-500 font-extrabold text-[10px] uppercase leading-tight truncate">{f.nome}</div>
-        <div className="text-slate-400 text-[8px] leading-tight line-clamp-2 mt-0.5 font-medium">{f.funcao || f.cargo}</div>
-      </div>
-    </div>
-  );
-}
-
-function LevelDNode({ f }: { f: any }) {
-  return (
-    <div className="flex flex-col items-center relative z-10 w-32 mb-4 mx-2 mt-2">
-      <div className="relative w-16 h-16 flex items-center justify-center">
-        <div className="absolute top-0 bottom-0 left-0 right-1/2 bg-orange-500 rounded-l-full"></div>
-        <div className="absolute bottom-0 right-0 left-1/2 top-1/2 bg-orange-500 rounded-br-full"></div>
-        <div className="w-14 h-14 rounded-full border-[3px] border-white shadow-sm bg-slate-200 overflow-hidden relative z-10">
-          <AvatarPlaceholder name={f.nome} />
-        </div>
-      </div>
-      <div className="text-center mt-3 relative z-10 w-full bg-slate-50/50 rounded-xl p-1 backdrop-blur-sm">
-        <div className="text-slate-600 font-extrabold text-[10px] uppercase leading-tight truncate">{f.nome}</div>
-        <div className="text-slate-500 text-[8px] line-clamp-2 font-medium leading-snug">{f.funcao || f.cargo}</div>
-      </div>
+            {/* Status Badge (Small dots) */}
+            <div className={cn(
+              "absolute top-2 right-2 w-1.5 h-1.5 rounded-full",
+              f.status === "Licença" ? "bg-amber-400" : "bg-emerald-400"
+            )} />
+         </div>
+         
+         {/* Level Badge */}
+         <div className={cn(
+           "absolute bottom-0 right-0 px-2 py-0.5 text-white text-[7px] font-black rounded-tl-lg",
+           badgeColor[color]
+         )}>
+           NÍVEL {level}
+         </div>
+       </motion.div>
     </div>
   );
 }

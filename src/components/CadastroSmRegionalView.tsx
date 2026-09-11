@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { db, COLLECTIONS } from "../firebase";
+import React, { useState, useEffect, useRef } from "react";
+import { db, COLLECTIONS, storage } from "../firebase";
 import {
   collection,
   addDoc,
@@ -8,6 +8,11 @@ import {
   updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "firebase/storage";
 import { FuncionarioSM, UnidadeRegional, FuncaoSM } from "../types";
 import {
   Plus,
@@ -34,6 +39,9 @@ import {
   Store,
   CreditCard,
   Briefcase,
+  Camera,
+  RefreshCw,
+  User,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -88,6 +96,9 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
   const [telefonePrincipal, setTelefonePrincipal] = useState("");
   const [telefoneAtendimento, setTelefoneAtendimento] = useState("");
   const [dataAlteracao, setDataAlteracao] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
 
   // When unidade changes in the form, automatically populate Marca, Regional, Nucleo, Cluster
@@ -131,6 +142,7 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
       setTelefonePrincipal(func.telefonePrincipal || func.telefone || "");
       setTelefoneAtendimento(func.telefoneAtendimento || "");
       setDataAlteracao(func.dataAlteracao || "");
+      setPhotoUrl(func.photoUrl || "");
     } else {
       setEditingId(null);
       setNome("");
@@ -156,6 +168,7 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
       setTelefonePrincipal("");
       setTelefoneAtendimento("");
       setDataAlteracao("");
+      setPhotoUrl("");
     }
     setIsModalOpen(true);
   };
@@ -228,6 +241,7 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
         telefone: telefonePrincipal.trim(), // compatibilidade
         telefonePrincipal: telefonePrincipal.trim(),
         telefoneAtendimento: telefoneAtendimento.trim(),
+        photoUrl: photoUrl.trim(),
         dataAlteracao: nowFormatted, // Registra a data de realização da edição
         updatedAt: serverTimestamp(),
       };
@@ -249,6 +263,30 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
       onToast(`Erro ao salvar: ${err.message}`, "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      onToast("A foto deve ter no máximo 2MB.", "error");
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      const storageRef = ref(storage, `funcionarios_sm/avatar_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setPhotoUrl(url);
+      onToast("Foto carregada com sucesso!", "success");
+    } catch (err) {
+      console.error("Error uploading photo:", err);
+      onToast("Erro ao fazer upload da foto.", "error");
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -577,8 +615,12 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
                     <tr key={f.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-4">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs uppercase border border-blue-100">
-                            {f.nome ? f.nome.charAt(0) : "U"}
+                          <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
+                            {f.photoUrl ? (
+                              <img src={f.photoUrl} alt={f.nome} className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={18} className="text-slate-400" />
+                            )}
                           </div>
                           <div>
                             <div className="font-bold text-slate-800">{f.nome}</div>
@@ -711,6 +753,50 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Photo Upload Section */}
+              <div className="flex flex-col items-center justify-center pb-4">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-3xl border-4 border-slate-100 shadow-lg bg-slate-200 overflow-hidden relative">
+                    {photoUrl ? (
+                      <img 
+                        src={photoUrl} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-400">
+                        <User size={40} />
+                      </div>
+                    )}
+                    
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                        <RefreshCw size={24} className="text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="absolute -bottom-2 -right-2 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg border-2 border-white transition-all transform hover:scale-110 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    title="Alterar foto"
+                  >
+                    <Camera size={16} />
+                  </button>
+                  
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">Foto do Colaborador</p>
+              </div>
+
               {/* Row 1: Nome */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
@@ -1015,8 +1101,12 @@ export function CadastroSmRegionalView({ funcionarios, unidades, onToast }: Prop
           <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 w-full max-w-xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
-                  {selectedFunc.nome ? selectedFunc.nome.charAt(0) : "U"}
+                <div className="w-14 h-14 rounded-2xl border-2 border-slate-100 shadow-sm overflow-hidden flex items-center justify-center bg-slate-50">
+                  {selectedFunc.photoUrl ? (
+                    <img src={selectedFunc.photoUrl} alt={selectedFunc.nome} className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={24} className="text-slate-300" />
+                  )}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-800">{selectedFunc.nome}</h3>

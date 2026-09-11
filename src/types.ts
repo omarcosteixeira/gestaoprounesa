@@ -26,6 +26,7 @@ export interface UserProfile {
   unidade?: string;
   servidor?: 'principal' | 'comercial' | 'unesa';
   linkadoA?: string; // used for Promotor/rua to link to FDV
+  photoUrl?: string;
   createdAt: any;
   updatedAt?: any;
   dashboardWidgets?: {
@@ -944,6 +945,7 @@ export interface FuncionarioSM {
   telefone?: string; // Telefone Principal
   telefonePrincipal?: string;
   telefoneAtendimento?: string; // Telefone de Atendimento (opcional)
+  photoUrl?: string;
   dataAlteracao?: string; // Registro da data de realização de edição
   dataEdicao?: string;
   updatedAt?: any;

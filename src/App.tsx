@@ -8538,6 +8538,7 @@ export default function App() {
                 <AcompanhamentoTarefasView
                   tarefas={tarefas}
                   unidades={unidadesRegional}
+                  users={users}
                   profile={profile!}
                   onToast={showToast}
                 />
