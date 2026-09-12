@@ -8317,6 +8317,9 @@ export default function App() {
                   qgLigacoes={qgLigacoes}
                   acaoRua={acaoRua}
                   users={users}
+                  tarefas={tarefas}
+                  metaRVV={metaRVV}
+                  setCurrentView={setCurrentView}
                 />
               )}
               {currentView === "relatorios" && (
@@ -9916,6 +9919,9 @@ function DashboardView({
   qgLigacoes,
   acaoRua = [],
   users,
+  tarefas = [],
+  metaRVV = [],
+  setCurrentView,
 }: {
   leads: Lead[];
   planner: PlannerTask[];
@@ -9933,6 +9939,9 @@ function DashboardView({
   qgLigacoes: QgLigacao[];
   acaoRua?: AcaoRua[];
   users: UserProfile[];
+  tarefas?: Tarefa[];
+  metaRVV?: MetaRVV[];
+  setCurrentView: (v: string) => void;
 }) {
   const isRegional = profile?.role === ROLES.REGIONAL;
   const [isCustomizing, setIsCustomizing] = useState(false);
@@ -9997,6 +10006,7 @@ function DashboardView({
     metaCursos: true,
     metaUnidadeRegional: true,
     aniversarios: true,
+    metaRVV: true,
   };
   const widgets = profile?.dashboardWidgets
     ? { ...defaultWidgets, ...profile.dashboardWidgets }
@@ -10184,8 +10194,13 @@ function DashboardView({
     }
   };
 
+  const pendingTasks = (tarefas || []).filter(t => 
+    (t.status === 'Em Andamento' || t.status === 'Parado' || t.status === 'Atrasado') &&
+    (t.responsavelNome === (profile?.nome || profile?.name) || t.envolvidosIds?.includes(profile?.uid || ''))
+  );
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-20">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
         <div className="flex items-center space-x-4">
@@ -10198,6 +10213,26 @@ function DashboardView({
           </button>
         </div>
       </div>
+
+      {pendingTasks.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
+              <ClipboardList size={24} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-900">Você possui tarefas pendentes</p>
+              <p className="text-xs text-amber-700 font-medium">Existem {pendingTasks.length} {pendingTasks.length === 1 ? 'atividade' : 'atividades'} aguardando sua ação no sistema.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setCurrentView("acompanhamentoTarefas")}
+            className="w-full sm:w-auto px-6 py-2.5 bg-amber-600 text-white text-xs font-bold rounded-xl hover:bg-amber-700 transition-all shadow-sm hover:shadow-md"
+          >
+            Visualizar Agora
+          </button>
+        </div>
+      )}
 
       {/* Android App Promotion Card */}
       {!isAppInstalled && (
@@ -11578,6 +11613,67 @@ function DashboardView({
         </section>
       )}
 
+      {/* Meta RVV Widget */}
+      {widgets.metaRVV !== false && metaRVV.length > 0 && (
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-2 text-indigo-600">
+              <Award size={24} />
+              <h3 className="text-xl font-bold text-slate-900">
+                Metas RVV
+              </h3>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {[...metaRVV]
+              .sort((a, b) => b.mesAno.localeCompare(a.mesAno))
+              .slice(0, 3) // Mostra as 3 mais recentes
+              .map((m) => {
+                const totalMult = m.totalMultiploRVV !== undefined
+                  ? m.totalMultiploRVV
+                  : (m.multDigi || 0) + (m.multConvDigi || 0) + (m.multPres || 0) + (m.multConvPres || 0);
+
+                return (
+                  <div key={m.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="font-bold text-slate-900">{m.mesAno}</h4>
+                      <span className={cn(
+                        "text-[10px] font-bold px-2 py-1 rounded-full",
+                        m.statusPagamento === "Paga" ? "bg-emerald-100 text-emerald-600" : 
+                        m.statusPagamento === "Contestada" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+                      )}>
+                        {m.statusPagamento}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="p-3 bg-white rounded-xl border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Múltiplo Total</p>
+                        <p className="text-lg font-bold text-indigo-600">{totalMult.toFixed(2)}</p>
+                      </div>
+                      <div className="p-3 bg-white rounded-xl border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Status</p>
+                        <p className="text-sm font-bold text-slate-700 mt-1">{m.statusPagamento}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between text-slate-500">
+                        <span>Digital (Real / Meta):</span>
+                        <span className="font-bold text-slate-700">{m.realFinDig} / {m.metaFinDig}</span>
+                      </div>
+                      <div className="flex justify-between text-slate-500">
+                        <span>Presencial (Real / Meta):</span>
+                        <span className="font-bold text-slate-700">{m.realFinPres} / {m.metaFinPres}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
+
       {!isRegional && widgets.periodo && periodos.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-4">
@@ -11860,6 +11956,7 @@ function DashboardView({
                       { id: "planner", label: "Planner da Semana", icon: Calendar },
                       { id: "qgLigacoes", label: "QG Ligações", icon: Phone },
                       { id: "acaoRua", label: "Ação de Rua", icon: MapPin },
+                      { id: "metaRVV", label: "Metas RVV", icon: Award },
                       {
                         id: "aniversarios",
                         label: "Aniversariantes do Mês",
