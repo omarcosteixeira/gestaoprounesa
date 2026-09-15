@@ -138,7 +138,9 @@ async function startServer() {
           if (shouldNotify) {
             console.log(`[CRON] Notifying task "${task.titulo}" (${notificationType})`);
             const recipients = task.envolvidosIds.map((uid: string) => usersMap.get(uid)).filter(Boolean);
-            const message = `🔔 *${notificationType}*\n\nAtividade: *${task.titulo}*\nPrazo: ${task.dataPrazo}\nStatus: ${task.status}\n\nPor favor, verifique o andamento desta tarefa no sistema.`;
+
+            const alertMsg = `🔔 *${notificationType.toUpperCase()}*\n\nOlá! Você foi marcado(a) como envolvido(a) numa tarefa no GestãoPro.\n\n📌 *Tarefa:* ${task.titulo}${task.dataPrazo ? `\n📅 *Prazo:* ${task.dataPrazo}` : ""}${task.status ? `\n📊 *Status:* ${task.status}` : ""}\n\n⏳ *Acesse o sistema para ver os detalhes e prazos.*\n\n_Mensagem automática do sistema ARGO'S._`;
+            const message = alertMsg;
 
             // Collect WhatsApp numbers for instant dispatch via /api/alert
             const whatsappNumbers: string[] = [];
@@ -161,21 +163,20 @@ async function startServer() {
                 ? (botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url)
                 : "https://argoscliente-production-170b.up.railway.app";
               const botNumber = "5524993346717";
-              const alertMsg = message + "\n\n(Notificação Automática GestãoPro)\n\nPor favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.";
 
-              // 1. Batch alert queue
+              // 1. Batch alert queue (Fila Expressa do bot ARGO'S)
               fetch(`${baseUrl}/api/alert`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   botNumber,
                   numbers: whatsappNumbers,
-                  message: alertMsg
-                })
+                  message: alertMsg,
+                }),
               })
-              .then(res => res.json().catch(() => ({})))
-              .then(data => console.log("[CRON] WhatsApp /api/alert response:", data))
-              .catch(e => console.error("[CRON] WhatsApp /api/alert Error:", e.message));
+                .then((res) => res.json().catch(() => ({})))
+                .then((data) => console.log("[CRON] Alerta de nova tarefa enviado para o bot com sucesso:", data))
+                .catch((e) => console.error("Falha ao notificar o bot ARGO'S [CRON]:", e.message));
 
               // 2. Individual /api/send via bot 5524993346717
               for (const phone of whatsappNumbers) {
@@ -188,8 +189,8 @@ async function startServer() {
                     message: alertMsg,
                     force: true,
                     manual: true,
-                  })
-                }).catch(e => console.warn(`[CRON] WhatsApp /api/send Error for ${phone}:`, e.message));
+                  }),
+                }).catch((e) => console.warn(`[CRON] WhatsApp /api/send Error for ${phone}:`, e.message));
               }
             }
 

@@ -5901,15 +5901,14 @@ export default function App() {
       return;
     }
 
-    const BOT_NUMBER = "5524993346717";
     const isNew =
       taskType.toLowerCase().includes("nova") ||
       taskType.toLowerCase().includes("atribu") ||
       taskType.toLowerCase().includes("cadastro");
-    const alertHeader = isNew ? "🔔 *Nova Tarefa Atribuída*" : `🔔 *Alerta de Tarefa: ${taskType}*`;
+    const headerAlerta = isNew ? "🔔 *NOVA TAREFA ATRIBUÍDA*" : `🔔 *ATUALIZAÇÃO DE TAREFA*`;
 
-    // 3. For each matched user, send personalized WhatsApp message via bot 5524993346717
-    const whatsappNumbers: string[] = [];
+    // 1. Buscar os números dos envolvidos no banco de dados / perfis
+    const numerosDosEnvolvidos: string[] = [];
     const notifiedNames: string[] = [];
     const missingPhones: string[] = [];
 
@@ -5936,86 +5935,74 @@ export default function App() {
       }
 
       if (rawPhone.length >= 12) {
-        if (!whatsappNumbers.includes(rawPhone)) {
-          whatsappNumbers.push(rawPhone);
+        if (!numerosDosEnvolvidos.includes(rawPhone)) {
+          numerosDosEnvolvidos.push(rawPhone);
           notifiedNames.push(userName);
-        }
-
-        let personalizedMsg =
-          `${alertHeader}\n\n` +
-          `Olá, *${userName}*!\n` +
-          `Você foi vinculado(a) à tarefa no sistema *GestãoPro*:\n\n` +
-          `📋 *Atividade:* ${taskTitle}\n`;
-        if (taskDetails?.unidade) personalizedMsg += `🏢 *Unidade:* ${taskDetails.unidade}\n`;
-        if (taskDetails?.prazo) personalizedMsg += `📅 *Prazo:* ${taskDetails.prazo}\n`;
-        if (taskDetails?.status) personalizedMsg += `📊 *Status:* ${taskDetails.status}\n`;
-        personalizedMsg +=
-          `\nPor favor, acesse o sistema GestãoPro para acompanhar o andamento.\n\n` +
-          `(Notificação Automática GestãoPro)\n\n` +
-          `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
-
-        // Send directly using bot 5524993346717 via callBotApi(/api/send)
-        try {
-          await callBotApi("/api/send", {
-            method: "POST",
-            body: {
-              botNumber: BOT_NUMBER,
-              number: rawPhone,
-              message: personalizedMsg,
-              force: true,
-              manual: true,
-            },
-          });
-          console.log(`[ALERT] WhatsApp enviado para ${rawPhone} (${userName}) usando bot ${BOT_NUMBER}`);
-        } catch (sendErr) {
-          console.warn(`[ALERT] Erro ao enviar WhatsApp para ${rawPhone} via bot ${BOT_NUMBER}:`, sendErr);
         }
       } else {
         missingPhones.push(userName);
       }
     }
 
-    // 4. ALSO trigger batch /api/alert with botNumber 5524993346717 for queue redundancy
-    if (whatsappNumbers.length > 0) {
-      let batchAlertMessage =
-        `${alertHeader}\n\n` +
-        `Olá, você foi vinculado à tarefa: *${taskTitle}*.\n`;
-      if (taskDetails?.unidade) batchAlertMessage += `🏢 *Unidade:* ${taskDetails.unidade}\n`;
-      if (taskDetails?.prazo) batchAlertMessage += `📅 *Prazo:* ${taskDetails.prazo}\n`;
-      if (taskDetails?.status) batchAlertMessage += `📊 *Status:* ${taskDetails.status}\n`;
-      batchAlertMessage +=
-        `\nPor favor, verifique o sistema GestãoPro!\n\n` +
-        `(Notificação Automática GestãoPro)\n\n` +
-        `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
+    // 2. Montar a mensagem personalizada com as variáveis da tarefa
+    let detalhesTarefa = `📌 *Tarefa:* ${taskTitle}\n`;
+    if (taskDetails?.prazo) detalhesTarefa += `📅 *Prazo:* ${taskDetails.prazo}\n`;
+    if (taskDetails?.unidade) detalhesTarefa += `🏢 *Unidade:* ${taskDetails.unidade}\n`;
+    if (taskDetails?.status) detalhesTarefa += `📊 *Status:* ${taskDetails.status}\n`;
 
-      // 4a. Call Railway directly
+    const mensagemAlerta = `${headerAlerta}\n\nOlá! Você foi marcado(a) como envolvido(a) numa nova tarefa no GestãoPro.\n\n${detalhesTarefa}⏳ *Acesse o sistema para ver os detalhes e prazos.*\n\n_Mensagem automática do sistema ARGO'S._`;
+
+    // 3. Enviar a ordem para a "Fila Expressa" do nosso bot oficial (5524993346717)
+    if (numerosDosEnvolvidos.length > 0) {
+      const railwayBaseUrl = (botConfig.url && botConfig.url.trim())
+        ? (botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url)
+        : "https://argoscliente-production-170b.up.railway.app";
+      const alertEndpoint = `${railwayBaseUrl}/api/alert`;
+
       try {
-        await callBotApi("/api/alert", {
-          method: "POST",
-          body: {
-            botNumber: BOT_NUMBER,
-            numbers: whatsappNumbers,
-            message: batchAlertMessage,
+        await fetch(alertEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            botNumber: "5524993346717",
+            numbers: numerosDosEnvolvidos,
+            message: mensagemAlerta,
+          }),
         });
-        console.log(`[ALERT] Batch /api/alert disparado para ${whatsappNumbers.length} número(s) usando bot ${BOT_NUMBER}`);
-      } catch (alertErr) {
-        console.warn("[ALERT] /api/alert batch call failed (individual messages were attempted):", alertErr);
+        console.log("Alerta de nova tarefa enviado para o bot com sucesso!");
+      } catch (error) {
+        console.error("Falha ao notificar o bot ARGO'S:", error);
       }
 
-      // 4b. Also call local Express server /api/alert as server-side redundancy
+      // Redundância local via Express
       try {
         await fetch("/api/alert", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            botNumber: BOT_NUMBER,
-            numbers: whatsappNumbers,
-            message: batchAlertMessage,
+            botNumber: "5524993346717",
+            numbers: numerosDosEnvolvidos,
+            message: mensagemAlerta,
           }),
         });
       } catch (localAlertErr) {
         // non-blocking
+      }
+
+      // Envio individual instantâneo via /api/send
+      for (const num of numerosDosEnvolvidos) {
+        callBotApi("/api/send", {
+          method: "POST",
+          body: {
+            botNumber: "5524993346717",
+            number: num,
+            message: mensagemAlerta,
+            force: true,
+            manual: true,
+          },
+        }).catch((sendErr) => console.warn(`Falha ao notificar bot ARGO'S /api/send para ${num}:`, sendErr));
       }
     }
 
@@ -6043,8 +6030,8 @@ export default function App() {
     }
 
     return {
-      success: whatsappNumbers.length > 0,
-      notifiedCount: whatsappNumbers.length,
+      success: numerosDosEnvolvidos.length > 0,
+      notifiedCount: numerosDosEnvolvidos.length,
       notifiedNames,
       missingPhones,
     };
