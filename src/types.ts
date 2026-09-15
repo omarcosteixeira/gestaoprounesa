@@ -558,6 +558,7 @@ export interface MetaRVV {
   multConvPres: number;
   totalMultiploRVV?: number;
   statusPagamento: 'Paga' | 'Contestada' | 'Pendente';
+  oculto?: boolean;
   observacao?: string;
   createdAt?: any;
   updatedAt?: any;

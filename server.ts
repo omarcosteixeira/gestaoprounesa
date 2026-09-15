@@ -19,7 +19,12 @@ async function startServer() {
     const servers = [
       { id: "principal", projectId: "gestaopro-761e1", env: process.env.FIREBASE_SERVICE_ACCOUNT_PRINCIPAL },
       { id: "comercial", projectId: "gestaodeleadspro-d4230", env: process.env.FIREBASE_SERVICE_ACCOUNT_COMERCIAL },
-      { id: "unesa", projectId: "unesa-gestaopro", env: process.env.FIREBASE_SERVICE_ACCOUNT_UNESA }
+      { 
+        id: "unesa", 
+        projectId: "gen-lang-client-0111023338", 
+        databaseId: "ai-studio-remixgestodelead-1434608b-8bfd-4a8a-953c-e137a8b6bdda",
+        env: process.env.FIREBASE_SERVICE_ACCOUNT_UNESA 
+      }
     ];
 
     return servers.map(s => {
@@ -38,7 +43,12 @@ async function startServer() {
         }
         appInstance = initializeApp(options, appName);
       }
-      return { id: s.id, projectId: s.projectId, db: getFirestore(appInstance) };
+      return { 
+        id: s.id, 
+        projectId: s.projectId, 
+        databaseId: (s as any).databaseId,
+        db: getFirestore(appInstance, (s as any).databaseId) 
+      };
     });
   };
 
@@ -51,16 +61,37 @@ async function startServer() {
 
     for (const instance of instances) {
       try {
+        console.log(`[CRON] Checking server: ${instance.id} (Project: ${instance.projectId}${instance.databaseId ? `, DB: ${instance.databaseId}` : ""})`);
         const currentProjectId = instance.projectId;
         const TAREFAS_COL = `artifacts/${currentProjectId}/public/data/tarefas`;
         const USERS_COL = `artifacts/${currentProjectId}/public/data/users`;
         const BOT_CONFIG_COL = `artifacts/${currentProjectId}/public/data/bot_config`;
 
         // Get Bot Config
-        const botConfigSnap = await instance.db.collection(BOT_CONFIG_COL).limit(1).get();
-        if (botConfigSnap.empty) continue;
+        let botConfigSnap;
+        try {
+          botConfigSnap = await instance.db.collection(BOT_CONFIG_COL).limit(1).get();
+        } catch (e: any) {
+          if (e.message?.includes("RESOURCE_EXHAUSTED")) {
+            console.warn(`[CRON] Skipping ${instance.id} due to Quota Exceeded (RESOURCE_EXHAUSTED).`);
+            continue;
+          }
+          if (e.message?.includes("PERMISSION_DENIED")) {
+            console.error(`[CRON] Permission Denied for ${instance.id}. Check FIREBASE_SERVICE_ACCOUNT_${instance.id.toUpperCase()} variable.`);
+            continue;
+          }
+          throw e;
+        }
+
+        if (botConfigSnap.empty) {
+          console.log(`[CRON] No bot config found for ${instance.id}, skipping.`);
+          continue;
+        }
         const botConfig = botConfigSnap.docs[0].data();
-        if (!botConfig.active) continue;
+        if (!botConfig.active) {
+          console.log(`[CRON] Bot inactive for ${instance.id}, skipping.`);
+          continue;
+        }
 
         // Get All Users (for contact info)
         const usersSnap = await instance.db.collection(USERS_COL).get();
@@ -73,6 +104,8 @@ async function startServer() {
         const tasksSnap = await instance.db.collection(TAREFAS_COL)
           .where("status", "==", "Em Andamento")
           .get();
+
+        console.log(`[CRON] Processing ${tasksSnap.size} tasks for ${instance.id}`);
 
         for (const taskDoc of tasksSnap.docs) {
           const task = { id: taskDoc.id, ...taskDoc.data() } as any;
@@ -120,20 +153,40 @@ async function startServer() {
               }
             }
 
-            // Send WhatsApp alerts via /api/alert (no botNumber needed, handles 1 or multiple numbers at once)
+            // Send WhatsApp alerts via /api/alert and /api/send using bot 5524993346717
             if (whatsappNumbers.length > 0 && botConfig.url) {
               const baseUrl = botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url;
+              const botNumber = "5524993346717";
+              const alertMsg = message + "\n\n(Notificação Automática GestãoPro)\n\nPor favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.";
+
+              // 1. Batch alert queue
               fetch(`${baseUrl}/api/alert`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
+                  botNumber,
                   numbers: whatsappNumbers,
-                  message: message + "\n\n(Notificação Automática GestãoPro)"
+                  message: alertMsg
                 })
               })
               .then(res => res.json().catch(() => ({})))
               .then(data => console.log("[CRON] WhatsApp /api/alert response:", data))
               .catch(e => console.error("[CRON] WhatsApp /api/alert Error:", e.message));
+
+              // 2. Individual /api/send via bot 5524993346717
+              for (const phone of whatsappNumbers) {
+                fetch(`${baseUrl}/api/send`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    botNumber,
+                    number: phone,
+                    message: alertMsg,
+                    force: true,
+                    manual: true,
+                  })
+                }).catch(e => console.warn(`[CRON] WhatsApp /api/send Error for ${phone}:`, e.message));
+              }
             }
 
             for (const u of recipients) {
@@ -186,8 +239,8 @@ async function startServer() {
   // Schedule cron (Every day at 09:00 AM)
   cron.schedule("0 9 * * *", runTaskReminders);
   
-  // Also run once on startup (optional, maybe wait 1 min)
-  setTimeout(runTaskReminders, 60000);
+  // Also run once on startup (wait 5 mins to avoid quota issues on frequent restarts)
+  setTimeout(runTaskReminders, 300000);
 
   // Generous limit for HTML files or base64 embedded images
   app.use(express.json({ limit: "50mb" }));
@@ -228,13 +281,15 @@ async function startServer() {
   // API endpoint for instant task alerts via WhatsApp Railway bot (/api/alert)
   app.post("/api/alert", async (req, res) => {
     try {
-      const { numbers, message } = req.body;
+      const { numbers, message, botNumber } = req.body;
       if (!numbers || !Array.isArray(numbers) || numbers.length === 0) {
         return res.status(400).json({ success: false, error: "O parâmetro 'numbers' deve ser um array com os números destinatários." });
       }
       if (!message || typeof message !== "string") {
         return res.status(400).json({ success: false, error: "O parâmetro 'message' é obrigatório." });
       }
+
+      const selectedBot = botNumber || "5524993346717";
 
       // Resolve Railway URL from bot_config or use default production bot link
       let railwayUrl = "https://argoscliente-production-170b.up.railway.app";
@@ -254,29 +309,52 @@ async function startServer() {
         }
       }
 
-      console.log(`[ALERT ROUTE] Disparando alerta para ${numbers.length} número(s) via ${railwayUrl}/api/alert`);
+      console.log(`[ALERT ROUTE] Disparando alerta para ${numbers.length} número(s) via ${railwayUrl} usando bot ${selectedBot}`);
 
+      // 1. Post to Railway /api/alert queue with botNumber
       const botResponse = await fetch(`${railwayUrl}/api/alert`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          botNumber: selectedBot,
           numbers,
           message,
         }),
+      }).catch((e) => {
+        console.warn("[ALERT ROUTE] Erro ao chamar /api/alert no Railway:", e.message);
+        return null;
       });
 
-      const contentType = botResponse.headers.get("content-type") || "";
-      let responseData: any;
-      if (contentType.includes("application/json")) {
-        responseData = await botResponse.json().catch(() => ({}));
-      } else {
-        const text = await botResponse.text().catch(() => "");
-        responseData = { success: botResponse.ok, message: text };
+      // 2. Also dispatch individually to /api/send with botNumber to guarantee instant transmission
+      for (const num of numbers) {
+        fetch(`${railwayUrl}/api/send`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            botNumber: selectedBot,
+            number: num,
+            message,
+            force: true,
+            manual: true,
+          }),
+        }).catch((e) => console.warn(`[ALERT ROUTE] Falha ao enviar /api/send para ${num}:`, e.message));
       }
 
-      return res.status(botResponse.status).json(responseData);
+      if (botResponse) {
+        const contentType = botResponse.headers.get("content-type") || "";
+        let responseData: any;
+        if (contentType.includes("application/json")) {
+          responseData = await botResponse.json().catch(() => ({}));
+        } else {
+          const text = await botResponse.text().catch(() => "");
+          responseData = { success: botResponse.ok, message: text };
+        }
+        return res.status(botResponse.status).json(responseData);
+      }
+
+      return res.status(200).json({ success: true, message: "Alertas encaminhados ao Bot." });
     } catch (err: any) {
       console.error("[ALERT ROUTE] Erro ao processar /api/alert:", err);
       return res.status(500).json({ success: false, error: err.message || "Erro interno ao processar alerta" });

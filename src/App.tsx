@@ -5372,43 +5372,74 @@ export default function App() {
       },
     };
     if (options.method === "POST" && options.body) {
-      fetchOptions.body = JSON.stringify(options.body);
+      fetchOptions.body = typeof options.body === "string" ? options.body : JSON.stringify(options.body);
     }
 
-    const response = await fetch(directUrl, fetchOptions);
-    if (!response.ok) {
-      const isJson = response.headers
-        .get("content-type")
-        ?.includes("application/json");
-      const json = isJson ? await response.json().catch(() => ({})) : {};
-      throw new Error(
-        json.error ||
-          json.message ||
-          `Erro ao conectar ao Bot (${response.status})`,
-      );
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      const text = await response.text();
-      return { success: true, message: text };
-    }
-
-    const resData = await response.json();
-
-    // Support either direct raw JSON responses or wrapper structures with { success: boolean, data?: any }
-    if (
-      resData !== null &&
-      typeof resData === "object" &&
-      "success" in resData
-    ) {
-      if (!resData.success) {
-        throw new Error(resData.data?.error || resData.error || `Falha no bot`);
+    try {
+      const response = await fetch(directUrl, fetchOptions);
+      if (!response.ok) {
+        const isJson = response.headers
+          .get("content-type")
+          ?.includes("application/json");
+        const json = isJson ? await response.json().catch(() => ({})) : {};
+        throw new Error(
+          json.error ||
+            json.message ||
+            `Erro ao conectar ao Bot (${response.status})`,
+        );
       }
-      return "data" in resData ? resData.data : resData;
-    }
 
-    return resData;
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        return { success: true, message: text };
+      }
+
+      const resData = await response.json();
+
+      // Support either direct raw JSON responses or wrapper structures with { success: boolean, data?: any }
+      if (
+        resData !== null &&
+        typeof resData === "object" &&
+        "success" in resData
+      ) {
+        if (!resData.success) {
+          throw new Error(resData.data?.error || resData.error || `Falha no bot`);
+        }
+        return "data" in resData ? resData.data : resData;
+      }
+
+      return resData;
+    } catch (directErr: any) {
+      console.warn(`[callBotApi] Direct fetch failed for ${directUrl}, attempting proxy fallback:`, directErr);
+      try {
+        const parsedBody =
+          options.body && typeof options.body === "string"
+            ? JSON.parse(options.body)
+            : options.body;
+
+        const proxyRes = await fetch("/api/bot-proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUrl: directUrl,
+            method: options.method || "GET",
+            headers: { "Content-Type": "application/json" },
+            body: parsedBody,
+          }),
+        });
+        const proxyJson = await proxyRes.json().catch(() => ({}));
+        if (!proxyRes.ok || proxyJson.success === false) {
+          throw new Error(
+            proxyJson.error || directErr.message || `Erro no proxy ao conectar ao bot (${proxyRes.status})`,
+          );
+        }
+        return proxyJson.data || proxyJson;
+      } catch (proxyErr: any) {
+        console.error(`[callBotApi] Both direct and proxy failed for ${path}:`, proxyErr);
+        throw proxyErr;
+      }
+    }
   };
 
   const sendAppWhatsApp = async (recipientPhone: string, message: string) => {
@@ -5820,93 +5851,144 @@ export default function App() {
     }
   };
 
-  const handleSendTaskNotification = async (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => {
+  const handleSendTaskNotification = async (
+    textToSearch: string,
+    taskTitle: string,
+    taskType: string,
+    userIds?: string[],
+  ) => {
     if (!textToSearch && (!userIds || userIds.length === 0)) return;
-    const lowerText = textToSearch.toLowerCase();
-    
-    // Find all users mentioned in the text OR explicitly selected
-    const matchedUsers = users.filter((u) => {
-      if (userIds && userIds.includes(u.uid)) return true;
-      const nome = (u.nome || u.name || "").trim().toLowerCase();
-      if (nome.length > 2 && lowerText && lowerText.includes(nome)) return true;
-      return false;
-    });
+    const lowerText = (textToSearch || "").trim().toLowerCase();
 
-    if (matchedUsers.length === 0) return;
+    // Map to collect all matched users uniquely
+    const matchedUserMap = new Map<string, UserProfile>();
 
-    // Collect WhatsApp numbers for instant /api/alert (handles 1 or many at once)
-    const whatsappNumbers: string[] = [];
-    matchedUsers.forEach((u) => {
-      if (u.phone) {
-        let rawPhone = u.phone.replace(/\D/g, "");
-        if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
-        if (rawPhone.length === 10 || rawPhone.length === 11) {
-          rawPhone = `55${rawPhone}`;
-        }
-        if (rawPhone.length >= 12 && !whatsappNumbers.includes(rawPhone)) {
-          whatsappNumbers.push(rawPhone);
+    // 1. From local users state: match by uid or by name search
+    users.forEach((u) => {
+      if (userIds && userIds.includes(u.uid)) {
+        matchedUserMap.set(u.uid, u);
+      } else if (lowerText) {
+        const nome = (u.nome || u.name || "").trim().toLowerCase();
+        if (
+          nome.length > 2 &&
+          (lowerText === nome || lowerText.includes(nome) || nome.includes(lowerText))
+        ) {
+          matchedUserMap.set(u.uid, u);
         }
       }
     });
 
-    // Format the alert message specifically as recommended
-    const isNew = taskType.toLowerCase().includes("nova") || taskType.toLowerCase().includes("atribu") || taskType.toLowerCase().includes("cadastro");
-    const alertHeader = isNew ? "🔔 *Nova Tarefa Atribuída*" : `🔔 *Alerta de Tarefa: ${taskType}*`;
-    const alertMessage = `${alertHeader}\n\nOlá, você foi vinculado à tarefa: *${taskTitle}*.\nPor favor, verifique o sistema!\n\n(Notificação Automática GestãoPro)`;
-
-    if (whatsappNumbers.length > 0) {
-      const railwayUrl = botConfig.url
-        ? (botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url)
-        : "https://argoscliente-production-170b.up.railway.app";
-
-      try {
-        console.log(`[ALERT] Disparando alerta via /api/alert para ${whatsappNumbers.length} número(s):`, whatsappNumbers);
-        const response = await fetch(`${railwayUrl}/api/alert`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            numbers: whatsappNumbers,
-            message: alertMessage,
-          }),
-        });
-
-        if (!response.ok) {
-          console.warn("[ALERT] Envio direto retornou erro, usando proxy local /api/alert");
-          await fetch("/api/alert", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              numbers: whatsappNumbers,
-              message: alertMessage,
-            }),
-          });
-        }
-        console.log(`[ALERT] WhatsApp task alert sent to: ${whatsappNumbers.join(", ")}`);
-      } catch (err) {
-        console.warn("[ALERT] Envio direto falhou, usando proxy local /api/alert:", err);
-        try {
-          await fetch("/api/alert", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              numbers: whatsappNumbers,
-              message: alertMessage,
-            }),
-          });
-        } catch (proxyErr) {
-          console.error("Erro ao enviar notificação de tarefa pelo WhatsApp via /api/alert:", proxyErr);
+    // 2. Safeguard: If userIds are provided, fetch any missing from Firestore directly
+    if (userIds && userIds.length > 0) {
+      for (const uid of userIds) {
+        if (!matchedUserMap.has(uid)) {
+          try {
+            const userSnap = await getDoc(doc(db, COLLECTIONS.USERS, uid));
+            if (userSnap.exists()) {
+              matchedUserMap.set(uid, { uid: userSnap.id, ...userSnap.data() } as UserProfile);
+            }
+          } catch (e) {
+            console.warn(`[handleSendTaskNotification] Could not fetch missing user ${uid}:`, e);
+          }
         }
       }
     }
 
+    const matchedUsers = Array.from(matchedUserMap.values());
+    if (matchedUsers.length === 0) {
+      console.warn("[handleSendTaskNotification] Nenhum usuário encontrado para notificar");
+      return;
+    }
+
+    const BOT_NUMBER = "5524993346717";
+    const isNew =
+      taskType.toLowerCase().includes("nova") ||
+      taskType.toLowerCase().includes("atribu") ||
+      taskType.toLowerCase().includes("cadastro");
+    const alertHeader = isNew ? "🔔 *Nova Tarefa Atribuída*" : `🔔 *Alerta de Tarefa: ${taskType}*`;
+
+    // 3. For each matched user, send personalized WhatsApp message via bot 5524993346717
+    const whatsappNumbers: string[] = [];
+
+    for (const u of matchedUsers) {
+      const userPhone =
+        u.phone ||
+        (u as any).telefone ||
+        (u as any).whatsapp ||
+        (u as any).celular ||
+        (u as any).contato;
+
+      if (userPhone) {
+        let rawPhone = String(userPhone).replace(/\D/g, "");
+        if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
+        if (rawPhone.length === 10 || rawPhone.length === 11) {
+          rawPhone = `55${rawPhone}`;
+        }
+        if (rawPhone.length >= 12) {
+          if (!whatsappNumbers.includes(rawPhone)) {
+            whatsappNumbers.push(rawPhone);
+          }
+
+          const userName = u.nome || u.name || "Colaborador";
+          const personalizedMsg =
+            `${alertHeader}\n\n` +
+            `Olá, *${userName}*!\n` +
+            `Você foi vinculado(a) à tarefa: *${taskTitle}*.\n` +
+            `Por favor, verifique o sistema GestãoPro!\n\n` +
+            `(Notificação Automática GestãoPro)\n\n` +
+            `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
+
+          // Send directly using bot 5524993346717 via callBotApi(/api/send)
+          try {
+            await callBotApi("/api/send", {
+              method: "POST",
+              body: {
+                botNumber: BOT_NUMBER,
+                number: rawPhone,
+                message: personalizedMsg,
+                force: true,
+                manual: true,
+              },
+            });
+            console.log(`[ALERT] WhatsApp enviado para ${rawPhone} (${userName}) usando bot ${BOT_NUMBER}`);
+          } catch (sendErr) {
+            console.warn(`[ALERT] Erro ao enviar WhatsApp para ${rawPhone} via bot ${BOT_NUMBER}:`, sendErr);
+          }
+        }
+      }
+    }
+
+    // 4. ALSO trigger batch /api/alert with botNumber 5524993346717 for queue redundancy
+    if (whatsappNumbers.length > 0) {
+      const batchAlertMessage =
+        `${alertHeader}\n\n` +
+        `Olá, você foi vinculado à tarefa: *${taskTitle}*.\n` +
+        `Por favor, verifique o sistema GestãoPro!\n\n` +
+        `(Notificação Automática GestãoPro)\n\n` +
+        `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
+
+      try {
+        await callBotApi("/api/alert", {
+          method: "POST",
+          body: {
+            botNumber: BOT_NUMBER,
+            numbers: whatsappNumbers,
+            message: batchAlertMessage,
+          },
+        });
+        console.log(`[ALERT] Batch /api/alert disparado para ${whatsappNumbers.length} número(s) usando bot ${BOT_NUMBER}`);
+      } catch (alertErr) {
+        console.warn("[ALERT] /api/alert batch call failed (individual messages were attempted):", alertErr);
+      }
+    }
+
+    // 5. Telegram & Microsoft Teams notifications
     for (const u of matchedUsers) {
       const message = `Olá ${u.nome || u.name}! Você foi vinculado a uma atividade no sistema.\n\nAtividade: *${taskTitle}*\nTipo: ${taskType}\n\nAcesse o sistema para mais detalhes.`;
 
       // Telegram sending
       if (u.telegram) {
-        await sendAppTelegram(u.telegram, message);
+        sendAppTelegram(u.telegram, message).catch(console.error);
       }
 
       // Microsoft Teams sending
@@ -10007,6 +10089,7 @@ function DashboardView({
     metaUnidadeRegional: true,
     aniversarios: true,
     metaRVV: true,
+    tarefasPendentes: true,
   };
   const widgets = profile?.dashboardWidgets
     ? { ...defaultWidgets, ...profile.dashboardWidgets }
@@ -10194,10 +10277,50 @@ function DashboardView({
     }
   };
 
-  const pendingTasks = (tarefas || []).filter(t => 
-    (t.status === 'Em Andamento' || t.status === 'Parado' || t.status === 'Atrasado') &&
-    (t.responsavelNome === (profile?.nome || profile?.name) || t.envolvidosIds?.includes(profile?.uid || ''))
-  );
+  const isAdmin = profile?.role === ROLES.ADMIN;
+  const isGerente = profile?.role === ROLES.GERENTE;
+  const userName = (profile?.nome || profile?.name || "").trim().toLowerCase();
+  const userUid = profile?.uid || "";
+  const userUnidade = (profile?.unidade || "").trim().toLowerCase();
+
+  const pendingTasks = useMemo(() => {
+    return (tarefas || []).filter((t) => {
+      const isNotDone = t.status !== 'Deferido' && t.status !== 'Cancelado';
+      if (!isNotDone) return false;
+
+      // Admin e Regional têm visão completa de todas as pendências da rede
+      if (isAdmin || isRegional) return true;
+
+      // Gerente e Consultores: atividades vinculadas a si ou à sua unidade
+      const resp = (t.responsavelNome || "").trim().toLowerCase();
+      const isResp = resp && (resp === userName || userName.includes(resp) || resp.includes(userName));
+      const isEnvolvido = t.envolvidosIds?.includes(userUid) || 
+        t.envolvidosNomes?.some(n => n.trim().toLowerCase() === userName);
+      const isCreator = t.creatorId === userUid;
+      const isSameUnidade = userUnidade && t.unidade && t.unidade.trim().toLowerCase() === userUnidade;
+
+      return isResp || isEnvolvido || isCreator || isSameUnidade;
+    });
+  }, [tarefas, isAdmin, isRegional, userName, userUid, userUnidade]);
+
+  const tarefasAtrasadas = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return pendingTasks.filter(
+      (t) => t.status === "Atrasado" || (t.dataPrazo && t.dataPrazo < today)
+    );
+  }, [pendingTasks]);
+
+  const tarefasEmAndamento = useMemo(() => {
+    return pendingTasks.filter((t) => t.status === "Em Andamento");
+  }, [pendingTasks]);
+
+  const tarefasParadas = useMemo(() => {
+    return pendingTasks.filter((t) => t.status === "Parado");
+  }, [pendingTasks]);
+
+  const visibleMetaRVV = useMemo(() => {
+    return (metaRVV || []).filter((m) => !m.oculto);
+  }, [metaRVV]);
 
   return (
     <div className="space-y-8 pb-20">
@@ -10206,7 +10329,7 @@ function DashboardView({
         <div className="flex items-center space-x-4">
           <button
             onClick={() => setIsCustomizing(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            className="flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
           >
             <Settings size={18} />
             <span>Personalizar</span>
@@ -10215,21 +10338,42 @@ function DashboardView({
       </div>
 
       {pendingTasks.length > 0 && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-rose-500/10 border border-amber-300/80 p-5 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
           <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center shrink-0 shadow-sm">
-              <ClipboardList size={24} />
+            <div className="w-12 h-12 bg-amber-500 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-md">
+              <ClipboardList size={26} />
             </div>
             <div>
-              <p className="text-sm font-bold text-amber-900">Você possui tarefas pendentes</p>
-              <p className="text-xs text-amber-700 font-medium">Existem {pendingTasks.length} {pendingTasks.length === 1 ? 'atividade' : 'atividades'} aguardando sua ação no sistema.</p>
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                <p className="text-base font-black text-amber-950">Atenção: Existem Tarefas Pendentes</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-amber-900 font-medium mt-1">
+                <span>Há <strong className="font-bold text-amber-950">{pendingTasks.length} {pendingTasks.length === 1 ? 'atividade aguardando resolução' : 'atividades aguardando resolução'}</strong>:</span>
+                {tarefasAtrasadas.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                    {tarefasAtrasadas.length} atrasada{tarefasAtrasadas.length > 1 ? 's' : ''}
+                  </span>
+                )}
+                {tarefasEmAndamento.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                    {tarefasEmAndamento.length} em andamento
+                  </span>
+                )}
+                {tarefasParadas.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    {tarefasParadas.length} parada{tarefasParadas.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button 
             onClick={() => setCurrentView("acompanhamentoTarefas")}
-            className="w-full sm:w-auto px-6 py-2.5 bg-amber-600 text-white text-xs font-bold rounded-xl hover:bg-amber-700 transition-all shadow-sm hover:shadow-md"
+            className="w-full md:w-auto px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-amber-600/20 flex items-center justify-center gap-2 cursor-pointer shrink-0"
           >
-            Visualizar Agora
+            <span>Visualizar Agora</span>
+            <ChevronRight size={16} />
           </button>
         </div>
       )}
@@ -11614,63 +11758,292 @@ function DashboardView({
       )}
 
       {/* Meta RVV Widget */}
-      {widgets.metaRVV !== false && metaRVV.length > 0 && (
+      {(isRegional || widgets.metaRVV !== false) && visibleMetaRVV.length > 0 && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2 text-indigo-600">
-              <Award size={24} />
-              <h3 className="text-xl font-bold text-slate-900">
-                Metas RVV
-              </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <Award size={22} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  Metas RVV
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Acompanhamento de Remuneração Variável por Mês
+                </p>
+              </div>
             </div>
+
+            <button
+              onClick={() => setCurrentView("metaRVV")}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition cursor-pointer self-start sm:self-auto"
+            >
+              <span>Gerenciar Metas RVV</span>
+              <ChevronRight size={14} />
+            </button>
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {[...metaRVV]
+            {[...visibleMetaRVV]
               .sort((a, b) => b.mesAno.localeCompare(a.mesAno))
-              .slice(0, 3) // Mostra as 3 mais recentes
               .map((m) => {
                 const totalMult = m.totalMultiploRVV !== undefined
                   ? m.totalMultiploRVV
                   : (m.multDigi || 0) + (m.multConvDigi || 0) + (m.multPres || 0) + (m.multConvPres || 0);
 
+                const atingDig = m.atingDigPercent !== undefined
+                  ? m.atingDigPercent
+                  : m.metaFinDig > 0 ? (m.realFinDig / m.metaFinDig) * 100 : 0;
+
+                const atingPres = m.atingPresPercent !== undefined
+                  ? m.atingPresPercent
+                  : m.metaFinPres > 0 ? (m.realFinPres / m.metaFinPres) * 100 : 0;
+
                 return (
-                  <div key={m.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                    <div className="flex justify-between items-center mb-4">
-                      <h4 className="font-bold text-slate-900">{m.mesAno}</h4>
-                      <span className={cn(
-                        "text-[10px] font-bold px-2 py-1 rounded-full",
-                        m.statusPagamento === "Paga" ? "bg-emerald-100 text-emerald-600" : 
-                        m.statusPagamento === "Contestada" ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
-                      )}>
-                        {m.statusPagamento}
-                      </span>
-                    </div>
+                  <div key={m.id} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col justify-between hover:border-slate-200 transition">
+                    <div>
+                      <div className="flex justify-between items-center mb-4">
+                        <div>
+                          <h4 className="font-black text-slate-900 text-lg">{m.mesAno}</h4>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Período de Apuração</span>
+                        </div>
+                        <span className={cn(
+                          "text-[10px] font-bold px-2.5 py-1 rounded-full border",
+                          m.statusPagamento === "Paga" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
+                          m.statusPagamento === "Contestada" ? "bg-rose-50 text-rose-700 border-rose-200" : "bg-amber-50 text-amber-800 border-amber-200"
+                        )}>
+                          {m.statusPagamento || "Pendente"}
+                        </span>
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div className="p-3 bg-white rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Múltiplo Total</p>
-                        <p className="text-lg font-bold text-indigo-600">{totalMult.toFixed(2)}</p>
+                      {/* Total Múltiplo RVV Hero Box */}
+                      <div className="p-4 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-emerald-500/10 rounded-2xl border border-indigo-100/80 mb-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-[10px] font-black text-indigo-900 uppercase tracking-wider">Total Múltiplo RVV</p>
+                            <p className="text-2xl font-black text-indigo-700 mt-0.5">{totalMult.toFixed(2)}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Status</span>
+                            <span className="text-xs font-bold text-slate-800">{m.statusPagamento || "Pendente"}</span>
+                          </div>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-indigo-100/60 text-[10px] text-indigo-950 font-medium">
+                          Dig ({m.multDigi || 0}) + Conv Dig ({m.multConvDigi || 0}) + Pres ({m.multPres || 0}) + Conv Pres ({m.multConvPres || 0})
+                        </div>
                       </div>
-                      <div className="p-3 bg-white rounded-xl border border-slate-100">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase">Status</p>
-                        <p className="text-sm font-bold text-slate-700 mt-1">{m.statusPagamento}</p>
-                      </div>
-                    </div>
 
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between text-slate-500">
-                        <span>Digital (Real / Meta):</span>
-                        <span className="font-bold text-slate-700">{m.realFinDig} / {m.metaFinDig}</span>
+                      {/* Módulo Digital */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200/70 mb-3 space-y-1.5">
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                          <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1 uppercase tracking-wider">
+                            <TrendingUp size={13} /> Módulo Digital
+                          </span>
+                          <span className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-md",
+                            atingDig >= 100 ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                          )}>
+                            {atingDig.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Real Fin:</span>
+                            <strong className="text-slate-800 font-bold">{m.realFinDig?.toLocaleString("pt-BR") || 0}</strong>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Meta Fin:</span>
+                            <strong className="text-slate-700">{m.metaFinDig?.toLocaleString("pt-BR") || 0}</strong>
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                          <span>Mult Dig: <strong className="text-slate-700 font-bold">{m.multDigi || 0}</strong></span>
+                          <span>Mult Conv: <strong className="text-slate-700 font-bold">{m.multConvDigi || 0}</strong></span>
+                        </div>
                       </div>
-                      <div className="flex justify-between text-slate-500">
-                        <span>Presencial (Real / Meta):</span>
-                        <span className="font-bold text-slate-700">{m.realFinPres} / {m.metaFinPres}</span>
+
+                      {/* Módulo Presencial */}
+                      <div className="p-3 bg-white rounded-xl border border-slate-200/70 space-y-1.5">
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
+                          <span className="text-[11px] font-bold text-purple-700 flex items-center gap-1 uppercase tracking-wider">
+                            <Award size={13} /> Módulo Presencial
+                          </span>
+                          <span className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-md",
+                            atingPres >= 100 ? "bg-emerald-100 text-emerald-700" : "bg-purple-100 text-purple-700"
+                          )}>
+                            {atingPres.toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Real Fin:</span>
+                            <strong className="text-slate-800 font-bold">{m.realFinPres?.toLocaleString("pt-BR") || 0}</strong>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-semibold">Meta Fin:</span>
+                            <strong className="text-slate-700">{m.metaFinPres?.toLocaleString("pt-BR") || 0}</strong>
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100">
+                          <span>Mult Pres: <strong className="text-slate-700 font-bold">{m.multPres || 0}</strong></span>
+                          <span>Mult Conv: <strong className="text-slate-700 font-bold">{m.multConvPres || 0}</strong></span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
           </div>
+        </section>
+      )}
+
+      {/* Tarefas Pendentes Dedicated Widget */}
+      {widgets.tarefasPendentes !== false && (
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <ClipboardList size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-slate-900">
+                    Tarefas Pendentes
+                  </h3>
+                  {pendingTasks.length > 0 && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                      {pendingTasks.length} {pendingTasks.length === 1 ? 'pendente' : 'pendentes'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 font-medium">
+                  Atividades em aberto que aguardam resolução no sistema
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setCurrentView("acompanhamentoTarefas")}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer self-start sm:self-auto"
+            >
+              <span>Ir para Acompanhamento</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          {/* Quick status counters */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Pendentes</span>
+              <span className="text-2xl font-black text-slate-800">{pendingTasks.length}</span>
+            </div>
+            <div className={cn(
+              "p-3.5 rounded-2xl border transition-colors",
+              tarefasAtrasadas.length > 0 ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-slate-50 border-slate-100 text-slate-700"
+            )}>
+              <span className={cn("text-[10px] font-bold uppercase tracking-wider block", tarefasAtrasadas.length > 0 ? "text-rose-600" : "text-slate-400")}>
+                Atrasadas
+              </span>
+              <span className={cn("text-2xl font-black", tarefasAtrasadas.length > 0 ? "text-rose-700" : "text-slate-800")}>
+                {tarefasAtrasadas.length}
+              </span>
+            </div>
+            <div className="p-3.5 bg-blue-50/70 border border-blue-100 rounded-2xl">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Em Andamento</span>
+              <span className="text-2xl font-black text-blue-700">{tarefasEmAndamento.length}</span>
+            </div>
+            <div className="p-3.5 bg-amber-50/70 border border-amber-100 rounded-2xl">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Paradas</span>
+              <span className="text-2xl font-black text-amber-800">{tarefasParadas.length}</span>
+            </div>
+          </div>
+
+          {/* Task cards */}
+          {pendingTasks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pendingTasks.slice(0, 6).map((t) => {
+                const today = new Date().toISOString().split("T")[0];
+                const isOverdue = t.status === "Atrasado" || (t.dataPrazo && t.dataPrazo < today);
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => setCurrentView("acompanhamentoTarefas")}
+                    className="p-4 bg-slate-50 hover:bg-slate-100/80 rounded-2xl border border-slate-200/70 transition-all cursor-pointer flex flex-col justify-between group shadow-2xs hover:shadow-sm"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                            isOverdue
+                              ? "bg-rose-100 text-rose-700 border-rose-200"
+                              : t.status === "Parado"
+                              ? "bg-amber-100 text-amber-800 border-amber-200"
+                              : "bg-blue-100 text-blue-700 border-blue-200"
+                          )}
+                        >
+                          {isOverdue ? "Atrasada" : t.status}
+                        </span>
+                        {t.unidade && (
+                          <span className="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                            {t.unidade}
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="font-bold text-slate-900 text-sm group-hover:text-blue-600 transition line-clamp-2">
+                        {t.titulo}
+                      </h4>
+
+                      {t.descricao && (
+                        <p className="text-xs text-slate-500 line-clamp-2 mt-1">
+                          {t.descricao}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-500">
+                        <Calendar size={13} />
+                        <span className={cn("font-medium text-[11px]", isOverdue && "text-rose-600 font-bold")}>
+                          {t.dataPrazo ? t.dataPrazo.split("-").reverse().join("/") : "Sem prazo"}
+                        </span>
+                      </div>
+
+                      {t.responsavelNome && (
+                        <span className="text-[11px] font-bold text-slate-700 truncate max-w-[130px]">
+                          {t.responsavelNome}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <CheckSquare size={22} />
+              </div>
+              <p className="text-sm font-bold text-slate-800">Tudo em dia!</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Não há tarefas pendentes atribuídas no momento.
+              </p>
+            </div>
+          )}
+
+          {pendingTasks.length > 6 && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={() => setCurrentView("acompanhamentoTarefas")}
+                className="text-xs font-bold text-blue-600 hover:text-blue-700 underline cursor-pointer"
+              >
+                Ver mais {pendingTasks.length - 6} tarefas pendentes no Acompanhamento
+              </button>
+            </div>
+          )}
         </section>
       )}
 
@@ -11929,6 +12302,8 @@ function DashboardView({
                         icon: Award,
                       },
                       { id: "forecast", label: "Forecasts", icon: TrendingUp },
+                      { id: "metaRVV", label: "Metas RVV", icon: Award },
+                      { id: "tarefasPendentes", label: "Tarefas Pendentes", icon: ClipboardList },
                       { id: "links", label: "Links Úteis", icon: ExternalLink },
                       { id: "planner", label: "Planner da Semana", icon: Calendar },
                       {
@@ -11952,11 +12327,12 @@ function DashboardView({
                         icon: Award,
                       },
                       { id: "forecast", label: "Forecasts", icon: TrendingUp },
+                      { id: "metaRVV", label: "Metas RVV", icon: Award },
+                      { id: "tarefasPendentes", label: "Tarefas Pendentes", icon: ClipboardList },
                       { id: "links", label: "Links Úteis", icon: ExternalLink },
                       { id: "planner", label: "Planner da Semana", icon: Calendar },
                       { id: "qgLigacoes", label: "QG Ligações", icon: Phone },
                       { id: "acaoRua", label: "Ação de Rua", icon: MapPin },
-                      { id: "metaRVV", label: "Metas RVV", icon: Award },
                       {
                         id: "aniversarios",
                         label: "Aniversariantes do Mês",

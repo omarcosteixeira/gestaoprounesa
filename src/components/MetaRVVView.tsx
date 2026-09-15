@@ -10,7 +10,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
-  Percent
+  Percent,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import * as XLSX from "xlsx";
@@ -38,6 +40,7 @@ export default function MetaRVVView({
     multPres: "",
     multConvPres: "",
     statusPagamento: "Pendente" as "Paga" | "Contestada" | "Pendente",
+    oculto: false,
   });
 
   // Calculate live values
@@ -85,8 +88,22 @@ export default function MetaRVVView({
       multPres: item.multPres !== undefined ? String(item.multPres) : "",
       multConvPres: item.multConvPres !== undefined ? String(item.multConvPres) : "",
       statusPagamento: item.statusPagamento || "Pendente",
+      oculto: !!item.oculto,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleToggleOculto = async (item: MetaRVV) => {
+    try {
+      await updateDoc(doc(db, COLLECTIONS.META_RVV, item.id), {
+        oculto: !item.oculto,
+        updatedAt: serverTimestamp(),
+      });
+      onToast(item.oculto ? "Meta RVV ativada para visualização na Rotina!" : "Meta RVV ocultada da visualização na Rotina.");
+    } catch (err: any) {
+      console.error(err);
+      onToast(`Erro ao alterar visibilidade: ${err.message}`, "error");
+    }
   };
 
   const handleToggleStatus = async (item: MetaRVV, newStatus: "Paga" | "Contestada") => {
@@ -123,6 +140,7 @@ export default function MetaRVVView({
       multConvPres: Number(formData.multConvPres) || 0,
       totalMultiploRVV: Number(totalMultiploCalc.toFixed(2)),
       statusPagamento: formData.statusPagamento || "Pendente",
+      oculto: !!formData.oculto,
       updatedAt: serverTimestamp(),
     };
 
@@ -160,6 +178,7 @@ export default function MetaRVVView({
         multPres: "",
         multConvPres: "",
         statusPagamento: "Pendente",
+        oculto: false,
       });
     } catch (error: any) {
       console.error(error);
@@ -677,38 +696,54 @@ export default function MetaRVVView({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {editingItem && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingItem(null);
-                      setFormData({
-                        mesAno: "",
-                        realFinDig: "",
-                        metaFinDig: "",
-                        multDigi: "",
-                        multConvDigi: "",
-                        realFinPres: "",
-                        metaFinPres: "",
-                        multPres: "",
-                        multConvPres: "",
-                        statusPagamento: "Pendente",
-                      });
-                    }}
-                    className="px-4 py-3 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                )}
+              <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+                <div className="flex items-center gap-2 mr-2">
+                  <input
+                    type="checkbox"
+                    id="ocultoRVVCheckbox"
+                    checked={formData.oculto}
+                    onChange={(e) => setFormData({ ...formData, oculto: e.target.checked })}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="ocultoRVVCheckbox" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                    Ocultar na aba Rotinas
+                  </label>
+                </div>
 
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 cursor-pointer text-xs"
-                >
-                  {editingItem ? <Edit2 size={16} /> : <Plus size={16} />}
-                  <span>{editingItem ? "Atualizar Meta RVV" : "Cadastrar Meta RVV"}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {editingItem && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingItem(null);
+                        setFormData({
+                          mesAno: "",
+                          realFinDig: "",
+                          metaFinDig: "",
+                          multDigi: "",
+                          multConvDigi: "",
+                          realFinPres: "",
+                          metaFinPres: "",
+                          multPres: "",
+                          multConvPres: "",
+                          statusPagamento: "Pendente",
+                          oculto: false,
+                        });
+                      }}
+                      className="px-4 py-3 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2 cursor-pointer text-xs"
+                  >
+                    {editingItem ? <Edit2 size={16} /> : <Plus size={16} />}
+                    <span>{editingItem ? "Atualizar Meta RVV" : "Cadastrar Meta RVV"}</span>
+                  </button>
+                </div>
               </div>
             </div>
           </form>
@@ -858,6 +893,18 @@ export default function MetaRVVView({
 
                       {/* Ações */}
                       <td className="px-5 py-4 whitespace-nowrap text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleOculto(item)}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer mr-1.5 inline-flex ${
+                            item.oculto
+                              ? "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                          }`}
+                          title={item.oculto ? "Exibir na aba Rotinas" : "Ocultar da aba Rotinas"}
+                        >
+                          {item.oculto ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
                         <button
                           onClick={() => handleEdit(item)}
                           className="text-blue-500 hover:text-blue-700 p-1.5 hover:bg-blue-50 rounded-lg transition-colors inline-flex mr-1 cursor-pointer"
