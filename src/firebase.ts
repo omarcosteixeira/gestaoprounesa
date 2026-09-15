@@ -1,6 +1,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 
@@ -48,7 +48,7 @@ export const storage = getStorage(app);
 export const db = typeof window !== 'undefined'
   ? initializeFirestore(app, {
       localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
+        tabManager: persistentSingleTabManager({ forceOwnership: true })
       })
     }, (activeConfig as any).firestoreDatabaseId || undefined)
   : getFirestore(app, (activeConfig as any).firestoreDatabaseId || undefined);

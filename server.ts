@@ -22,12 +22,13 @@ async function startServer() {
       { 
         id: "unesa", 
         projectId: "gen-lang-client-0111023338", 
-        databaseId: "ai-studio-remixgestodelead-1434608b-8bfd-4a8a-953c-e137a8b6bdda",
+        databaseId: process.env.FIREBASE_DATABASE_ID_UNESA,
         env: process.env.FIREBASE_SERVICE_ACCOUNT_UNESA 
       }
     ];
 
     return servers.map(s => {
+      const hasCredentials = Boolean(s.env);
       const appName = `admin_cron_${s.id}`;
       const existingApps = getApps();
       let appInstance = existingApps.find(a => a.name === appName);
@@ -47,7 +48,8 @@ async function startServer() {
         id: s.id, 
         projectId: s.projectId, 
         databaseId: (s as any).databaseId,
-        db: getFirestore(appInstance, (s as any).databaseId) 
+        hasCredentials,
+        db: (s as any).databaseId ? getFirestore(appInstance, (s as any).databaseId) : getFirestore(appInstance) 
       };
     });
   };
@@ -61,6 +63,11 @@ async function startServer() {
 
     for (const instance of instances) {
       try {
+        if (!instance.hasCredentials) {
+          console.log(`[CRON] Servidor ${instance.id}: Nenhuma credencial FIREBASE_SERVICE_ACCOUNT_${instance.id.toUpperCase()} configurada. Pulando.`);
+          continue;
+        }
+
         console.log(`[CRON] Checking server: ${instance.id} (Project: ${instance.projectId}${instance.databaseId ? `, DB: ${instance.databaseId}` : ""})`);
         const currentProjectId = instance.projectId;
         const TAREFAS_COL = `artifacts/${currentProjectId}/public/data/tarefas`;
@@ -72,12 +79,16 @@ async function startServer() {
         try {
           botConfigSnap = await instance.db.collection(BOT_CONFIG_COL).limit(1).get();
         } catch (e: any) {
-          if (e.message?.includes("RESOURCE_EXHAUSTED")) {
-            console.warn(`[CRON] Skipping ${instance.id} due to Quota Exceeded (RESOURCE_EXHAUSTED).`);
-            continue;
-          }
-          if (e.message?.includes("PERMISSION_DENIED")) {
-            console.error(`[CRON] Permission Denied for ${instance.id}. Check FIREBASE_SERVICE_ACCOUNT_${instance.id.toUpperCase()} variable.`);
+          if (
+            e.message?.includes("RESOURCE_EXHAUSTED") ||
+            e.message?.includes("PERMISSION_DENIED") ||
+            e.message?.includes("NOT_FOUND") ||
+            e.message?.includes("UNAUTHENTICATED") ||
+            e.code === 5 ||
+            e.code === 7 ||
+            e.code === 16
+          ) {
+            console.warn(`[CRON] Servidor ${instance.id} indisponível ou sem credenciais (${e.message || e.code}). Pulando.`);
             continue;
           }
           throw e;
@@ -236,7 +247,7 @@ async function startServer() {
           }
         }
       } catch (err: any) {
-        console.error(`[CRON] Error processing server ${instance.id}:`, err.message);
+        console.warn(`[CRON] Erro ao processar servidor ${instance.id}:`, err?.message || err);
       }
     }
   };

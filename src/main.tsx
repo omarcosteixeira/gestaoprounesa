@@ -5,6 +5,18 @@ import './index.css';
 
 // Ignore specific unhandled Firebase abort errors during React StrictMode unmounts
 if (typeof window !== 'undefined') {
+  // Suppress benign Firestore cross-tab lease drift warnings
+  const origError = console.error;
+  console.error = (...args: any[]) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Detected an update time that is in the future')
+    ) {
+      return;
+    }
+    origError.apply(console, args);
+  };
+
   window.addEventListener('unhandledrejection', (event) => {
     if (event.reason && typeof event.reason.message === 'string' && 
         (event.reason.message.includes('The user aborted a request') || event.reason.message.includes('cancelled'))) {
