@@ -175,7 +175,7 @@ async function startServer() {
                 : "https://argoscliente-production-170b.up.railway.app";
               const botNumber = "5524993346717";
 
-              // 1. Batch alert queue (Fila Expressa do bot ARGO'S)
+              // Batch alert queue (Fila Expressa do bot ARGO'S - lê o array numbers e entrega para cada destinatário)
               fetch(`${baseUrl}/api/alert`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -188,21 +188,6 @@ async function startServer() {
                 .then((res) => res.json().catch(() => ({})))
                 .then((data) => console.log("[CRON] Alerta de nova tarefa enviado para o bot com sucesso:", data))
                 .catch((e) => console.error("Falha ao notificar o bot ARGO'S [CRON]:", e.message));
-
-              // 2. Individual /api/send via bot 5524993346717
-              for (const phone of whatsappNumbers) {
-                fetch(`${baseUrl}/api/send`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    botNumber,
-                    number: phone,
-                    message: alertMsg,
-                    force: true,
-                    manual: true,
-                  }),
-                }).catch((e) => console.warn(`[CRON] WhatsApp /api/send Error for ${phone}:`, e.message));
-              }
             }
 
             for (const u of recipients) {
@@ -342,21 +327,6 @@ async function startServer() {
         console.warn("[ALERT ROUTE] Erro ao chamar /api/alert no Railway:", e.message);
         return null;
       });
-
-      // 2. Also dispatch individually to /api/send with botNumber to guarantee instant transmission
-      for (const num of numbers) {
-        fetch(`${railwayUrl}/api/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            botNumber: selectedBot,
-            number: num,
-            message,
-            force: true,
-            manual: true,
-          }),
-        }).catch((e) => console.warn(`[ALERT ROUTE] Falha ao enviar /api/send para ${num}:`, e.message));
-      }
 
       if (botResponse) {
         const contentType = botResponse.headers.get("content-type") || "";

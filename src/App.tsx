@@ -5859,46 +5859,51 @@ export default function App() {
     taskDetails?: { prazo?: string; status?: string; unidade?: string }
   ) => {
     if (!textToSearch && (!userIds || userIds.length === 0)) return;
-    const lowerText = (textToSearch || "").trim().toLowerCase();
 
-    // Map to collect all matched users uniquely
-    const matchedUserMap = new Map<string, UserProfile>();
+    // 1. Obter estritamente os utilizadores selecionados na tarefa (Select múltiplo ou Checkboxes)
+    let usuariosSelecionadosNaTarefa: UserProfile[] = [];
 
-    // 1. From local users state: match by uid or by name search
-    users.forEach((u) => {
-      if (userIds && userIds.includes(u.uid)) {
-        matchedUserMap.set(u.uid, u);
-      } else if (lowerText) {
-        const nome = (u.nome || u.name || "").trim().toLowerCase();
-        if (
-          nome.length > 2 &&
-          (lowerText === nome || lowerText.includes(nome) || nome.includes(lowerText))
-        ) {
-          matchedUserMap.set(u.uid, u);
-        }
-      }
-    });
-
-    // 2. Safeguard: If userIds are provided, fetch any missing from Firestore directly
     if (userIds && userIds.length > 0) {
+      // Quando há envolvidos marcados, focar cirurgicamente apenas nas pessoas selecionadas
+      const userMap = new Map<string, UserProfile>();
+      users.forEach((u) => {
+        if (userIds.includes(u.uid)) {
+          userMap.set(u.uid, u);
+        }
+      });
+
+      // Se algum ID selecionado não estiver no estado local, buscar diretamente no Firestore
       for (const uid of userIds) {
-        if (!matchedUserMap.has(uid)) {
+        if (!userMap.has(uid)) {
           try {
             const userSnap = await getDoc(doc(db, COLLECTIONS.USERS, uid));
             if (userSnap.exists()) {
-              matchedUserMap.set(uid, { uid: userSnap.id, ...userSnap.data() } as UserProfile);
+              userMap.set(uid, { uid: userSnap.id, ...userSnap.data() } as UserProfile);
             }
           } catch (e) {
-            console.warn(`[handleSendTaskNotification] Could not fetch missing user ${uid}:`, e);
+            console.warn(`[handleSendTaskNotification] Usuário ${uid} não encontrado:`, e);
           }
         }
       }
+
+      usuariosSelecionadosNaTarefa = Array.from(userMap.values());
+    } else if (textToSearch && textToSearch.trim()) {
+      // Fallback apenas quando nenhum ID foi passado (ex: busca por responsável)
+      const lowerText = textToSearch.trim().toLowerCase();
+      usuariosSelecionadosNaTarefa = users.filter((u) => {
+        const nome = (u.nome || u.name || "").trim().toLowerCase();
+        return nome.length > 2 && (lowerText === nome || lowerText.includes(nome) || nome.includes(lowerText));
+      });
     }
 
-    const matchedUsers = Array.from(matchedUserMap.values());
-    if (matchedUsers.length === 0) {
-      console.warn("[handleSendTaskNotification] Nenhum usuário encontrado para notificar");
-      return;
+    if (usuariosSelecionadosNaTarefa.length === 0) {
+      console.warn("[handleSendTaskNotification] Nenhum usuário selecionado encontrado para notificar");
+      return {
+        success: false,
+        notifiedCount: 0,
+        notifiedNames: [],
+        missingPhones: [],
+      };
     }
 
     const isNew =
@@ -5907,20 +5912,20 @@ export default function App() {
       taskType.toLowerCase().includes("cadastro");
     const headerAlerta = isNew ? "🔔 *NOVA TAREFA ATRIBUÍDA*" : `🔔 *ATUALIZAÇÃO DE TAREFA*`;
 
-    // 1. Buscar os números dos envolvidos no banco de dados / perfis
-    const numerosDosEnvolvidos: string[] = [];
+    // 2. Extrair APENAS os telefones dessas pessoas que foram selecionadas
+    const telefonesParaNotificar: string[] = [];
     const notifiedNames: string[] = [];
     const missingPhones: string[] = [];
 
-    for (const u of matchedUsers) {
-      const userName = u.nome || u.name || "Colaborador";
+    for (const usuario of usuariosSelecionadosNaTarefa) {
+      const userName = usuario.nome || usuario.name || "Colaborador";
       const userPhone =
-        u.phone ||
-        (u as any).telefone ||
-        (u as any).whatsapp ||
-        (u as any).celular ||
-        (u as any).contato ||
-        u.botNumber;
+        usuario.phone ||
+        (usuario as any).telefone ||
+        (usuario as any).whatsapp ||
+        (usuario as any).celular ||
+        (usuario as any).contato ||
+        usuario.botNumber;
 
       if (!userPhone) {
         missingPhones.push(userName);
@@ -5935,8 +5940,8 @@ export default function App() {
       }
 
       if (rawPhone.length >= 12) {
-        if (!numerosDosEnvolvidos.includes(rawPhone)) {
-          numerosDosEnvolvidos.push(rawPhone);
+        if (!telefonesParaNotificar.includes(rawPhone)) {
+          telefonesParaNotificar.push(rawPhone);
           notifiedNames.push(userName);
         }
       } else {
@@ -5944,7 +5949,7 @@ export default function App() {
       }
     }
 
-    // 2. Montar a mensagem personalizada com as variáveis da tarefa
+    // Montar a mensagem personalizada
     let detalhesTarefa = `📌 *Tarefa:* ${taskTitle}\n`;
     if (taskDetails?.prazo) detalhesTarefa += `📅 *Prazo:* ${taskDetails.prazo}\n`;
     if (taskDetails?.unidade) detalhesTarefa += `🏢 *Unidade:* ${taskDetails.unidade}\n`;
@@ -5952,8 +5957,11 @@ export default function App() {
 
     const mensagemAlerta = `${headerAlerta}\n\nOlá! Você foi marcado(a) como envolvido(a) numa nova tarefa no GestãoPro.\n\n${detalhesTarefa}⏳ *Acesse o sistema para ver os detalhes e prazos.*\n\n_Mensagem automática do sistema ARGO'S._`;
 
-    // 3. Enviar a ordem para a "Fila Expressa" do nosso bot oficial (5524993346717)
-    if (numerosDosEnvolvidos.length > 0) {
+    // 3. Enviar apenas esses telefones para a API do bot (/api/alert)
+    // Se a tarefa tiver 1 envolvido selecionado, o GestãoPro manda um array com 1 número e o robô envia 1 mensagem.
+    // Se a tarefa tiver 5 envolvidos selecionados, o GestãoPro manda os 5 números, e o robô entrega apenas a esses 5.
+    // Quem não foi selecionado no GestãoPro, não entra no array e o robô simplesmente ignora a existência deles.
+    if (telefonesParaNotificar.length > 0) {
       const railwayBaseUrl = (botConfig.url && botConfig.url.trim())
         ? (botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url)
         : "https://argoscliente-production-170b.up.railway.app";
@@ -5967,47 +5975,32 @@ export default function App() {
           },
           body: JSON.stringify({
             botNumber: "5524993346717",
-            numbers: numerosDosEnvolvidos,
+            numbers: telefonesParaNotificar, // <- O BOT SÓ VAI LER ESTES AQUI!
             message: mensagemAlerta,
           }),
         });
-        console.log("Alerta de nova tarefa enviado para o bot com sucesso!");
+        console.log(`[ALERT] Notificação WhatsApp enviada cirurgicamente para ${telefonesParaNotificar.length} envolvido(s):`, telefonesParaNotificar);
       } catch (error) {
-        console.error("Falha ao notificar o bot ARGO'S:", error);
-      }
-
-      // Redundância local via Express
-      try {
-        await fetch("/api/alert", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            botNumber: "5524993346717",
-            numbers: numerosDosEnvolvidos,
-            message: mensagemAlerta,
-          }),
-        });
-      } catch (localAlertErr) {
-        // non-blocking
-      }
-
-      // Envio individual instantâneo via /api/send
-      for (const num of numerosDosEnvolvidos) {
-        callBotApi("/api/send", {
-          method: "POST",
-          body: {
-            botNumber: "5524993346717",
-            number: num,
-            message: mensagemAlerta,
-            force: true,
-            manual: true,
-          },
-        }).catch((sendErr) => console.warn(`Falha ao notificar bot ARGO'S /api/send para ${num}:`, sendErr));
+        console.error("Falha ao notificar o bot ARGO'S via Railway:", error);
+        // Fallback local via backend Express caso haja bloqueio de CORS no browser
+        try {
+          await fetch("/api/alert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              botNumber: "5524993346717",
+              numbers: telefonesParaNotificar,
+              message: mensagemAlerta,
+            }),
+          });
+        } catch (localAlertErr) {
+          console.warn("Falha no alerta local:", localAlertErr);
+        }
       }
     }
 
-    // 5. Telegram & Microsoft Teams notifications
-    for (const u of matchedUsers) {
+    // 4. Telegram & Microsoft Teams notifications para os envolvidos
+    for (const u of usuariosSelecionadosNaTarefa) {
       const message = `Olá ${u.nome || u.name}! Você foi vinculado a uma atividade no sistema.\n\nAtividade: *${taskTitle}*\nTipo: ${taskType}\n\nAcesse o sistema para mais detalhes.`;
 
       // Telegram sending
@@ -6030,8 +6023,8 @@ export default function App() {
     }
 
     return {
-      success: numerosDosEnvolvidos.length > 0,
-      notifiedCount: numerosDosEnvolvidos.length,
+      success: telefonesParaNotificar.length > 0,
+      notifiedCount: telefonesParaNotificar.length,
       notifiedNames,
       missingPhones,
     };
