@@ -143,9 +143,11 @@ async function startServer() {
             // Collect WhatsApp numbers for instant dispatch via /api/alert
             const whatsappNumbers: string[] = [];
             for (const u of recipients) {
-              if (u.phone) {
-                let rawPhone = u.phone.replace(/\D/g, "");
+              const userPhone = u.phone || u.telefone || u.whatsapp || u.celular || u.contato;
+              if (userPhone) {
+                let rawPhone = String(userPhone).replace(/\D/g, "");
                 if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
+                if (rawPhone.startsWith("550")) rawPhone = "55" + rawPhone.substring(3);
                 if (rawPhone.length === 10 || rawPhone.length === 11) rawPhone = `55${rawPhone}`;
                 if (rawPhone.length >= 12 && !whatsappNumbers.includes(rawPhone)) {
                   whatsappNumbers.push(rawPhone);
@@ -154,8 +156,10 @@ async function startServer() {
             }
 
             // Send WhatsApp alerts via /api/alert and /api/send using bot 5524993346717
-            if (whatsappNumbers.length > 0 && botConfig.url) {
-              const baseUrl = botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url;
+            if (whatsappNumbers.length > 0) {
+              const baseUrl = (botConfig.url && botConfig.url.trim())
+                ? (botConfig.url.endsWith("/") ? botConfig.url.slice(0, -1) : botConfig.url)
+                : "https://argoscliente-production-170b.up.railway.app";
               const botNumber = "5524993346717";
               const alertMsg = message + "\n\n(Notificação Automática GestãoPro)\n\nPor favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.";
 

@@ -121,7 +121,7 @@ interface Props {
   periodos?: PeriodoCaptacao[];
   links?: LinkUtil[];
   botStatuses?: Record<string, any>;
-  onSendTaskNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => void;
+  onSendTaskNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[], taskDetails?: any) => Promise<any> | void;
   setBotStatuses?: React.Dispatch<React.SetStateAction<any>>;
   callBotApi?: (path: string, options?: any) => Promise<any>;
   setShowInjectModal?: (show: boolean) => void;
@@ -347,6 +347,7 @@ export function AdminMainView({
   // New User Form State
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPhone, setNewUserPhone] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("123456");
   const [newUserRole, setNewUserRole] = useState<UserRole>("Sala de Matrícula");
   const [newUserUnidade, setNewUserUnidade] = useState("");
@@ -355,6 +356,7 @@ export function AdminMainView({
   // Edit User State
   const [editRole, setEditRole] = useState<UserRole>("Sala de Matrícula");
   const [editUnidade, setEditUnidade] = useState("");
+  const [editPhone, setEditPhone] = useState("");
 
   // WhatsApp Messages Management
   const [isAddMsgModalOpen, setIsAddMsgModalOpen] = useState(false);
@@ -382,10 +384,14 @@ export function AdminMainView({
       });
 
       const newUid = userCred.user.uid;
+      const cleanPhone = newUserPhone.trim();
       const profileData: any = {
         uid: newUid,
         name: newUserName.trim(),
         email: newUserEmail.trim(),
+        phone: cleanPhone,
+        telefone: cleanPhone,
+        whatsapp: cleanPhone,
         role: newUserRole,
         servidor: targetServidor,
         unidade: newUserUnidade || "",
@@ -410,6 +416,7 @@ export function AdminMainView({
       setIsAddUserModalOpen(false);
       setNewUserName("");
       setNewUserEmail("");
+      setNewUserPhone("");
       setNewUserPassword("123456");
     } catch (err: any) {
       console.error("Erro ao criar usuário:", err);
@@ -427,9 +434,13 @@ export function AdminMainView({
 
     setUserLoading(true);
     try {
+      const cleanPhone = editPhone.trim();
       await updateDoc(doc(db, COLLECTIONS.USERS, editingUser.uid), {
         role: editRole,
         unidade: editUnidade || "",
+        phone: cleanPhone,
+        telefone: cleanPhone,
+        whatsapp: cleanPhone,
         updatedAt: serverTimestamp(),
       });
       onToast("Perfil de usuário atualizado com sucesso!");
@@ -816,6 +827,7 @@ export function AdminMainView({
                   <tr className="bg-slate-50 border-b border-slate-100 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
                     <th className="py-3.5 px-4">Nome</th>
                     <th className="py-3.5 px-4">E-mail</th>
+                    <th className="py-3.5 px-4">WhatsApp / Fone</th>
                     <th className="py-3.5 px-4">Perfil (Role)</th>
                     <th className="py-3.5 px-4">Unidade</th>
                     <th className="py-3.5 px-4 text-center">Status</th>
@@ -825,7 +837,7 @@ export function AdminMainView({
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-slate-400 font-medium">
+                      <td colSpan={7} className="text-center py-8 text-slate-400 font-medium">
                         Nenhum usuário encontrado.
                       </td>
                     </tr>
@@ -844,6 +856,15 @@ export function AdminMainView({
                           {u.name}
                         </td>
                         <td className="py-3 px-4 text-slate-600">{u.email}</td>
+                        <td className="py-3 px-4">
+                          {u.phone || (u as any).telefone || (u as any).whatsapp ? (
+                            <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                              {u.phone || (u as any).telefone || (u as any).whatsapp}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">Não cadastrado</span>
+                          )}
+                        </td>
                         <td className="py-3 px-4">
                           <span
                             className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
@@ -880,6 +901,7 @@ export function AdminMainView({
                                 setEditingUser(u);
                                 setEditRole(u.role);
                                 setEditUnidade(u.unidade || "");
+                                setEditPhone(u.phone || (u as any).telefone || (u as any).whatsapp || "");
                               }}
                               className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                               title="Editar Perfil"
@@ -944,6 +966,19 @@ export function AdminMainView({
                   onChange={(e) => setNewUserEmail(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="usuario@estacio.br"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">
+                  WhatsApp / Telefone (para lembretes de tarefas)
+                </label>
+                <input
+                  type="text"
+                  value={newUserPhone}
+                  onChange={(e) => setNewUserPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="(24) 99334-6717 ou 5524..."
                 />
               </div>
 
@@ -1042,6 +1077,19 @@ export function AdminMainView({
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">
+                  WhatsApp / Telefone (para lembretes de tarefas)
+                </label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="(24) 99334-6717 ou 5524..."
+                />
               </div>
 
               <div>

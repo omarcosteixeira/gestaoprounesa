@@ -9,7 +9,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { Tarefa, UnidadeRegional, UserProfile } from "../types";
-import { Plus, Trash2, Edit2, Search, CheckSquare, Clock, AlertCircle, Users as UsersIcon } from "lucide-react";
+import { Plus, Trash2, Edit2, Search, CheckSquare, Clock, AlertCircle, Users as UsersIcon, Phone, MessageSquare, Bot } from "lucide-react";
 import { MultiSelect } from "./MultiSelect";
 
 interface Props {
@@ -18,7 +18,13 @@ interface Props {
   users?: UserProfile[];
   profile?: UserProfile;
   onToast: (msg: string, type?: "success" | "error") => void;
-  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => void;
+  onSendNotification?: (
+    textToSearch: string,
+    taskTitle: string,
+    taskType: string,
+    userIds?: string[],
+    taskDetails?: { prazo?: string; status?: string; unidade?: string }
+  ) => Promise<any> | void;
 }
 
 const STATUS_OPTIONS = [
@@ -94,9 +100,18 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
           dataPrazo: dataPrazo || "",
           status,
         });
-        onToast("Atividade atualizada com sucesso!");
+        onToast("Atividade atualizada com sucesso!", "success");
         if (onSendNotification) {
-          onSendNotification(responsavelNome.trim(), titulo.trim(), "Tarefa Atualizada", envolvidosIds);
+          const res: any = await onSendNotification(
+            responsavelNome.trim(),
+            titulo.trim(),
+            "Tarefa Atualizada",
+            envolvidosIds,
+            { prazo: dataPrazo, status, unidade: unidade || "" }
+          );
+          if (res?.notifiedCount > 0) {
+            onToast(`Lembrete WhatsApp (Bot 5524993346717) enviado para: ${res.notifiedNames.join(", ")}`, "success");
+          }
         }
       } else {
         await addDoc(collection(db, COLLECTIONS.TAREFAS), {
@@ -113,9 +128,26 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
           servidor: profile?.servidor || "unesa",
           createdAt: serverTimestamp(),
         });
-        onToast("Atividade cadastrada com sucesso!");
+        onToast("Atividade cadastrada com sucesso!", "success");
         if (onSendNotification) {
-          onSendNotification(responsavelNome.trim(), titulo.trim(), "Nova Tarefa Atribuída", envolvidosIds);
+          const res: any = await onSendNotification(
+            responsavelNome.trim(),
+            titulo.trim(),
+            "Nova Tarefa Atribuída",
+            envolvidosIds,
+            { prazo: dataPrazo, status, unidade: unidade || profile?.unidade || "" }
+          );
+          if (res?.notifiedCount > 0) {
+            onToast(
+              `Confirmação WhatsApp enviada via bot 5524993346717 para ${res.notifiedCount} envolvido(s): ${res.notifiedNames.join(", ")}`,
+              "success"
+            );
+          } else if (res?.missingPhones && res.missingPhones.length > 0) {
+            onToast(
+              `Atenção: Os envolvidos (${res.missingPhones.join(", ")}) não possuem WhatsApp cadastrado no perfil.`,
+              "error"
+            );
+          }
         }
       }
       setIsModalOpen(false);
@@ -440,8 +472,61 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
                     setEnvolvidosIds(ids);
                   }}
                 />
+
+                {envolvidosIds.length > 0 && (
+                  <div className="mt-2.5 p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                      <span className="flex items-center gap-1.5 text-emerald-700">
+                        <Bot size={13} className="text-emerald-600" />
+                        Disparo WhatsApp: Bot 5524993346717
+                      </span>
+                      <span className="text-slate-500 font-medium text-[10px]">
+                        {envolvidosIds.length} selecionado(s)
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {envolvidosIds.map((id) => {
+                        const u = users.find((user) => user.uid === id);
+                        const nome = u ? u.nome || u.name : "Desconhecido";
+                        const fone = u
+                          ? u.phone ||
+                            (u as any).telefone ||
+                            (u as any).whatsapp ||
+                            (u as any).celular ||
+                            (u as any).contato ||
+                            u.botNumber
+                          : "";
+
+                        return (
+                          <div
+                            key={id}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                              fone
+                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-800"
+                                : "bg-amber-50/80 border-amber-200 text-amber-800"
+                            }`}
+                          >
+                            <span className="font-bold">{nome}</span>
+                            {fone ? (
+                              <span className="flex items-center gap-1 text-[10px] text-emerald-600 bg-white/70 px-1.5 py-0.5 rounded font-mono">
+                                <Phone size={10} />
+                                {fone}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-amber-600 italic bg-white/70 px-1.5 py-0.5 rounded">
+                                Sem WhatsApp
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Os envolvidos selecionados receberão notificações via WhatsApp, Teams e Telegram.
+                  O bot <strong>5524993346717</strong> enviará a confirmação da tarefa diretamente para o WhatsApp cadastrado de cada envolvido.
                 </p>
               </div>
 

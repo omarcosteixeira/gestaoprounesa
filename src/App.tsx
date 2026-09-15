@@ -5856,6 +5856,7 @@ export default function App() {
     taskTitle: string,
     taskType: string,
     userIds?: string[],
+    taskDetails?: { prazo?: string; status?: string; unidade?: string }
   ) => {
     if (!textToSearch && (!userIds || userIds.length === 0)) return;
     const lowerText = (textToSearch || "").trim().toLowerCase();
@@ -5909,64 +5910,85 @@ export default function App() {
 
     // 3. For each matched user, send personalized WhatsApp message via bot 5524993346717
     const whatsappNumbers: string[] = [];
+    const notifiedNames: string[] = [];
+    const missingPhones: string[] = [];
 
     for (const u of matchedUsers) {
+      const userName = u.nome || u.name || "Colaborador";
       const userPhone =
         u.phone ||
         (u as any).telefone ||
         (u as any).whatsapp ||
         (u as any).celular ||
-        (u as any).contato;
+        (u as any).contato ||
+        u.botNumber;
 
-      if (userPhone) {
-        let rawPhone = String(userPhone).replace(/\D/g, "");
-        if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
-        if (rawPhone.length === 10 || rawPhone.length === 11) {
-          rawPhone = `55${rawPhone}`;
+      if (!userPhone) {
+        missingPhones.push(userName);
+        continue;
+      }
+
+      let rawPhone = String(userPhone).replace(/\D/g, "");
+      if (rawPhone.startsWith("0")) rawPhone = rawPhone.substring(1);
+      if (rawPhone.startsWith("550")) rawPhone = "55" + rawPhone.substring(3);
+      if (rawPhone.length === 10 || rawPhone.length === 11) {
+        rawPhone = `55${rawPhone}`;
+      }
+
+      if (rawPhone.length >= 12) {
+        if (!whatsappNumbers.includes(rawPhone)) {
+          whatsappNumbers.push(rawPhone);
+          notifiedNames.push(userName);
         }
-        if (rawPhone.length >= 12) {
-          if (!whatsappNumbers.includes(rawPhone)) {
-            whatsappNumbers.push(rawPhone);
-          }
 
-          const userName = u.nome || u.name || "Colaborador";
-          const personalizedMsg =
-            `${alertHeader}\n\n` +
-            `Olá, *${userName}*!\n` +
-            `Você foi vinculado(a) à tarefa: *${taskTitle}*.\n` +
-            `Por favor, verifique o sistema GestãoPro!\n\n` +
-            `(Notificação Automática GestãoPro)\n\n` +
-            `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
+        let personalizedMsg =
+          `${alertHeader}\n\n` +
+          `Olá, *${userName}*!\n` +
+          `Você foi vinculado(a) à tarefa no sistema *GestãoPro*:\n\n` +
+          `📋 *Atividade:* ${taskTitle}\n`;
+        if (taskDetails?.unidade) personalizedMsg += `🏢 *Unidade:* ${taskDetails.unidade}\n`;
+        if (taskDetails?.prazo) personalizedMsg += `📅 *Prazo:* ${taskDetails.prazo}\n`;
+        if (taskDetails?.status) personalizedMsg += `📊 *Status:* ${taskDetails.status}\n`;
+        personalizedMsg +=
+          `\nPor favor, acesse o sistema GestãoPro para acompanhar o andamento.\n\n` +
+          `(Notificação Automática GestãoPro)\n\n` +
+          `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
 
-          // Send directly using bot 5524993346717 via callBotApi(/api/send)
-          try {
-            await callBotApi("/api/send", {
-              method: "POST",
-              body: {
-                botNumber: BOT_NUMBER,
-                number: rawPhone,
-                message: personalizedMsg,
-                force: true,
-                manual: true,
-              },
-            });
-            console.log(`[ALERT] WhatsApp enviado para ${rawPhone} (${userName}) usando bot ${BOT_NUMBER}`);
-          } catch (sendErr) {
-            console.warn(`[ALERT] Erro ao enviar WhatsApp para ${rawPhone} via bot ${BOT_NUMBER}:`, sendErr);
-          }
+        // Send directly using bot 5524993346717 via callBotApi(/api/send)
+        try {
+          await callBotApi("/api/send", {
+            method: "POST",
+            body: {
+              botNumber: BOT_NUMBER,
+              number: rawPhone,
+              message: personalizedMsg,
+              force: true,
+              manual: true,
+            },
+          });
+          console.log(`[ALERT] WhatsApp enviado para ${rawPhone} (${userName}) usando bot ${BOT_NUMBER}`);
+        } catch (sendErr) {
+          console.warn(`[ALERT] Erro ao enviar WhatsApp para ${rawPhone} via bot ${BOT_NUMBER}:`, sendErr);
         }
+      } else {
+        missingPhones.push(userName);
       }
     }
 
     // 4. ALSO trigger batch /api/alert with botNumber 5524993346717 for queue redundancy
     if (whatsappNumbers.length > 0) {
-      const batchAlertMessage =
+      let batchAlertMessage =
         `${alertHeader}\n\n` +
-        `Olá, você foi vinculado à tarefa: *${taskTitle}*.\n` +
-        `Por favor, verifique o sistema GestãoPro!\n\n` +
+        `Olá, você foi vinculado à tarefa: *${taskTitle}*.\n`;
+      if (taskDetails?.unidade) batchAlertMessage += `🏢 *Unidade:* ${taskDetails.unidade}\n`;
+      if (taskDetails?.prazo) batchAlertMessage += `📅 *Prazo:* ${taskDetails.prazo}\n`;
+      if (taskDetails?.status) batchAlertMessage += `📊 *Status:* ${taskDetails.status}\n`;
+      batchAlertMessage +=
+        `\nPor favor, verifique o sistema GestãoPro!\n\n` +
         `(Notificação Automática GestãoPro)\n\n` +
         `Por favor não responder nesse whatsapp. Pois ele é apenas um numero de assistência de envio.`;
 
+      // 4a. Call Railway directly
       try {
         await callBotApi("/api/alert", {
           method: "POST",
@@ -5979,6 +6001,21 @@ export default function App() {
         console.log(`[ALERT] Batch /api/alert disparado para ${whatsappNumbers.length} número(s) usando bot ${BOT_NUMBER}`);
       } catch (alertErr) {
         console.warn("[ALERT] /api/alert batch call failed (individual messages were attempted):", alertErr);
+      }
+
+      // 4b. Also call local Express server /api/alert as server-side redundancy
+      try {
+        await fetch("/api/alert", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            botNumber: BOT_NUMBER,
+            numbers: whatsappNumbers,
+            message: batchAlertMessage,
+          }),
+        });
+      } catch (localAlertErr) {
+        // non-blocking
       }
     }
 
@@ -6004,6 +6041,13 @@ export default function App() {
         );
       }
     }
+
+    return {
+      success: whatsappNumbers.length > 0,
+      notifiedCount: whatsappNumbers.length,
+      notifiedNames,
+      missingPhones,
+    };
   };
 
   const handleMassSendBotMessages = async (

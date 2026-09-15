@@ -102,6 +102,12 @@ export function ProfileModal({
   const [isEditingTelegram, setIsEditingTelegram] = useState(false);
   const [submittingTelegram, setSubmittingTelegram] = useState(false);
 
+  const [phoneInput, setPhoneInput] = useState(
+    profile?.phone || (profile as any)?.telefone || (profile as any)?.whatsapp || "",
+  );
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [submittingPhone, setSubmittingPhone] = useState(false);
+
   // Microsoft Teams Bot State (ConversationReference Base64 String)
   const [teamsInput, setTeamsInput] = useState(
     profile?.teamsChatId || profile?.teams_chat_id || "",
@@ -189,6 +195,11 @@ export function ProfileModal({
   }, [profile?.telegram]);
 
   useEffect(() => {
+    const p = profile?.phone || (profile as any)?.telefone || (profile as any)?.whatsapp || "";
+    setPhoneInput(p);
+  }, [profile?.phone, (profile as any)?.telefone, (profile as any)?.whatsapp]);
+
+  useEffect(() => {
     const currentTeamsId = profile?.teamsChatId || profile?.teams_chat_id || "";
     setTeamsInput(currentTeamsId);
   }, [profile?.teamsChatId, profile?.teams_chat_id]);
@@ -244,6 +255,43 @@ export function ProfileModal({
       onToast("Erro ao atualizar Telegram.", "error");
     } finally {
       setSubmittingTelegram(false);
+    }
+  };
+
+  const handleSavePhone = async () => {
+    if (!profile?.uid) return;
+    setSubmittingPhone(true);
+    try {
+      const cleanVal = phoneInput.trim();
+      const updatedData = {
+        phone: cleanVal,
+        telefone: cleanVal,
+        whatsapp: cleanVal,
+        updatedAt: serverTimestamp(),
+      };
+      await updateDoc(doc(db, COLLECTIONS.USERS, profile.uid), updatedData);
+
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              phone: cleanVal,
+              telefone: cleanVal,
+              whatsapp: cleanVal,
+            }
+          : null,
+      );
+      onToast("Telefone / WhatsApp atualizado com sucesso!", "success");
+      setIsEditingPhone(false);
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        OperationType.UPDATE,
+        `${COLLECTIONS.USERS}/${profile.uid}`,
+      );
+      onToast("Erro ao atualizar WhatsApp / Telefone.", "error");
+    } finally {
+      setSubmittingPhone(false);
     }
   };
 
@@ -847,21 +895,58 @@ export function ProfileModal({
                     </div>
                   </div>
 
-                  {profile?.phone && (
-                    <div className="flex items-start space-x-3">
-                      <div className="mt-0.5 text-slate-400">
-                        <Phone size={16} />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xs text-slate-400 block font-medium">
-                          Fone
-                        </span>
-                        <span className="text-sm font-bold text-slate-800">
-                          {profile.phone}
-                        </span>
-                      </div>
+                  {/* Telefone / WhatsApp para Alertas do Bot */}
+                  <div className="flex items-start space-x-3">
+                    <div className="mt-0.5 text-slate-400">
+                      <Phone size={16} />
                     </div>
-                  )}
+                    <div className="flex-1">
+                      <span className="text-xs text-slate-400 block font-medium">
+                        WhatsApp / Celular (Lembretes do Bot)
+                      </span>
+                      {isEditingPhone ? (
+                        <div className="flex items-center space-x-2 mt-1">
+                          <input
+                            type="text"
+                            placeholder="(24) 99334-6717 ou 5524..."
+                            value={phoneInput}
+                            onChange={(e) => setPhoneInput(e.target.value)}
+                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium w-full max-w-[190px]"
+                          />
+                          <button
+                            disabled={submittingPhone}
+                            onClick={handleSavePhone}
+                            className="p-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg transition-colors cursor-pointer shrink-0"
+                            title="Salvar WhatsApp"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsEditingPhone(false);
+                              setPhoneInput(profile?.phone || (profile as any)?.telefone || (profile as any)?.whatsapp || "");
+                            }}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer shrink-0"
+                            title="Cancelar"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm font-bold ${profile?.phone || (profile as any)?.telefone || (profile as any)?.whatsapp ? "text-slate-800" : "text-amber-600 italic text-xs"}`}>
+                            {profile?.phone || (profile as any)?.telefone || (profile as any)?.whatsapp || "Não cadastrado (obrigatório p/ WhatsApp)"}
+                          </span>
+                          <button
+                            onClick={() => setIsEditingPhone(true)}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-bold hover:underline cursor-pointer ml-2"
+                          >
+                            {profile?.phone || (profile as any)?.telefone || (profile as any)?.whatsapp ? "Alterar" : "Cadastrar"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   {profile?.chavePix && (
                     <div className="flex items-start space-x-3">

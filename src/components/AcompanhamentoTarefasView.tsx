@@ -23,7 +23,7 @@ interface Props {
   users?: UserProfile[];
   profile?: UserProfile;
   onToast: (msg: string, type?: "success" | "error") => void;
-  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[]) => void;
+  onSendNotification?: (textToSearch: string, taskTitle: string, taskType: string, userIds?: string[], taskDetails?: any) => Promise<any> | void;
 }
 
 const STATUS_CONFIG: Record<
@@ -104,7 +104,8 @@ export function AcompanhamentoTarefasView({
           t.responsavelNome || "",
           t.titulo,
           `Status Atualizado para "${newStatus}"`,
-          t.envolvidosIds
+          t.envolvidosIds,
+          { status: newStatus, prazo: t.dataPrazo, unidade: t.unidade }
         );
       }
 
