@@ -826,6 +826,9 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR
   ],
+  alocacaoDocentes: Object.values(ROLES),
+  "docente-publico": Object.values(ROLES),
+  "cadastro-docente": Object.values(ROLES),
 };
 
 // --- Components ---
@@ -5374,12 +5377,41 @@ export default function App() {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
+    const handleLocationChange = () => {
+      const path = decodeURIComponent(window.location.pathname.toLowerCase());
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = (params.get("view") || "").toLowerCase();
+      const formParam = (params.get("form") || "").toLowerCase();
+
+      if (
+        path.includes("cadastro-docente") ||
+        path.includes("cadastro_docente") ||
+        path.includes("cadastrodocente") ||
+        path.includes("cadastro docente") ||
+        path.endsWith("/docente") ||
+        viewParam === "cadastro-docente" ||
+        viewParam === "cadastro_docente" ||
+        viewParam === "cadastrodocente" ||
+        viewParam === "docente-publico" ||
+        viewParam === "docente" ||
+        formParam === "docente" ||
+        formParam === "cadastro-docente" ||
+        params.has("cadastro-docente") ||
+        window.location.hash.includes("cadastro-docente") ||
+        window.location.hash.includes("docente")
+      ) {
+        setCurrentView("docente-publico");
+      }
+    };
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("popstate", handleLocationChange);
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("popstate", handleLocationChange);
     };
   }, []);
 
@@ -5495,6 +5527,21 @@ export default function App() {
   };
 
   const canView = (view: string) => {
+    // Public views are always allowed for anyone
+    const publicViews = [
+      "docente-publico",
+      "cadastro-docente",
+      "desconto",
+      "pedido-curso",
+      "pedido-insumos",
+      "manutencao-publica",
+      "validador-vouchers",
+      "clubeLocal"
+    ];
+    if (publicViews.includes(view)) {
+      return true;
+    }
+
     if (!profile) return false;
     
     // Strict enforcement for Regional testing
@@ -7854,6 +7901,20 @@ export default function App() {
   }, [campanhas, profile]);
 
   useEffect(() => {
+    const publicViews = [
+      "docente-publico",
+      "cadastro-docente",
+      "desconto",
+      "pedido-curso",
+      "pedido-insumos",
+      "manutencao-publica",
+      "validador-vouchers",
+      "clubeLocal"
+    ];
+    if (publicViews.includes(currentView)) {
+      return;
+    }
+
     if (profile && !canView(currentView)) {
       const availableViews = [
         "dashboard",
@@ -8027,7 +8088,7 @@ export default function App() {
     );
   }
 
-  if (currentView === "docente-publico") {
+  if (currentView === "docente-publico" || currentView === "cadastro-docente") {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
         <AnimatePresence>

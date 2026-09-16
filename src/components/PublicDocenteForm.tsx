@@ -9,7 +9,8 @@ import {
   doc, 
   serverTimestamp 
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '../firebase';
+import { signInAnonymously } from 'firebase/auth';
+import { auth, db, COLLECTIONS } from '../firebase';
 import { Docente } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -72,6 +73,41 @@ export function PublicDocenteForm() {
     obs: ''
   });
 
+  // Ensure an authenticated session (anonymous if public) for Firestore security rules
+  useEffect(() => {
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((err) => {
+        console.warn('Silent anonymous auth fallback notice:', err);
+      });
+    }
+  }, []);
+
+  const ensureAuth = async () => {
+    if (!auth.currentUser) {
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.warn('Could not establish anonymous session:', e);
+      }
+    }
+  };
+
+  const handleStartNew = () => {
+    setError(null);
+    setDocenteData({
+      nome: '',
+      matricula: matricula.trim(),
+      telefone: '',
+      email: '',
+      lattes: '',
+      areasAtuacao: [],
+      formacao: [],
+      diasDisponiveis: [],
+      obs: ''
+    });
+    setStep('form');
+  };
+
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!matricula.trim()) return;
@@ -80,6 +116,7 @@ export function PublicDocenteForm() {
     setError(null);
 
     try {
+      await ensureAuth();
       const q = query(collection(db, COLLECTIONS.DOCENTES), where('matricula', '==', matricula.trim()));
       const querySnapshot = await getDocs(q);
 
@@ -103,9 +140,14 @@ export function PublicDocenteForm() {
         });
       }
       setStep('form');
-    } catch (err) {
-      console.error('Erro ao buscar docente:', err);
-      setError('Ocorreu um erro ao buscar seus dados. Tente novamente.');
+    } catch (err: any) {
+      console.warn('Erro ao buscar docente na base:', err);
+      // Fallback: don't block the teacher from registering! Allow them to proceed to the form
+      setDocenteData(prev => ({
+        ...prev,
+        matricula: matricula.trim()
+      }));
+      setStep('form');
     } finally {
       setLoading(false);
     }
@@ -128,12 +170,32 @@ export function PublicDocenteForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!docenteData.nome?.trim()) {
+      setError('Por favor, informe seu nome completo.');
+      return;
+    }
+    if (!docenteData.matricula?.trim() && !matricula.trim()) {
+      setError('Por favor, informe sua matrícula.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const payload = {
-        ...docenteData,
+      await ensureAuth();
+
+      const finalMatricula = (docenteData.matricula || matricula).trim();
+      const payload: any = {
+        nome: (docenteData.nome || '').trim(),
+        matricula: finalMatricula,
+        telefone: (docenteData.telefone || '').trim(),
+        email: (docenteData.email || '').trim(),
+        lattes: (docenteData.lattes || '').trim(),
+        areasAtuacao: Array.isArray(docenteData.areasAtuacao) ? docenteData.areasAtuacao : [],
+        formacao: Array.isArray(docenteData.formacao) ? docenteData.formacao : [],
+        diasDisponiveis: Array.isArray(docenteData.diasDisponiveis) ? docenteData.diasDisponiveis : [],
+        obs: (docenteData.obs || '').trim(),
         updatedAt: serverTimestamp()
       };
 
@@ -146,9 +208,9 @@ export function PublicDocenteForm() {
         });
       }
       setStep('success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao salvar docente:', err);
-      setError('Ocorreu um erro ao salvar seus dados. Tente novamente.');
+      setError(`Ocorreu um erro ao salvar os dados: ${err.message || 'Tente novamente.'}`);
     } finally {
       setLoading(false);
     }
@@ -165,18 +227,39 @@ export function PublicDocenteForm() {
           <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 size={40} />
           </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Dados Enviados!</h2>
-          <p className="text-slate-500 mb-8">
-            Suas informações foram recebidas com sucesso em nossa base de alocação docente.
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Cadastro Concluído com Sucesso!</h2>
+          {docenteData.nome && (
+            <p className="text-slate-700 font-semibold mb-1">
+              {docenteData.nome}
+            </p>
+          )}
+          {(docenteData.matricula || matricula) && (
+            <p className="text-xs text-slate-500 font-mono bg-slate-100 py-1.5 px-3 rounded-lg inline-block mb-4">
+              Matrícula: {docenteData.matricula || matricula}
+            </p>
+          )}
+          <p className="text-slate-500 text-sm mb-8">
+            Suas informações e disponibilidades foram gravadas com sucesso na base de dados de Alocação Docente.
           </p>
           <button 
             onClick={() => {
               setStep('search');
               setMatricula('');
+              setDocenteData({
+                nome: '',
+                matricula: '',
+                telefone: '',
+                email: '',
+                lattes: '',
+                areasAtuacao: [],
+                formacao: [],
+                diasDisponiveis: [],
+                obs: ''
+              });
             }}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl transition-all"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-2xl transition-all shadow-md shadow-blue-500/20"
           >
-            Voltar ao Início
+            Realizar Outro Cadastro / Voltar
           </button>
         </motion.div>
       </div>
@@ -239,11 +322,21 @@ export function PublicDocenteForm() {
                     <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
-                      Continuar
+                      Localizar Matrícula
                       <ChevronRight size={20} />
                     </>
                   )}
                 </button>
+
+                <div className="pt-3 border-t border-slate-100 text-center">
+                  <button
+                    type="button"
+                    onClick={handleStartNew}
+                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline py-1 transition-colors"
+                  >
+                    Primeiro cadastro ou não sabe a matrícula? Clique aqui para preencher diretamente
+                  </button>
+                </div>
               </form>
             </motion.div>
           ) : (

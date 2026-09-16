@@ -10,7 +10,8 @@ import {
   updateDoc,
   serverTimestamp
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '../firebase';
+import { db, COLLECTIONS, auth } from '../firebase';
+import { signInAnonymously } from 'firebase/auth';
 import { Docente, UserProfile } from '../types';
 import { 
   Search, 
@@ -101,15 +102,46 @@ export function AlocacaoDocenteView({ profile, onToast }: Props) {
   });
 
   useEffect(() => {
-    const q = query(collection(db, COLLECTIONS.DOCENTES), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs: Docente[] = [];
-      snapshot.forEach(d => {
-        docs.push({ id: d.id, ...d.data() } as Docente);
+    // Ensure auth session for firestore security rules
+    if (!auth.currentUser) {
+      signInAnonymously(auth).catch((err) => {
+        console.warn('Anonymous auth check in AlocacaoDocenteView:', err);
       });
-      setDocentes(docs);
-      setLoading(false);
-    });
+    }
+
+    const unsubscribe = onSnapshot(
+      collection(db, COLLECTIONS.DOCENTES),
+      (snapshot) => {
+        const docs: Docente[] = [];
+        snapshot.forEach((d) => {
+          docs.push({ id: d.id, ...d.data() } as Docente);
+        });
+        // Sort descending by timestamp or name
+        docs.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis
+            ? a.createdAt.toMillis()
+            : a.createdAt
+            ? new Date(a.createdAt).getTime()
+            : a.updatedAt?.toMillis
+            ? a.updatedAt.toMillis()
+            : 0;
+          const timeB = b.createdAt?.toMillis
+            ? b.createdAt.toMillis()
+            : b.createdAt
+            ? new Date(b.createdAt).getTime()
+            : b.updatedAt?.toMillis
+            ? b.updatedAt.toMillis()
+            : 0;
+          return timeB - timeA;
+        });
+        setDocentes(docs);
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Erro ao buscar docentes:', err);
+        setLoading(false);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -172,6 +204,14 @@ export function AlocacaoDocenteView({ profile, onToast }: Props) {
     setModalError('');
 
     try {
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (e) {
+          console.warn('Anonymous auth fallback in handleSaveDocente:', e);
+        }
+      }
+
       const payload = {
         nome: formData.nome.trim(),
         matricula: formData.matricula.trim(),
