@@ -591,6 +591,26 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
+  academico: [
+    ROLES.ADMIN_MASTER,
+    ROLES.FDV,
+    ROLES.SALA_MATRICULA,
+    ROLES.QG,
+    ROLES.LIDER_FDV,
+    ROLES.SSA,
+    ROLES.GESTOR_UNIDADE,
+    ROLES.GESTOR_COMERCIAL,
+    ROLES.ACADEMICO,
+    ROLES.GESTOR_COMERCIAL_COMERCIAL,
+    ROLES.PROMOTOR,
+    ROLES.PROMOTOR_RUA,
+    ROLES.FDV_COMERCIAL,
+    ROLES.FINANCEIRO,
+    ROLES.TECNICO,
+    ROLES.LIDER_SM,
+    ROLES.GESTOR,
+    ROLES.REGIONAL
+  ],
   alocacaoDocente: [
     ROLES.ADMIN_MASTER,
     ROLES.GESTOR_UNIDADE,
@@ -1029,6 +1049,60 @@ function AlocacaoDocenteView({
         <h3 className="text-xl font-bold text-slate-800">Módulo em Desenvolvimento</h3>
         <p className="text-slate-500 mt-2">Esta funcionalidade estará disponível em breve.</p>
       </div>
+    </div>
+  );
+}
+
+function AcademicoView({
+  mapao,
+  onToast,
+  profile,
+}: {
+  mapao: MapaoAcademicoEntry[];
+  onToast: (m: string, t?: "success" | "error") => void;
+  profile: UserProfile;
+}) {
+  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao">("mapao");
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* BARRA SUPERIOR DE SUB-ABAS (NAVY BLUE THEME CONFORME PRINT) */}
+      <div className="bg-[#07122a] border-b border-slate-700/60 -mx-4 sm:-mx-6 -mt-6 px-4 sm:px-6 pt-4 rounded-b-2xl shadow-lg mb-6">
+        <div className="flex items-center space-x-6 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setActiveTab("mapao")}
+            className={cn(
+              "flex items-center space-x-2 py-3 px-1 text-sm font-bold border-b-2 whitespace-nowrap transition-all",
+              activeTab === "mapao"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            )}
+          >
+            <MapPin size={18} />
+            <span>Mapão Acadêmico</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("alocacao")}
+            className={cn(
+              "flex items-center space-x-2 py-3 px-1 text-sm font-bold border-b-2 whitespace-nowrap transition-all",
+              activeTab === "alocacao"
+                ? "border-blue-500 text-blue-400"
+                : "border-transparent text-slate-400 hover:text-slate-200"
+            )}
+          >
+            <Users size={18} />
+            <span>Alocação Docente</span>
+          </button>
+        </div>
+      </div>
+
+      {activeTab === "mapao" && (
+        <MapaoAcademicoView mapao={mapao} onToast={onToast} profile={profile} />
+      )}
+      {activeTab === "alocacao" && (
+        <AlocacaoDocenteView onToast={onToast} profile={profile} />
+      )}
     </div>
   );
 }
@@ -1921,6 +1995,64 @@ function MapaoAcademicoView({
                             <option value="ONLINE">Online</option>
                             <option value="TEAMS">Teams</option>
                           </select>
+                        </div>
+
+                        {(disc.tipoDisciplina === "PRESENCIAL" || disc.tipoDisciplina === "TEAMS") && (
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">
+                              Nome do Professor
+                            </label>
+                            <input
+                              type="text"
+                              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500"
+                              value={disc.professor || ""}
+                              onChange={(e) =>
+                                handleChangeDisciplina(
+                                  idx,
+                                  "professor",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Digite o nome do professor..."
+                            />
+                          </div>
+                        )}
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-slate-500 mb-1">
+                            Link da Aula (Opcional)
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500"
+                            value={disc.linkAula || ""}
+                            onChange={(e) =>
+                              handleChangeDisciplina(
+                                idx,
+                                "linkAula",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="https://..."
+                          />
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs font-bold text-slate-500 mb-1">
+                            Observações
+                          </label>
+                          <textarea
+                            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 outline-none text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+                            value={disc.observacao || ""}
+                            onChange={(e) =>
+                              handleChangeDisciplina(
+                                idx,
+                                "observacao",
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Observações adicionais..."
+                          />
                         </div>
                       </div>
                     </div>
@@ -5217,7 +5349,6 @@ export default function App() {
     }
     return "cadastro";
   });
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(["academico"]);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -8252,15 +8383,7 @@ export default function App() {
                 icon: ShieldCheck,
               },
               { id: "fiesProuni", label: "Fies/Prouni", icon: FileText },
-              {
-                id: "academico",
-                label: "Acadêmico",
-                icon: GraduationCap,
-                subItems: [
-                  { id: "mapao", label: "Mapão Acadêmico", icon: MapPin },
-                  { id: "alocacaoDocente", label: "Alocação Docente", icon: Users },
-                ]
-              },
+              { id: "academico", label: "Acadêmico", icon: GraduationCap },
               { id: "cursos", label: "Cursos Disponíveis", icon: BookOpen },
               { id: "basesDisparo", label: "Bases de Disparo", icon: Globe },
               { id: "basesRenovacao", label: "Base Líquida", icon: Database },
@@ -8308,72 +8431,26 @@ export default function App() {
               { id: "acompanhamentoTarefas", label: "Acompanhamento de Tarefas", icon: ClipboardList },
               { id: "clubeLocal", label: "Clube Local", icon: Gift },
               { id: "admin", label: "Administração", icon: Settings },
-            ].map((item: any) => {
-              const hasSubItems = item.subItems && item.subItems.length > 0;
-              const isExpanded = expandedMenus.includes(item.id);
-              
-              if (!canView(item.id) && !hasSubItems) return null;
-              
-              // Check if any sub-item is viewable
-              const visibleSubItems = hasSubItems ? item.subItems.filter((sub: any) => canView(sub.id)) : [];
-              if (hasSubItems && visibleSubItems.length === 0) return null;
-
-              return (
-                <div key={item.id} className="space-y-1">
-                  <button
-                    onClick={() => {
-                      if (hasSubItems) {
-                        setExpandedMenus(prev => 
-                          prev.includes(item.id) 
-                            ? prev.filter(id => id !== item.id) 
-                            : [...prev, item.id]
-                        );
-                      } else {
-                        setCurrentView(item.id);
-                        setIsSidebarOpen(false);
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all",
-                      currentView === item.id || (hasSubItems && visibleSubItems.some((sub: any) => sub.id === currentView))
-                        ? "bg-blue-500/10 text-white"
-                        : "text-slate-400 hover:bg-[#082a5c] hover:text-white",
-                    )}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <item.icon size={20} />
-                      <span>{item.label}</span>
-                    </div>
-                    {hasSubItems && (
-                      isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />
-                    )}
-                  </button>
-                  
-                  {hasSubItems && isExpanded && (
-                    <div className="ml-4 pl-4 border-l border-[#092e5c] space-y-1 mt-1">
-                      {visibleSubItems.map((sub: any) => (
-                        <button
-                          key={sub.id}
-                          onClick={() => {
-                            setCurrentView(sub.id);
-                            setIsSidebarOpen(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center space-x-3 px-4 py-2 rounded-xl text-xs font-semibold transition-all",
-                            currentView === sub.id
-                              ? "bg-blue-500/20 text-white"
-                              : "text-slate-400 hover:bg-[#082a5c] hover:text-white",
-                          )}
-                        >
-                          <sub.icon size={16} />
-                          <span>{sub.label}</span>
-                        </button>
-                      ))}
-                    </div>
+            ].map((item: any) => (
+              canView(item.id) && (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setCurrentView(item.id);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all",
+                    currentView === item.id
+                      ? "bg-blue-500/10 text-white"
+                      : "text-slate-400 hover:bg-[#082a5c] hover:text-white",
                   )}
-                </div>
-              );
-            })}
+                >
+                  <item.icon size={20} />
+                  <span>{item.label}</span>
+                </button>
+              )
+            ))}
           </nav>
 
           <div className="p-4 border-t border-[#092e5c]">
@@ -8642,14 +8719,8 @@ export default function App() {
                   onMassSendBot={handleMassSendBotMessages}
                 />
               )}
-              {currentView === "alocacaoDocente" && (
-                <AlocacaoDocenteView
-                  onToast={showToast}
-                  profile={profile!}
-                />
-              )}
-              {currentView === "mapao" && (
-                <MapaoAcademicoView
+              {currentView === "academico" && (
+                <AcademicoView
                   mapao={mapao}
                   onToast={showToast}
                   profile={profile!}
