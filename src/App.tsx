@@ -204,6 +204,7 @@ import {
   SolicitacaoManutencao,
   AcaoRua,
   MetaRVV,
+  Docente,
 } from "./types";
 import { OPENROUTER_MODELS } from "./ai-config";
 import CrescimentoAnualAdmin from "./components/CrescimentoAnualAdmin";
@@ -215,6 +216,8 @@ import { PublicInsumoForm } from "./components/PublicInsumoForm";
 import { PublicMaintenanceForm } from "./components/PublicMaintenanceForm";
 import { PublicPedidoCursoForm } from "./components/PublicPedidoCursoForm";
 import { PublicClubeLocalView } from "./components/PublicClubeLocalView";
+import { PublicDocenteForm } from "./components/PublicDocenteForm";
+import { AlocacaoDocenteView } from "./components/AlocacaoDocenteView";
 import { MessageTemplateModal } from "./components/MessageTemplateModal";
 import { CursosDisponiveisView } from "./components/CursosDisponiveisView";
 import { ControleInsumosView } from "./components/ControleInsumosView";
@@ -1023,35 +1026,6 @@ const Toast = ({
     </button>
   </motion.div>
 );
-
-function AlocacaoDocenteView({
-  onToast,
-  profile,
-}: {
-  onToast: (m: string, t?: "success" | "error") => void;
-  profile: UserProfile;
-}) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
-          Alocação Docente
-        </h2>
-        <p className="text-sm text-slate-500">
-          Gestão e acompanhamento da alocação de professores
-        </p>
-      </div>
-      
-      <div className="bg-white p-12 rounded-3xl border border-slate-100 shadow-sm text-center">
-        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Users size={40} />
-        </div>
-        <h3 className="text-xl font-bold text-slate-800">Módulo em Desenvolvimento</h3>
-        <p className="text-slate-500 mt-2">Esta funcionalidade estará disponível em breve.</p>
-      </div>
-    </div>
-  );
-}
 
 function AcademicoView({
   mapao,
@@ -5344,6 +5318,9 @@ export default function App() {
       const viewParam = params.get("view");
       if (viewParam) return viewParam;
       
+      const formParam = params.get("form");
+      if (formParam === "docente") return "docente-publico";
+
       const path = window.location.pathname.toLowerCase();
       if (path.includes("clubelocal")) return "clubeLocal";
     }
@@ -8011,6 +7988,23 @@ export default function App() {
           )}
         </AnimatePresence>
         <PublicValidadorVouchers onToast={showToast} />
+      </div>
+    );
+  }
+
+  if (currentView === "docente-publico") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <AnimatePresence>
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          )}
+        </AnimatePresence>
+        <PublicDocenteForm />
       </div>
     );
   }

@@ -82,6 +82,21 @@ export interface CalendarioAcao {
   horario?: string;
 }
 
+export interface Docente {
+  id: string;
+  matricula: string;
+  nome: string;
+  telefone: string;
+  email: string;
+  lattes: string;
+  areasAtuacao: string[];
+  formacao: string[];
+  diasDisponiveis: string[];
+  obs: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
 export interface Campanha {
   id: string;
   nome: string;
