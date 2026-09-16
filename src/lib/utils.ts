@@ -55,3 +55,44 @@ export function getWhatsAppUrl(phone: string | undefined | null, message?: strin
   const baseUrl = `https://web.whatsapp.com/send?phone=55${cleaned}`;
   return message ? `${baseUrl}&text=${encodeURIComponent(message)}` : baseUrl;
 }
+
+/**
+ * Checks whether an item's unit matches a user's unit.
+ * Handles:
+ * - Unrestricted / global access (empty user unit, "Todas", "Regional", etc.)
+ * - Case insensitivity ("Resende" === "RESENDE")
+ * - Trim and accent normalization
+ * - Multiple units separated by commas, semicolons, slashes
+ * - Substrings (e.g. "Resende" matches "Estácio Resende" or "UNESA RESENDE")
+ */
+export function matchesUnit(itemUnit?: string | null, userUnit?: string | null): boolean {
+  if (!userUnit || !userUnit.trim()) {
+    return true; // No unit restriction configured for user -> allow
+  }
+  const cleanUser = userUnit.trim().toLowerCase();
+  if (
+    cleanUser === "todas" ||
+    cleanUser === "todas / regional" ||
+    cleanUser.includes("todas") ||
+    cleanUser.includes("regional") ||
+    cleanUser.includes("global")
+  ) {
+    return true;
+  }
+  if (!itemUnit || !itemUnit.trim()) {
+    return false;
+  }
+  const cleanItem = itemUnit.trim().toLowerCase();
+  if (cleanItem === cleanUser) return true;
+
+  // Split multiple units for users assigned to more than one unit (e.g., "Resende, Cabo Frio")
+  const userUnits = cleanUser.split(/[,;/|]+/).map((u) => u.trim()).filter(Boolean);
+  if (userUnits.length > 1) {
+    return userUnits.some(
+      (u) => cleanItem === u || cleanItem.includes(u) || u.includes(cleanItem)
+    );
+  }
+
+  // Substring matching: e.g. "Resende" matches "Estácio Resende" or "UNESA Resende"
+  return cleanItem.includes(cleanUser) || cleanUser.includes(cleanItem);
+}

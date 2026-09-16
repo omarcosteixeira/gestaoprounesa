@@ -139,6 +139,7 @@ import {
   getWhatsAppUrl,
   validateCPF,
   formatCPF,
+  matchesUnit,
 } from "../lib/utils";
 import * as XLSX from "xlsx";
 import { EmailMarketingView } from "./EmailMarketingView";
@@ -562,7 +563,12 @@ export function BasesView({
     // Gestor Unidade filtering
     const isPrincipalServer = ((localStorage.getItem("servidor_selected") as string) || "principal") === "principal";
     if (!isPrincipalServer && profile.role === "Gestor Unidade") {
-      if (!profile.unidade || b.unidade !== profile.unidade) {
+      const hasSpecificUnit =
+        profile.unidade &&
+        profile.unidade.trim() &&
+        !profile.unidade.toLowerCase().includes("todas") &&
+        !profile.unidade.toLowerCase().includes("regional");
+      if (hasSpecificUnit && !matchesUnit(b.unidade, profile.unidade)) {
         return false;
       }
     }

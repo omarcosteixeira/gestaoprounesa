@@ -147,6 +147,7 @@ import {
   getWhatsAppUrl,
   validateCPF,
   formatCPF,
+  matchesUnit,
 } from "./lib/utils";
 import { enqueueTeamsAlert, executeDirectTeamsDispatch } from "./lib/teamsService";
 import * as XLSX from "xlsx";
@@ -509,6 +510,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
     ROLES.LIDER_SM,
+    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR
   ],
   gap: [ROLES.ADMIN_MASTER, ROLES.SALA_MATRICULA, ROLES.LIDER_FDV, ROLES.LIDER_SM, ROLES.GESTOR],
@@ -518,6 +520,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.LIDER_FDV,
     ROLES.SSA,
     ROLES.LIDER_SM,
+    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR
   ],
   campanhas: [
@@ -805,6 +808,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.LIDER_SM,
+    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR
   ],
   controleLigacoes: [
@@ -819,6 +823,7 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV_COMERCIAL,
     ROLES.LIDER_FDV,
     ROLES.LIDER_SM,
+    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR
   ],
 };
@@ -6572,16 +6577,11 @@ export default function App() {
           ROLES.LIDER_FDV,
           ROLES.SALA_MATRICULA,
           ROLES.QG,
+          ROLES.GESTOR_UNIDADE,
         ].includes(profile.role)
       ) {
         leadsQuery = query(
           collection(db, COLLECTIONS.LEADS),
-          orderBy("createdAt", "desc"),
-        );
-      } else if (profile.role === ROLES.GESTOR_UNIDADE) {
-        leadsQuery = query(
-          collection(db, COLLECTIONS.LEADS),
-          where("unidade", "==", profile.unidade || ""),
           orderBy("createdAt", "desc"),
         );
       } else if (profile.role === ROLES.GESTOR_COMERCIAL_COMERCIAL) {
@@ -6645,6 +6645,8 @@ export default function App() {
           // The user said ONLY what they or linked promotor filled.
           // If we add the unit filter, it might exclude their own leads if they are in a different unit (unlikely).
           // But to be strict with "SÓ PODERÁ VE", we keep the current query which is already restricted to UID.
+        } else if (profile.role === ROLES.GESTOR_UNIDADE) {
+          // Handled client-side via matchesUnit to support case-insensitivity and multiple units
         } else {
           leadsQuery = query(
             leadsQuery,
@@ -6712,6 +6714,11 @@ export default function App() {
               where("promotorId", "==", user!.uid),
               where("linkadoA", "==", user!.uid),
             ),
+            orderBy("createdAt", "desc"),
+          );
+        } else if (profile.role === ROLES.GESTOR_UNIDADE) {
+          basesQuery = query(
+            collection(db, COLLECTIONS.BASES),
             orderBy("createdAt", "desc"),
           );
         } else {
@@ -6795,7 +6802,7 @@ export default function App() {
         collection(db, COLLECTIONS.ISENCOES),
         orderBy("createdAt", "desc"),
       );
-      if (isRestricted) {
+      if (isRestricted && profile.role !== ROLES.GESTOR_UNIDADE) {
         isencoesQuery = query(
           isencoesQuery,
           where("unidade", "==", profile.unidade || "Matriz"),
@@ -6899,7 +6906,7 @@ export default function App() {
         orderBy("createdAt", "desc"),
       );
 
-      if (isRestricted) {
+      if (isRestricted && profile.role !== ROLES.GESTOR_UNIDADE) {
         fpQuery = query(
           fpQuery,
           where("unidade", "==", profile.unidade || "Matriz"),
@@ -13409,7 +13416,12 @@ function HistoricoView({
         // Gestor Unidade filtering
         const isPrincipalServer = ((localStorage.getItem("servidor_selected") as string) || "principal") === "principal";
         if (!isPrincipalServer && profile.role === "Gestor Unidade") {
-          if (!profile.unidade || l.unidade !== profile.unidade) {
+          const hasSpecificUnit =
+            profile.unidade &&
+            profile.unidade.trim() &&
+            !profile.unidade.toLowerCase().includes("todas") &&
+            !profile.unidade.toLowerCase().includes("regional");
+          if (hasSpecificUnit && !matchesUnit(l.unidade, profile.unidade)) {
             return false;
           }
         }

@@ -34,7 +34,7 @@ import {
   FileDown,
   Image as ImageIcon,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, matchesUnit } from "../lib/utils";
 import * as XLSX from "xlsx";
 
 interface IsencoesViewProps {
@@ -530,7 +530,12 @@ export function IsencoesView({
     return isencoes.filter((item) => {
       // Gestor Unidade filtering: only see actions from the same unit
       if (profile.role === "Gestor Unidade") {
-        if (!profile.unidade || item.unidade !== profile.unidade) {
+        const hasSpecificUnit =
+          profile.unidade &&
+          profile.unidade.trim() &&
+          !profile.unidade.toLowerCase().includes("todas") &&
+          !profile.unidade.toLowerCase().includes("regional");
+        if (hasSpecificUnit && !matchesUnit(item.unidade, profile.unidade)) {
           return false;
         }
       }

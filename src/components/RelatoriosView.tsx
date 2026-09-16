@@ -43,7 +43,7 @@ import {
   AreaChart,
   Area
 } from "recharts";
-import { cn } from "../lib/utils";
+import { cn, matchesUnit } from "../lib/utils";
 import { 
   UserProfile, 
   Lead, 
@@ -204,21 +204,30 @@ export function RelatoriosView({
   };
 
   // --- Filtering data for Unit Restriction ---
+  const hasGlobalUnitAccess = 
+    !profile.unidade || 
+    !profile.unidade.trim() || 
+    profile.unidade.toLowerCase().includes("todas") || 
+    profile.unidade.toLowerCase().includes("regional") ||
+    profile.unidade.toLowerCase().includes("global");
+
   const isPrivileged = 
     profile.role === "Admin Master" || 
     profile.role === "Gestor Comercial" || 
-    profile.role === "Gerente Comercial (Comercial)";
+    profile.role === "Gerente Comercial (Comercial)" ||
+    profile.role === "Regional" ||
+    hasGlobalUnitAccess;
 
   const filteredLeads = useMemo(() => {
     if (!isPrivileged) {
-      return leads.filter(l => l.unidade === profile.unidade);
+      return leads.filter(l => matchesUnit(l.unidade, profile.unidade));
     }
     return leads;
   }, [leads, profile, isPrivileged]);
 
   const filteredBases = useMemo(() => {
     if (!isPrivileged) {
-      return bases.filter(b => b.unidade === profile.unidade);
+      return bases.filter(b => matchesUnit(b.unidade, profile.unidade));
     }
     return bases;
   }, [bases, profile, isPrivileged]);
@@ -226,14 +235,14 @@ export function RelatoriosView({
   const filteredFiesProuni = useMemo(() => {
     if (!fiesProuni) return [];
     if (!isPrivileged) {
-      return fiesProuni.filter(f => f && f.unidade === profile.unidade);
+      return fiesProuni.filter(f => f && matchesUnit(f.unidade, profile.unidade));
     }
     return fiesProuni;
   }, [fiesProuni, profile, isPrivileged]);
 
   const filteredPlanoAcoes = useMemo(() => {
     if (!isPrivileged) {
-      return calendarioAcoes.filter(a => a.unidade === profile.unidade);
+      return calendarioAcoes.filter(a => matchesUnit(a.unidade, profile.unidade));
     }
     return calendarioAcoes;
   }, [calendarioAcoes, profile, isPrivileged]);
@@ -310,8 +319,17 @@ export function RelatoriosView({
   const [planoFiltroUnidade, setPlanoFiltroUnidade] = useState("");
 
   
-  const filteredIsencoes = useMemo(() => isPrivileged ? isencoes : isencoes.filter(i => i.unidade === profile.unidade), [isencoes, profile, isPrivileged]);
-  const filteredEmpresasParceiras = useMemo(() => isPrivileged ? empresasParceiras : empresasParceiras.filter(e => e.unidadesVinculadas?.includes(profile.unidade || "") || (e as any).unidade === profile.unidade), [empresasParceiras, profile, isPrivileged]);
+  const filteredIsencoes = useMemo(() => isPrivileged ? isencoes : isencoes.filter(i => matchesUnit(i.unidade, profile.unidade)), [isencoes, profile, isPrivileged]);
+  const filteredEmpresasParceiras = useMemo(() => {
+    if (isPrivileged) return empresasParceiras;
+    return empresasParceiras.filter(e => {
+      if (matchesUnit((e as any).unidade, profile.unidade)) return true;
+      if (e.unidadesVinculadas && e.unidadesVinculadas.length > 0) {
+        return e.unidadesVinculadas.some(u => matchesUnit(u, profile.unidade));
+      }
+      return false;
+    });
+  }, [empresasParceiras, profile, isPrivileged]);
   const filteredPedidosCursos = useMemo(() => isPrivileged ? (pedidosCursos || []) : (pedidosCursos || []), [pedidosCursos, isPrivileged]); // Pedidos doesn't have unidade in type right now, keep as is or filter? Wait, if it has no unidade, we can't filter.
   const filteredInsumosPedidos = useMemo(() => isPrivileged ? insumosPedidos : insumosPedidos, [insumosPedidos, profile, isPrivileged]);
   const filteredInsumosBaixas = useMemo(() => isPrivileged ? insumosBaixas : insumosBaixas, [insumosBaixas, profile, isPrivileged]);
@@ -583,7 +601,7 @@ export function RelatoriosView({
   const [ligacoesSearchTerm, setLigacoesSearchTerm] = useState("");
 
   const filteredLigacoes = useMemo(() => {
-    return ligacoes.filter((l) => isPrivileged ? true : l.unidade === profile.unidade).filter(l => {
+    return ligacoes.filter((l) => isPrivileged ? true : matchesUnit(l.unidade, profile.unidade)).filter(l => {
       const callDate = l.createdAt?.seconds ? new Date(l.createdAt.seconds * 1000).toISOString().split('T')[0] : '';
       if (ligacoesDataInicio && callDate < ligacoesDataInicio) return false;
       if (ligacoesDataFim && callDate > ligacoesDataFim) return false;

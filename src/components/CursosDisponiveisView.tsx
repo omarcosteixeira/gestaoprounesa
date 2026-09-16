@@ -20,7 +20,7 @@ import {
   Download,
   Upload,
 } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, matchesUnit } from "../lib/utils";
 // We should import ROLES from App.tsx or redefine. Since App.tsx has it:
 import { ROLES } from "../types";
 import * as XLSX from "xlsx";
@@ -310,15 +310,21 @@ export function CursosDisponiveisView({
       const matchProduto =
         filterProduto.length === 0 || filterProduto.includes(c.produto);
       
-      if (profile.role === "Gestor Unidade") {
-        if (!profile.unidade || c.nomeUnidade !== profile.unidade) {
+      if (profile?.role === "Gestor Unidade") {
+        const hasSpecificUnit =
+          profile.unidade &&
+          profile.unidade.trim() &&
+          !profile.unidade.toLowerCase().includes("todas") &&
+          !profile.unidade.toLowerCase().includes("regional");
+
+        if (hasSpecificUnit && !matchesUnit(c.nomeUnidade, profile.unidade)) {
           return false;
         }
       }
       return matchUnidade && matchMetodologia && matchCurso && matchProduto;
   
     });
-  }, [cursos, filterUnidade, filterMetodologia, filterCurso, filterProduto]);
+  }, [cursos, filterUnidade, filterMetodologia, filterCurso, filterProduto, profile]);
 
   const toggleFilter = (
     setFilter: React.Dispatch<React.SetStateAction<string[]>>,

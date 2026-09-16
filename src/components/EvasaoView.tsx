@@ -43,6 +43,7 @@ import {
   Line
 } from "recharts";
 import { exportToExcel, importFromExcel } from "./CursosDisponiveisView";
+import { matchesUnit } from "../lib/utils";
 
 interface EvasaoViewProps {
   profile: UserProfile | null;
@@ -101,14 +102,15 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
       profile?.role !== "Admin Master" && 
       profile?.role !== "Gestor Comercial" && 
       profile?.role !== "Gerente Comercial (Comercial)" &&
+      profile?.role !== "Gestor Unidade" &&
       !["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"].includes(profile?.email || "");
 
     let q = query(
       collection(db, COLLECTIONS.EVASAO)
     );
 
-    if (isRestricted) {
-      q = query(q, where("unidade", "==", profile?.unidade || "Matriz"));
+    if (isRestricted && profile?.unidade) {
+      q = query(q, where("unidade", "==", profile.unidade));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -149,8 +151,16 @@ export function EvasaoView({ profile, onToast }: EvasaoViewProps) {
     let filtered = data;
     
     // Gestor Unidade filtering
-    if (profile?.role === "Gestor Unidade" && profile?.unidade) {
-      filtered = filtered.filter(item => item.unidade === profile.unidade);
+    if (profile?.role === "Gestor Unidade") {
+      const hasSpecificUnit =
+        profile.unidade &&
+        profile.unidade.trim() &&
+        !profile.unidade.toLowerCase().includes("todas") &&
+        !profile.unidade.toLowerCase().includes("regional");
+
+      if (hasSpecificUnit) {
+        filtered = filtered.filter(item => matchesUnit(item.unidade, profile.unidade));
+      }
     }
 
     if (modalidadeFilter !== "Todas") {
