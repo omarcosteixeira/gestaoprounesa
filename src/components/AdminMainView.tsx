@@ -564,8 +564,20 @@ export function AdminMainView({
     "metasUnidadeRegional",
   ];
 
+  const gestorUnidadeAllowedSubTabs = [
+    "tarefas",
+    "crescimento",
+    "folgas",
+    "forecast",
+    "acaoRua",
+    "linksUteis",
+    "formularios",
+  ];
+
   const subTabsConfig = isRegionalProfile
     ? allSubTabsConfig.filter((tab) => regionalAllowedSubTabs.includes(tab.id))
+    : profile?.role === ROLES.GESTOR_UNIDADE
+    ? allSubTabsConfig.filter((tab) => gestorUnidadeAllowedSubTabs.includes(tab.id))
     : allSubTabsConfig;
 
   return (

@@ -476,7 +476,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
-    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
@@ -490,7 +489,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
-    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
@@ -510,17 +508,15 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.GESTOR_UNIDADE,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
-  gap: [ROLES.ADMIN_MASTER, ROLES.SALA_MATRICULA, ROLES.LIDER_FDV, ROLES.GESTOR_UNIDADE, ROLES.LIDER_SM, ROLES.GESTOR],
+  gap: [ROLES.ADMIN_MASTER, ROLES.SALA_MATRICULA, ROLES.LIDER_FDV, ROLES.LIDER_SM, ROLES.GESTOR],
   fiesProuni: [
     ROLES.ADMIN_MASTER,
     ROLES.SALA_MATRICULA,
     ROLES.LIDER_FDV,
     ROLES.SSA,
-    ROLES.GESTOR_UNIDADE,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -583,7 +579,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
-    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.PROMOTOR,
     ROLES.SSA,
@@ -646,7 +641,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.FDV,
-    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.LIDER_SM,
     ROLES.GESTOR
@@ -659,7 +653,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.QG,
     ROLES.LIDER_FDV,
     ROLES.SSA,
-    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.PROMOTOR,
     ROLES.ACADEMICO,
@@ -735,7 +728,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.GESTOR_UNIDADE,
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
@@ -806,7 +798,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.SALA_MATRICULA,
     ROLES.LIDER_FDV,
     ROLES.FDV,
-    ROLES.GESTOR_UNIDADE,
     ROLES.GESTOR_COMERCIAL,
     ROLES.FDV_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
@@ -1040,35 +1031,33 @@ function AcademicoView({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* BARRA SUPERIOR DE SUB-ABAS (NAVY BLUE THEME CONFORME PRINT) */}
-      <div className="bg-[#07122a] border-b border-slate-700/60 -mx-4 sm:-mx-6 -mt-6 px-4 sm:px-6 pt-4 rounded-b-2xl shadow-lg mb-6">
-        <div className="flex items-center space-x-6 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveTab("mapao")}
-            className={cn(
-              "flex items-center space-x-2 py-3 px-1 text-sm font-bold border-b-2 whitespace-nowrap transition-all",
-              activeTab === "mapao"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            )}
-          >
-            <MapPin size={18} />
-            <span>Mapão Acadêmico</span>
-          </button>
+      {/* BARRA SUPERIOR DE SUB-ABAS (MATCHING ADMIN STYLE) */}
+      <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-2">
+        <button
+          onClick={() => setActiveTab("mapao")}
+          className={cn(
+            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+            activeTab === "mapao"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+          )}
+        >
+          <MapPin size={15} />
+          <span>Mapão Acadêmico</span>
+        </button>
 
-          <button
-            onClick={() => setActiveTab("alocacao")}
-            className={cn(
-              "flex items-center space-x-2 py-3 px-1 text-sm font-bold border-b-2 whitespace-nowrap transition-all",
-              activeTab === "alocacao"
-                ? "border-blue-500 text-blue-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            )}
-          >
-            <Users size={18} />
-            <span>Alocação Docente</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveTab("alocacao")}
+          className={cn(
+            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+            activeTab === "alocacao"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+          )}
+        >
+          <Users size={15} />
+          <span>Alocação Docente</span>
+        </button>
       </div>
 
       {activeTab === "mapao" && (
