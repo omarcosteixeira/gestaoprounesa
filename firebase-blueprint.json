@@ -1,5 +1,25 @@
 {
   "entities": {
+    "Docente": {
+      "title": "Docente",
+      "description": "Docente / professor cadastro e disponibilidade",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "matricula": { "type": "string" },
+        "telefone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "lattes": { "type": "string" },
+        "areasAtuacao": { "type": "array", "items": { "type": "string" } },
+        "formacao": { "type": "array", "items": { "type": "string" } },
+        "diasDisponiveis": { "type": "array", "items": { "type": "string" } },
+        "obs": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "matricula"]
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "User profile information and role",
@@ -440,6 +460,10 @@
     "artifacts/gestaopro-761e1/public/data/controle_concorrencia/{concorrenteId}": {
       "schema": "ControleConcorrencia",
       "description": "Competitor control data"
+    },
+    "artifacts/gen-lang-client-0111023338/public/data/docentes/{docenteId}": {
+      "schema": "Docente",
+      "description": "Docentes registration and availability data"
     }
   }
 }

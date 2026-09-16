@@ -5308,14 +5308,53 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState(() => {
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const viewParam = params.get("view");
-      if (viewParam) return viewParam;
-      
-      const formParam = params.get("form");
-      if (formParam === "docente") return "docente-publico";
+      const path = decodeURIComponent(window.location.pathname.toLowerCase());
+      if (
+        path.includes("cadastro-docente") ||
+        path.includes("cadastro_docente") ||
+        path.includes("cadastrodocente") ||
+        path.includes("cadastro docente") ||
+        path.endsWith("/docente")
+      ) {
+        return "docente-publico";
+      }
 
-      const path = window.location.pathname.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = (params.get("view") || "").toLowerCase();
+      if (viewParam) {
+        if (
+          viewParam === "cadastro-docente" ||
+          viewParam === "cadastro_docente" ||
+          viewParam === "cadastrodocente" ||
+          viewParam === "cadastro docente" ||
+          viewParam === "docente-publico" ||
+          viewParam === "docente"
+        ) {
+          return "docente-publico";
+        }
+        return params.get("view")!;
+      }
+      
+      const formParam = (params.get("form") || "").toLowerCase();
+      if (
+        formParam === "docente" ||
+        formParam === "cadastro-docente" ||
+        formParam === "cadastro_docente" ||
+        formParam === "cadastrodocente" ||
+        formParam === "cadastro docente"
+      ) {
+        return "docente-publico";
+      }
+
+      if (
+        params.has("cadastro-docente") ||
+        params.has("cadastro_docente") ||
+        params.has("cadastrodocente") ||
+        params.has("docente")
+      ) {
+        return "docente-publico";
+      }
+
       if (path.includes("clubelocal")) return "clubeLocal";
     }
     return "cadastro";
