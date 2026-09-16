@@ -591,6 +591,13 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
+  alocacaoDocente: [
+    ROLES.ADMIN_MASTER,
+    ROLES.GESTOR_UNIDADE,
+    ROLES.SSA,
+    ROLES.ACADEMICO,
+    ROLES.GESTOR
+  ],
   mapao: [
     ROLES.ADMIN_MASTER,
     ROLES.FDV,
@@ -996,6 +1003,35 @@ const Toast = ({
     </button>
   </motion.div>
 );
+
+function AlocacaoDocenteView({
+  onToast,
+  profile,
+}: {
+  onToast: (m: string, t?: "success" | "error") => void;
+  profile: UserProfile;
+}) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800 tracking-tight">
+          Alocação Docente
+        </h2>
+        <p className="text-sm text-slate-500">
+          Gestão e acompanhamento da alocação de professores
+        </p>
+      </div>
+      
+      <div className="bg-white p-12 rounded-3xl border border-slate-100 shadow-sm text-center">
+        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Users size={40} />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800">Módulo em Desenvolvimento</h3>
+        <p className="text-slate-500 mt-2">Esta funcionalidade estará disponível em breve.</p>
+      </div>
+    </div>
+  );
+}
 
 function MapaoAcademicoView({
   mapao,
@@ -5181,6 +5217,7 @@ export default function App() {
     }
     return "cadastro";
   });
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["academico"]);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -8215,7 +8252,15 @@ export default function App() {
                 icon: ShieldCheck,
               },
               { id: "fiesProuni", label: "Fies/Prouni", icon: FileText },
-              { id: "mapao", label: "Mapão Acadêmico", icon: MapPin },
+              {
+                id: "academico",
+                label: "Acadêmico",
+                icon: GraduationCap,
+                subItems: [
+                  { id: "mapao", label: "Mapão Acadêmico", icon: MapPin },
+                  { id: "alocacaoDocente", label: "Alocação Docente", icon: Users },
+                ]
+              },
               { id: "cursos", label: "Cursos Disponíveis", icon: BookOpen },
               { id: "basesDisparo", label: "Bases de Disparo", icon: Globe },
               { id: "basesRenovacao", label: "Base Líquida", icon: Database },
@@ -8263,27 +8308,72 @@ export default function App() {
               { id: "acompanhamentoTarefas", label: "Acompanhamento de Tarefas", icon: ClipboardList },
               { id: "clubeLocal", label: "Clube Local", icon: Gift },
               { id: "admin", label: "Administração", icon: Settings },
-            ].map(
-              (item) =>
-                canView(item.id) && (
+            ].map((item: any) => {
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const isExpanded = expandedMenus.includes(item.id);
+              
+              if (!canView(item.id) && !hasSubItems) return null;
+              
+              // Check if any sub-item is viewable
+              const visibleSubItems = hasSubItems ? item.subItems.filter((sub: any) => canView(sub.id)) : [];
+              if (hasSubItems && visibleSubItems.length === 0) return null;
+
+              return (
+                <div key={item.id} className="space-y-1">
                   <button
-                    key={item.id}
                     onClick={() => {
-                      setCurrentView(item.id);
-                      setIsSidebarOpen(false);
+                      if (hasSubItems) {
+                        setExpandedMenus(prev => 
+                          prev.includes(item.id) 
+                            ? prev.filter(id => id !== item.id) 
+                            : [...prev, item.id]
+                        );
+                      } else {
+                        setCurrentView(item.id);
+                        setIsSidebarOpen(false);
+                      }
                     }}
                     className={cn(
-                      "w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all",
-                      currentView === item.id
+                      "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold transition-all",
+                      currentView === item.id || (hasSubItems && visibleSubItems.some((sub: any) => sub.id === currentView))
                         ? "bg-blue-500/10 text-white"
                         : "text-slate-400 hover:bg-[#082a5c] hover:text-white",
                     )}
                   >
-                    <item.icon size={20} />
-                    <span>{item.label}</span>
+                    <div className="flex items-center space-x-3">
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </div>
+                    {hasSubItems && (
+                      isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />
+                    )}
                   </button>
-                ),
-            )}
+                  
+                  {hasSubItems && isExpanded && (
+                    <div className="ml-4 pl-4 border-l border-[#092e5c] space-y-1 mt-1">
+                      {visibleSubItems.map((sub: any) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => {
+                            setCurrentView(sub.id);
+                            setIsSidebarOpen(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center space-x-3 px-4 py-2 rounded-xl text-xs font-semibold transition-all",
+                            currentView === sub.id
+                              ? "bg-blue-500/20 text-white"
+                              : "text-slate-400 hover:bg-[#082a5c] hover:text-white",
+                          )}
+                        >
+                          <sub.icon size={16} />
+                          <span>{sub.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
 
           <div className="p-4 border-t border-[#092e5c]">
@@ -8550,6 +8640,12 @@ export default function App() {
                   botConfig={botConfig}
                   onSendBot={handleSendBotMessage}
                   onMassSendBot={handleMassSendBotMessages}
+                />
+              )}
+              {currentView === "alocacaoDocente" && (
+                <AlocacaoDocenteView
+                  onToast={showToast}
+                  profile={profile!}
                 />
               )}
               {currentView === "mapao" && (
