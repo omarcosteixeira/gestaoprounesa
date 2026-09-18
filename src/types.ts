@@ -984,6 +984,8 @@ export interface Tarefa {
   notificado3d?: boolean;
   notificado1d?: boolean;
   notificadoHoje?: boolean;
+  recorrencia?: 'Uma vez' | 'Diariamente' | 'Semanalmente' | 'Mensalmente' | 'Datas Específicas';
+  datasEspecificas?: string[];
   createdAt?: any;
 }
 

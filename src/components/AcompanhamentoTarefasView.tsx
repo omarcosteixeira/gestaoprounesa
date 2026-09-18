@@ -17,6 +17,7 @@ import {
   CalendarDays,
   Zap,
   Target,
+  RefreshCw,
 } from "lucide-react";
 
 interface Props {
@@ -320,6 +321,12 @@ export function AcompanhamentoTarefasView({
                     <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${cfg.badgeBg}`}>
                       {t.status}
                     </span>
+                    {t.recorrencia && t.recorrencia !== 'Uma vez' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded uppercase border border-indigo-100">
+                        <RefreshCw size={10} />
+                        {t.recorrencia}
+                      </span>
+                    )}
                     {t.unidade && (
                       <span className="text-[10px] font-bold text-slate-400 uppercase">
                         • {t.unidade}
@@ -380,6 +387,13 @@ export function AcompanhamentoTarefasView({
                       <StatusIcon size={14} />
                       {cfg.label}
                     </span>
+
+                    {t.recorrencia && t.recorrencia !== 'Uma vez' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-lg border border-indigo-100 uppercase shadow-sm">
+                        <RefreshCw size={12} className="animate-spin-slow" />
+                        {t.recorrencia}
+                      </span>
+                    )}
 
                     {t.unidade && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg">
@@ -534,6 +548,12 @@ export function AcompanhamentoTarefasView({
                         >
                           {cfg.label}
                         </span>
+                        {t.recorrencia && t.recorrencia !== 'Uma vez' && (
+                          <div className="mt-1 text-[9px] font-black text-indigo-600 flex items-center gap-1 uppercase">
+                            <RefreshCw size={10} />
+                            {t.recorrencia}
+                          </div>
+                        )}
                       </td>
                       <td className="p-4 text-right">
                         <select

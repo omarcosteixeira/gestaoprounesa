@@ -51,6 +51,9 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
   const [envolvidosIds, setEnvolvidosIds] = useState<string[]>([]);
   const [dataPrazo, setDataPrazo] = useState("");
   const [status, setStatus] = useState<typeof STATUS_OPTIONS[number]>("Em Andamento");
+  const [recorrencia, setRecorrencia] = useState<Tarefa['recorrencia']>('Uma vez');
+  const [datasEspecificas, setDatasEspecificas] = useState<string[]>([]);
+  const [novaDataEspecifica, setNovaDataEspecifica] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleOpenModal = (t?: Tarefa) => {
@@ -63,6 +66,8 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
       setEnvolvidosIds(t.envolvidosIds || []);
       setDataPrazo(t.dataPrazo || "");
       setStatus(t.status || "Em Andamento");
+      setRecorrencia(t.recorrencia || 'Uma vez');
+      setDatasEspecificas(t.datasEspecificas || []);
     } else {
       setEditingId(null);
       setTitulo("");
@@ -72,6 +77,8 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
       setEnvolvidosIds([]);
       setDataPrazo("");
       setStatus("Em Andamento");
+      setRecorrencia('Uma vez');
+      setDatasEspecificas([]);
     }
     setIsModalOpen(true);
   };
@@ -100,6 +107,8 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
           envolvidosNomes,
           dataPrazo: dataPrazo || "",
           status,
+          recorrencia,
+          datasEspecificas: recorrencia === 'Datas Específicas' ? datasEspecificas : [],
         });
         onToast("Atividade atualizada com sucesso!", "success");
         if (onSendNotification) {
@@ -124,6 +133,8 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
           envolvidosNomes,
           dataPrazo: dataPrazo || "",
           status,
+          recorrencia,
+          datasEspecificas: recorrencia === 'Datas Específicas' ? datasEspecificas : [],
           creatorId: profile?.uid,
           creatorNome: profile?.name || profile?.nome,
           servidor: profile?.servidor || "unesa",
@@ -562,6 +573,72 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                <label className="block text-xs font-bold text-slate-600 uppercase">
+                  Recorrência da Atividade
+                </label>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {(['Uma vez', 'Diariamente', 'Semanalmente', 'Mensalmente', 'Datas Específicas'] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setRecorrencia(opt)}
+                      className={`px-3 py-2 rounded-xl text-[10px] font-bold border transition-all ${
+                        recorrencia === opt
+                          ? "bg-blue-600 border-blue-700 text-white shadow-sm"
+                          : "bg-white border-slate-200 text-slate-600 hover:border-blue-300"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+
+                {recorrencia === 'Datas Específicas' && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={novaDataEspecifica}
+                        onChange={(e) => setNovaDataEspecifica(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (novaDataEspecifica && !datasEspecificas.includes(novaDataEspecifica)) {
+                            setDatasEspecificas([...datasEspecificas, novaDataEspecifica].sort());
+                            setNovaDataEspecifica("");
+                          }
+                        }}
+                        className="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1.5">
+                      {datasEspecificas.map((d) => (
+                        <div key={d} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-700 shadow-sm">
+                          {d}
+                          <button
+                            type="button"
+                            onClick={() => setDatasEspecificas(datasEspecificas.filter(item => item !== d))}
+                            className="text-rose-500 hover:text-rose-700"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                      {datasEspecificas.length === 0 && (
+                        <span className="text-[10px] text-slate-400 italic">Nenhuma data adicionada.</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
