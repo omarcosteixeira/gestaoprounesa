@@ -565,56 +565,14 @@ async function startServer() {
     }
   });
 
-  // API endpoint for validating Brevo API key
-  app.all("/api/validate-brevo-key", async (req, res) => {
-    try {
-      const apiKey = (req.headers["x-brevo-key"] as string) || req.body?.apiKey || (req.query?.apiKey as string) || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
-      if (!apiKey) {
-        return res.status(400).json({
-          success: false,
-          error: "Nenhuma chave da Brevo informada. Forneça a chave nas configurações ou na variável BREVO_API_KEY."
-        });
-      }
-
-      const response = await fetch("https://api.brevo.com/v3/account", {
-        method: "GET",
-        headers: {
-          "api-key": apiKey.trim(),
-          "Accept": "application/json"
-        }
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        return res.status(response.status).json({
-          success: false,
-          error: data.message || `Erro da Brevo (HTTP ${response.status})`
-        });
-      }
-
-      return res.json({
-        success: true,
-        email: data.email,
-        companyName: data.companyName,
-        plan: data.plan?.[0]?.type || "Ativo",
-        credits: data.plan?.[0]?.credits ?? null
-      });
-    } catch (err: any) {
-      return res.status(500).json({
-        success: false,
-        error: err.message || "Falha ao validar chave com os servidores da Brevo."
-      });
-    }
-  });
-
   // API endpoint for Brevo E-mail Marketing sending
   app.post("/api/send-email", async (req, res) => {
     try {
-      const apiKey = (req.headers["x-brevo-key"] as string) || req.body?.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+      const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
       if (!apiKey) {
         return res.status(401).json({
           success: false,
-          error: "A chave de API do Brevo (BREVO_API_KEY) não está configurada. Por favor, insira-a nas configurações ou adicione-a nas variáveis de ambiente."
+          error: "A chave de API do Brevo (BREVO_API_KEY) não está configurada no servidor. Por favor, adicione-a nas variáveis de ambiente."
         });
       }
 

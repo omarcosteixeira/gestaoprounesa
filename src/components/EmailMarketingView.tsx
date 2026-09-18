@@ -16,9 +16,6 @@ import {
   Users,
   Eye,
   Settings,
-  KeyRound,
-  ShieldCheck,
-  Check,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -43,75 +40,6 @@ export function EmailMarketingView({
     "estaciocomercialoeste@gmail.com",
   );
   const [subject, setSubject] = useState("");
-  const [brevoApiKey, setBrevoApiKey] = useState(() => {
-    return localStorage.getItem("brevo_api_key") || "";
-  });
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [isValidatingKey, setIsValidatingKey] = useState(false);
-  const [keyValidationStatus, setKeyValidationStatus] = useState<{
-    tested: boolean;
-    valid: boolean;
-    message: string;
-  } | null>(null);
-
-  // Validate Brevo API key against /api/validate-brevo-key
-  const handleValidateBrevoKey = async (keyToValidate?: string) => {
-    const key = (keyToValidate !== undefined ? keyToValidate : brevoApiKey).trim();
-    setIsValidatingKey(true);
-    setKeyValidationStatus(null);
-    try {
-      const response = await fetch("/api/validate-brevo-key", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-brevo-key": key,
-        },
-        body: JSON.stringify({ apiKey: key }),
-      });
-
-      const rawText = await response.text();
-      let data: any = null;
-      try {
-        data = rawText ? JSON.parse(rawText) : null;
-      } catch {
-        // non-json response
-      }
-
-      if (response.ok && data?.success) {
-        setKeyValidationStatus({
-          tested: true,
-          valid: true,
-          message: `Chave válida! Conta: ${data.email || "Ativa"} (Plano: ${data.plan || "Ativo"}${data.credits !== null && data.credits !== undefined ? ` - Créditos: ${data.credits}` : ""})`,
-        });
-        if (key) {
-          localStorage.setItem("brevo_api_key", key);
-        }
-        onToast("Chave da Brevo validada com sucesso!", "success");
-      } else {
-        const errorMsg =
-          data?.error ||
-          (response.status === 405
-            ? "Erro HTTP 405: Rota de validação não encontrada ou método não suportado."
-            : `Falha ao validar chave da Brevo (HTTP ${response.status}).`);
-        setKeyValidationStatus({
-          tested: true,
-          valid: false,
-          message: errorMsg,
-        });
-        onToast(`Falha ao validar chave da Brevo: ${errorMsg}`, "error");
-      }
-    } catch (e: any) {
-      const errorMsg = e.message || "Erro de conexão ao validar chave.";
-      setKeyValidationStatus({
-        tested: true,
-        valid: false,
-        message: errorMsg,
-      });
-      onToast(`Falha ao validar chave da Brevo: ${errorMsg}`, "error");
-    } finally {
-      setIsValidatingKey(false);
-    }
-  };
 
   // Recipients
   const [recipientInput, setRecipientInput] = useState("");
@@ -189,24 +117,14 @@ export function EmailMarketingView({
 
     try {
       const messageIds = toCheck.map((l) => l.messageId);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (brevoApiKey.trim()) {
-        headers["x-brevo-key"] = brevoApiKey.trim();
-      }
       const response = await fetch("/api/email-status", {
         method: "POST",
-        headers,
-        body: JSON.stringify({ messageIds, apiKey: brevoApiKey.trim() || undefined }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageIds }),
       });
       if (response.ok) {
-        const raw = await response.text();
-        let data: any = null;
-        try {
-          data = raw ? JSON.parse(raw) : null;
-        } catch {
-          // not json
-        }
-        if (data?.success && data?.statuses) {
+        const data = await response.json();
+        if (data.success && data.statuses) {
           let updated = 0;
           const newLogs = logsToCheck.map((log) => {
             if (log.messageId && data.statuses[log.messageId]) {
@@ -479,16 +397,11 @@ export function EmailMarketingView({
     attachments: any[],
   ): Promise<{ success: boolean; messageId?: string; error?: string }> => {
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (brevoApiKey.trim()) {
-        headers["x-brevo-key"] = brevoApiKey.trim();
-      }
-
       const response = await fetch("/api/send-email", {
         method: "POST",
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           recipients: [recipient],
           subject: subjectLine,
@@ -496,31 +409,14 @@ export function EmailMarketingView({
           senderName,
           senderEmail,
           attachments,
-          apiKey: brevoApiKey.trim() || undefined,
         }),
       });
 
-      const rawText = await response.text();
-      let resJson: any = null;
-      try {
-        resJson = rawText ? JSON.parse(rawText) : null;
-      } catch {
-        // Not valid JSON
-      }
-
-      if (!response.ok || !resJson?.success) {
-        if (response.status === 405) {
-          return {
-            success: false,
-            error:
-              "Erro HTTP 405: O servidor rejeitou o método de envio. A rota /api/send-email requer suporte a POST.",
-          };
-        }
+      const resJson = await response.json();
+      if (!response.ok || !resJson.success) {
         return {
           success: false,
-          error:
-            resJson?.error ||
-            (rawText && rawText.length < 200 ? rawText : `Erro no servidor (HTTP ${response.status})`),
+          error: resJson.error || "Erro desconhecido no servidor.",
         };
       }
 
@@ -659,23 +555,13 @@ export function EmailMarketingView({
     setIsCheckingStatus(true);
     try {
       const messageIds = toCheck.map((l) => l.messageId);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (brevoApiKey.trim()) {
-        headers["x-brevo-key"] = brevoApiKey.trim();
-      }
       const response = await fetch("/api/email-status", {
         method: "POST",
-        headers,
-        body: JSON.stringify({ messageIds, apiKey: brevoApiKey.trim() || undefined }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageIds }),
       });
-      const raw = await response.text();
-      let data: any = null;
-      try {
-        data = raw ? JSON.parse(raw) : null;
-      } catch {
-        // not json
-      }
-      if (data?.success && data?.statuses) {
+      const data = await response.json();
+      if (data.success && data.statuses) {
         let updated = 0;
         const newLogs = sendLogs.map((log) => {
           if (log.messageId && data.statuses[log.messageId]) {
@@ -876,98 +762,6 @@ export function EmailMarketingView({
                       </code>
                       ).
                     </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Brevo API Key Configuration & Validation */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                    <KeyRound size={13} className="text-blue-600" />
-                    Chave de API Brevo (Opcional / Salva no Navegador)
-                  </label>
-                  {brevoApiKey && (
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="text-[10px] text-slate-400 hover:text-slate-600"
-                    >
-                      {showApiKey ? "Ocultar" : "Mostrar"}
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <input
-                    type={showApiKey ? "text" : "password"}
-                    value={brevoApiKey}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setBrevoApiKey(val);
-                      localStorage.setItem("brevo_api_key", val);
-                      setKeyValidationStatus(null);
-                    }}
-                    placeholder="xkeysib-... (deixe vazio se configurada nas variáveis do servidor/Vercel)"
-                    className="w-full px-4 py-2 pr-20 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none font-mono"
-                  />
-                  {brevoApiKey && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBrevoApiKey("");
-                        localStorage.removeItem("brevo_api_key");
-                        setKeyValidationStatus(null);
-                      }}
-                      className="absolute right-2 top-2 text-[10px] text-slate-400 hover:text-red-500 px-1"
-                    >
-                      Limpar
-                    </button>
-                  )}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Se você não configurou <code>BREVO_API_KEY</code> nas variáveis de ambiente da Vercel, pode colar sua chave aqui.
-                </p>
-
-                <div className="mt-2.5">
-                  <button
-                    type="button"
-                    onClick={() => handleValidateBrevoKey()}
-                    disabled={isValidatingKey}
-                    className="w-full py-2 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-center gap-2 transition disabled:opacity-60"
-                  >
-                    {isValidatingKey ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin text-blue-600" />
-                        Validando Chave da Brevo...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck size={14} className="text-blue-600" />
-                        Validar Chave da Brevo
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {keyValidationStatus && (
-                  <div
-                    className={`mt-2.5 p-2.5 rounded-xl border text-[11px] flex items-start gap-2 ${
-                      keyValidationStatus.valid
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                        : "bg-red-50 border-red-200 text-red-800"
-                    }`}
-                  >
-                    {keyValidationStatus.valid ? (
-                      <CheckCircle2 size={14} className="mt-0.5 flex-shrink-0 text-emerald-600" />
-                    ) : (
-                      <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-red-600" />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-semibold leading-tight">
-                        {keyValidationStatus.valid ? "Validação Aprovada!" : "Falha na Validação"}
-                      </p>
-                      <p className="text-[10px] opacity-90 mt-0.5">{keyValidationStatus.message}</p>
-                    </div>
                   </div>
                 )}
               </div>

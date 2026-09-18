@@ -117,8 +117,6 @@ service cloud.firestore {
     match /mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /evasao/{id} { allow read, write: if isAuthenticated(); }
     match /bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /salas_aula/{id} { allow read, write: if isAuthenticated(); }
-    match /historico_salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
@@ -337,8 +335,6 @@ service cloud.firestore {
     match /artifacts/gen-lang-client-0111023338/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/salas_aula/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/historico_salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
