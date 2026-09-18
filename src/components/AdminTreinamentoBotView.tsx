@@ -59,6 +59,17 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
     plan?: any[];
   } | null>(null);
 
+  const normalizeBrevoKey = (k: string) => {
+    let clean = k.trim();
+    if (!clean) return "";
+    if (!clean.startsWith("xkeysib-")) {
+      if (/^[a-f0-9]{64}-[a-zA-Z0-9]+$/i.test(clean) || (clean.includes("-") && clean.length > 50)) {
+        clean = `xkeysib-${clean}`;
+      }
+    }
+    return clean;
+  };
+
   // Sync state if botConfig updates asynchronously from Firestore
   useEffect(() => {
     if (botConfig) {
@@ -119,6 +130,10 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    const normalizedBrevo = normalizeBrevoKey(brevoApiKey);
+    if (normalizedBrevo !== brevoApiKey) {
+      setBrevoApiKey(normalizedBrevo);
+    }
     try {
       await setDoc(
         doc(db, COLLECTIONS.BOT_CONFIG, "main"),
@@ -132,7 +147,7 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
           teamsApiKey: teamsApiKey.trim(),
           teamsProcessWithAI,
           teamsDefaultInstruction: teamsDefaultInstruction.trim(),
-          brevoApiKey: brevoApiKey.trim(),
+          brevoApiKey: normalizedBrevo,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -147,9 +162,14 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
   };
 
   const handleTestBrevo = async () => {
-    if (!brevoApiKey.trim()) {
+    const keyToTest = normalizeBrevoKey(brevoApiKey);
+    if (!keyToTest) {
       onToast("Informe a Chave de API da Brevo para testar.", "error");
       return;
+    }
+
+    if (keyToTest !== brevoApiKey) {
+      setBrevoApiKey(keyToTest);
     }
 
     setTestingBrevo(true);
@@ -159,11 +179,14 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
       const res = await fetch("/api/test-brevo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brevoApiKey: brevoApiKey.trim() }),
+        body: JSON.stringify({ brevoApiKey: keyToTest }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
+        if (data.normalizedKey && data.normalizedKey !== brevoApiKey) {
+          setBrevoApiKey(data.normalizedKey);
+        }
         setBrevoTestResult({
           success: true,
           email: data.email,
@@ -396,7 +419,9 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
                     placeholder="xkeysib-..."
                     value={brevoApiKey}
                     onChange={(e) => {
-                      setBrevoApiKey(e.target.value);
+                      const raw = e.target.value;
+                      const formatted = normalizeBrevoKey(raw);
+                      setBrevoApiKey(formatted);
                       setBrevoTestResult(null);
                     }}
                     className="w-full px-3.5 py-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -410,9 +435,11 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
                     {showBrevoKey ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Gere ou copie sua chave de API v3 em <strong>Configurações &gt; SMTP &amp; API &gt; Chaves de API</strong> no painel da Brevo.
-                </p>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-slate-400">
+                  <span>
+                    Chaves da Brevo iniciam com <strong>xkeysib-</strong>. Se colar sem o prefixo, o sistema ajusta automaticamente.
+                  </span>
+                </div>
               </div>
 
               <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/60 text-[11px] text-amber-900 leading-relaxed">
