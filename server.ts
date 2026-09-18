@@ -822,7 +822,7 @@ Caso contrário (se não houver correspondência lógica ou for um item completa
             }
           });
 
-          const content = response.choices?.[0]?.message?.content;
+          const content = (response as any).choices?.[0]?.message?.content;
           if (content) {
             const result = parseJSONRobustly(content);
             return res.json({
@@ -1103,7 +1103,7 @@ Retorne exclusivamente o JSON puro. Não adicione textos adicionais antes ou dep
             }
           });
 
-          const content = response.choices?.[0]?.message?.content;
+          const content = (response as any).choices?.[0]?.message?.content;
           if (content) {
             const result = parseJSONRobustly(content);
             return res.json({
@@ -1283,7 +1283,7 @@ Sua resposta deve ser estritamente no formato JSON. Retorne UM OBJETO com a chav
         }
       });
 
-      const text = response.choices?.[0]?.message?.content;
+      const text = (response as any).choices?.[0]?.message?.content;
       if (!text) {
         return res.status(500).json({ success: false, error: "Resposta vazia da IA." });
       }
@@ -1339,7 +1339,7 @@ Retorne apenas o JSON puro.`;
         }
       });
 
-      const text = response.choices?.[0]?.message?.content || "";
+      const text = (response as any).choices?.[0]?.message?.content || "";
       let variations = [];
       try {
         variations = JSON.parse(text);
