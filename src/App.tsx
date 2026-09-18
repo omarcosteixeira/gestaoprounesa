@@ -614,6 +614,26 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR,
     ROLES.REGIONAL
   ],
+  salas: [
+    ROLES.ADMIN_MASTER,
+    ROLES.FDV,
+    ROLES.SALA_MATRICULA,
+    ROLES.QG,
+    ROLES.LIDER_FDV,
+    ROLES.SSA,
+    ROLES.GESTOR_UNIDADE,
+    ROLES.GESTOR_COMERCIAL,
+    ROLES.ACADEMICO,
+    ROLES.GESTOR_COMERCIAL_COMERCIAL,
+    ROLES.PROMOTOR,
+    ROLES.PROMOTOR_RUA,
+    ROLES.FDV_COMERCIAL,
+    ROLES.FINANCEIRO,
+    ROLES.TECNICO,
+    ROLES.LIDER_SM,
+    ROLES.GESTOR,
+    ROLES.REGIONAL
+  ],
   alocacaoDocente: [
     ROLES.ADMIN_MASTER,
     ROLES.GESTOR_UNIDADE,
@@ -1032,54 +1052,78 @@ function AcademicoView({
   mapao,
   onToast,
   profile,
+  initialTab,
 }: {
   mapao: MapaoAcademicoEntry[];
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
+  initialTab?: "mapao" | "alocacao" | "salas";
 }) {
-  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao" | "salas">("mapao");
+  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao" | "salas">(() => {
+    if (initialTab) return initialTab;
+    const saved = localStorage.getItem("academico_active_tab");
+    if (saved === "mapao" || saved === "alocacao" || saved === "salas") return saved;
+    return "mapao";
+  });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const handleSelectTab = (tab: "mapao" | "alocacao" | "salas") => {
+    setActiveTab(tab);
+    localStorage.setItem("academico_active_tab", tab);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* BARRA SUPERIOR DE SUB-ABAS (MATCHING ADMIN STYLE) */}
-      <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-2">
+      {/* BARRA SUPERIOR DE SUB-ABAS (COM DESTAQUE E FÁCIL ACESSO) */}
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200/80 flex flex-wrap items-center gap-2.5">
         <button
-          onClick={() => setActiveTab("mapao")}
+          onClick={() => handleSelectTab("mapao")}
           className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+            "flex items-center space-x-2 py-2.5 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer border",
             activeTab === "mapao"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 border-blue-600"
+              : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-slate-200"
           )}
         >
-          <MapPin size={15} />
+          <MapPin size={16} />
           <span>Mapão Acadêmico</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("alocacao")}
+          onClick={() => handleSelectTab("alocacao")}
           className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+            "flex items-center space-x-2 py-2.5 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer border",
             activeTab === "alocacao"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 border-blue-600"
+              : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-slate-200"
           )}
         >
-          <Users size={15} />
+          <Users size={16} />
           <span>Alocação Docente</span>
         </button>
 
         <button
-          onClick={() => setActiveTab("salas")}
+          onClick={() => handleSelectTab("salas")}
           className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+            "flex items-center space-x-2 py-2.5 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer border relative",
             activeTab === "salas"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/20 border-indigo-600"
+              : "bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-slate-200"
           )}
         >
-          <DoorOpen size={15} />
+          <DoorOpen size={16} />
           <span>Controle de Salas</span>
+          <span className={cn(
+            "text-[10px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded-full",
+            activeTab === "salas" ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-700"
+          )}>
+            Novo
+          </span>
         </button>
       </div>
 
@@ -5577,9 +5621,13 @@ export default function App() {
     
     // Explicitly allow SSA on principal server for requested tabs
     if (profile.role === "SSA" && (localStorage.getItem("servidor_selected") || "principal") === "principal") {
-      if (["fiesProuni", "mapao", "campanhas", "cursos", "evasao"].includes(view)) {
+      if (["fiesProuni", "mapao", "campanhas", "cursos", "evasao", "salas"].includes(view)) {
         return true;
       }
+    }
+
+    if (view === "salas") {
+      return canView("academico");
     }
 
     const isComercial =
@@ -8492,6 +8540,7 @@ export default function App() {
               },
               { id: "fiesProuni", label: "Fies/Prouni", icon: FileText },
               { id: "academico", label: "Acadêmico", icon: GraduationCap },
+              { id: "salas", label: "Controle de Salas", icon: DoorOpen },
               { id: "cursos", label: "Cursos Disponíveis", icon: BookOpen },
               { id: "basesDisparo", label: "Bases de Disparo", icon: Globe },
               { id: "basesRenovacao", label: "Base Líquida", icon: Database },
@@ -8832,6 +8881,15 @@ export default function App() {
                   mapao={mapao}
                   onToast={showToast}
                   profile={profile!}
+                  initialTab="mapao"
+                />
+              )}
+              {currentView === "salas" && (
+                <AcademicoView
+                  mapao={mapao}
+                  onToast={showToast}
+                  profile={profile!}
+                  initialTab="salas"
                 />
               )}
               {currentView === "cursos" && (

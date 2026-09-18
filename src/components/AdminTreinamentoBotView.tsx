@@ -176,30 +176,90 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
     setBrevoTestResult(null);
 
     try {
-      const res = await fetch("/api/test-brevo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brevoApiKey: keyToTest }),
-      });
+      let isSuccess = false;
+      let accountData: any = null;
+      let lastErrorMessage = "";
 
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.success) {
-        if (data.normalizedKey && data.normalizedKey !== brevoApiKey) {
-          setBrevoApiKey(data.normalizedKey);
+      // 1. Tentar validar via servidor proxy local
+      try {
+        const res = await fetch("/api/test-brevo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brevoApiKey: keyToTest }),
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data && data.success) {
+            isSuccess = true;
+            accountData = data;
+          } else if (data?.error) {
+            lastErrorMessage = data.error;
+          }
+        } else if (res.status === 405 || res.status === 404) {
+          console.warn(`[Brevo] Rota /api/test-brevo retornou ${res.status} (ambiente estático/Vercel). Tentando chamada direta à Brevo via CORS...`);
+        } else {
+          const data = await res.json().catch(() => null);
+          lastErrorMessage = data?.error || `Erro HTTP ${res.status}`;
+        }
+      } catch (proxyErr: any) {
+        console.warn("[Brevo] Falha ao conectar na rota local /api/test-brevo:", proxyErr.message);
+      }
+
+      // 2. Se a rota do servidor falhar ou retornar 405 (ex: Vercel estático), tenta chamada direta à API da Brevo via CORS
+      if (!isSuccess) {
+        try {
+          const directRes = await fetch("https://api.brevo.com/v3/account", {
+            method: "GET",
+            headers: {
+              "api-key": keyToTest,
+              "Accept": "application/json",
+            },
+          });
+
+          const directData = await directRes.json().catch(() => ({}));
+          if (directRes.ok && directData.email) {
+            isSuccess = true;
+            accountData = {
+              success: true,
+              normalizedKey: keyToTest,
+              email: directData.email,
+              companyName: directData.companyName,
+              firstName: directData.firstName,
+              lastName: directData.lastName,
+              plan: directData.plan,
+            };
+          } else {
+            let msg = directData.message || `Falha na autenticação Brevo (HTTP ${directRes.status})`;
+            if (msg.includes("unrecognised IP address")) {
+              msg = "Bloqueio de IP na Brevo. Acesse sua conta Brevo > Configurações > Segurança e desabilite a restrição de IPs autorizados para esta chave.";
+            } else if (msg.includes("Key not found")) {
+              msg = "Chave de API não encontrada na Brevo. Certifique-se de copiar a chave completa (iniciando com 'xkeysib-').";
+            }
+            lastErrorMessage = msg;
+          }
+        } catch (directErr: any) {
+          lastErrorMessage = lastErrorMessage || directErr.message || "Erro de conexão com os servidores da Brevo.";
+        }
+      }
+
+      if (isSuccess && accountData) {
+        if (accountData.normalizedKey && accountData.normalizedKey !== brevoApiKey) {
+          setBrevoApiKey(accountData.normalizedKey);
         }
         setBrevoTestResult({
           success: true,
-          email: data.email,
-          companyName: data.companyName,
-          plan: data.plan,
+          email: accountData.email,
+          companyName: accountData.companyName,
+          plan: accountData.plan,
         });
-        onToast("Chave da Brevo validada com sucesso!", "success");
+        onToast(`Chave validada com sucesso! Conectado a: ${accountData.email} (${accountData.companyName || "Brevo"})`, "success");
       } else {
         setBrevoTestResult({
           success: false,
-          error: data.error || `Erro HTTP ${res.status}`,
+          error: lastErrorMessage || "Chave de API da Brevo inválida.",
         });
-        onToast(`Falha na validação: ${data.error || res.statusText}`, "error");
+        onToast(`Falha na validação: ${lastErrorMessage || "Chave inválida"}`, "error");
       }
     } catch (err: any) {
       setBrevoTestResult({
