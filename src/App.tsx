@@ -14,6 +14,8 @@ import { AdminMainView } from "./components/AdminMainView";
 import { ChecklistView } from "./components/ChecklistView";
 import { AcompanhamentoTarefasView } from "./components/AcompanhamentoTarefasView";
 import { ClubeLocalView } from "./components/ClubeLocalView";
+import { ControleSalasView } from "./components/ControleSalasView";
+import { RelatorioDoDiaModal } from "./components/RelatorioDoDiaModal";
 import { jsPDF } from "jspdf";
 import { initializeApp, getApp } from "firebase/app";
 import {
@@ -128,6 +130,7 @@ import {
   Award,
   Image as ImageIcon,
   Paperclip,
+  DoorClosed,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -206,6 +209,7 @@ import {
   AcaoRua,
   MetaRVV,
   Docente,
+  SalaAula,
 } from "./types";
 import { OPENROUTER_MODELS } from "./ai-config";
 import CrescimentoAnualAdmin from "./components/CrescimentoAnualAdmin";
@@ -1035,45 +1039,86 @@ function AcademicoView({
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
 }) {
-  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao">("mapao");
+  const [activeTab, setActiveTab] = useState<"mapao" | "salas" | "alocacao">("mapao");
+  const [showRelatorioModal, setShowRelatorioModal] = useState(false);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* BARRA SUPERIOR DE SUB-ABAS (MATCHING ADMIN STYLE) */}
-      <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-2">
-        <button
-          onClick={() => setActiveTab("mapao")}
-          className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
-            activeTab === "mapao"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-          )}
-        >
-          <MapPin size={15} />
-          <span>Mapão Acadêmico</span>
-        </button>
+      <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveTab("mapao")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "mapao"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <MapPin size={15} />
+            <span>Mapão Acadêmico</span>
+          </button>
 
+          <button
+            onClick={() => setActiveTab("salas")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "salas"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <DoorClosed size={15} />
+            <span>Controle de Salas</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("alocacao")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "alocacao"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <Users size={15} />
+            <span>Alocação Docente</span>
+          </button>
+        </div>
+
+        {/* Botão Relatório do Dia */}
         <button
-          onClick={() => setActiveTab("alocacao")}
-          className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
-            activeTab === "alocacao"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-          )}
+          onClick={() => setShowRelatorioModal(true)}
+          className="flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
         >
-          <Users size={15} />
-          <span>Alocação Docente</span>
+          <FileText size={15} />
+          <span>Relatório do Dia (PDF)</span>
         </button>
       </div>
 
       {activeTab === "mapao" && (
-        <MapaoAcademicoView mapao={mapao} onToast={onToast} profile={profile} />
+        <MapaoAcademicoView
+          mapao={mapao}
+          onToast={onToast}
+          profile={profile}
+          onOpenRelatorioDia={() => setShowRelatorioModal(true)}
+        />
+      )}
+      {activeTab === "salas" && (
+        <ControleSalasView profile={profile} mapao={mapao} onToast={onToast} />
       )}
       {activeTab === "alocacao" && (
         <AlocacaoDocenteView onToast={onToast} profile={profile} />
       )}
+
+      {/* Modal do Relatório do Dia */}
+      <RelatorioDoDiaModal
+        isOpen={showRelatorioModal}
+        onClose={() => setShowRelatorioModal(false)}
+        mapao={mapao}
+        onToast={onToast}
+      />
     </div>
   );
 }
@@ -1082,15 +1127,36 @@ function MapaoAcademicoView({
   mapao,
   onToast,
   profile,
+  onOpenRelatorioDia,
 }: {
   mapao: MapaoAcademicoEntry[];
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
+  onOpenRelatorioDia?: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MapaoAcademicoEntry | null>(
     null,
   );
+  const [salas, setSalas] = useState<SalaAula[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, COLLECTIONS.SALAS_AULA),
+      (snap) => {
+        const list: SalaAula[] = [];
+        snap.forEach((d) => {
+          list.push({ id: d.id, ...d.data() } as SalaAula);
+        });
+        list.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", undefined, { numeric: true }));
+        setSalas(list);
+      },
+      (err) => {
+        console.error("Erro ao carregar salas no Mapão:", err);
+      }
+    );
+    return () => unsub();
+  }, []);
 
   const defaultDisciplina = {
     codDisc: "",
@@ -1103,6 +1169,7 @@ function MapaoAcademicoView({
     matricula: "",
     observacao: "",
     linkAula: "",
+    sala: "",
   };
 
   const [formData, setFormData] = useState<Partial<MapaoAcademicoEntry>>({
@@ -1172,6 +1239,7 @@ function MapaoAcademicoView({
     }
 
     try {
+      let savedId = editingEntry?.id;
       if (editingEntry) {
         await updateDoc(doc(db, COLLECTIONS.MAPAO_ACADEMICO, editingEntry.id), {
           ...formData,
@@ -1179,12 +1247,40 @@ function MapaoAcademicoView({
         });
         onToast("Registro atualizado!");
       } else {
-        await addDoc(collection(db, COLLECTIONS.MAPAO_ACADEMICO), {
+        const ref = await addDoc(collection(db, COLLECTIONS.MAPAO_ACADEMICO), {
           ...formData,
           createdAt: serverTimestamp(),
         });
+        savedId = ref.id;
         onToast("Registro cadastrado!");
       }
+
+      // Sincronização automática com o Histórico de Controle de Salas de Aula
+      if (formData.disciplinas && formData.disciplinas.length > 0) {
+        for (const disc of formData.disciplinas) {
+          if (disc.tipoDisciplina === "PRESENCIAL" && disc.sala && disc.sala.trim() !== "") {
+            try {
+              await addDoc(collection(db, COLLECTIONS.HISTORICO_SALAS), {
+                salaNome: disc.sala.trim(),
+                dia: disc.dia || "Segunda-feira",
+                horario: disc.horario || "",
+                disciplina: disc.disciplina || "",
+                codDisc: disc.codDisc || "",
+                professor: disc.professor || "",
+                curso: formData.curso || "",
+                periodo: formData.periodo || "",
+                turma: disc.turma || "",
+                mapaoId: savedId || "",
+                origem: "MAPAO",
+                createdAt: serverTimestamp(),
+              });
+            } catch (errHist) {
+              console.warn("Aviso ao registrar histórico de sala:", errHist);
+            }
+          }
+        }
+      }
+
       setShowModal(false);
       setEditingEntry(null);
       setFormData({
@@ -1258,6 +1354,7 @@ function MapaoAcademicoView({
           "Tipo Disciplina": "",
           Professor: "",
           Matrícula: "",
+          Sala: "",
           Observação: "",
           "Link Aula": ""
         });
@@ -1276,6 +1373,7 @@ function MapaoAcademicoView({
             "Tipo Disciplina": d.tipoDisciplina,
             Professor: d.professor,
             Matrícula: d.matricula,
+            Sala: d.sala || "",
             Observação: d.observacao,
             "Link Aula": d.linkAula || ""
           });
@@ -1336,6 +1434,7 @@ function MapaoAcademicoView({
               tipoDisciplina: String(getVal(row, "tipo disciplina", "tipodisciplina") || "").trim() || "PRESENCIAL",
               professor: String(getVal(row, "professor") || "").trim(),
               matricula: String(getVal(row, "matrícula", "matricula") || "").trim(),
+              sala: String(getVal(row, "sala", "sala de aula", "saladeaula") || "").trim(),
               observacao: String(getVal(row, "observação", "observacao") || "").trim(),
               linkAula: String(getVal(row, "link aula", "linkaula") || "").trim()
             });
@@ -1421,11 +1520,22 @@ function MapaoAcademicoView({
             </label>
             <button
               onClick={handleExport}
-              className="bg-slate-100 text-slate-700 px-4 py-2.5 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center space-x-2"
+              className="bg-slate-100 text-slate-700 px-4 py-2.5 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center space-x-2 cursor-pointer"
             >
               <Download size={18} />
               <span className="hidden sm:inline">Exportar</span>
             </button>
+            {onOpenRelatorioDia && (
+              <button
+                type="button"
+                onClick={onOpenRelatorioDia}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-2xl font-bold transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-2 cursor-pointer"
+                title="Gerar Relatório do Dia em PDF"
+              >
+                <FileText size={18} />
+                <span className="hidden sm:inline">Relatório do Dia</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 setEditingEntry(null);
@@ -1436,7 +1546,7 @@ function MapaoAcademicoView({
                 });
                 setShowModal(true);
               }}
-              className="bg-blue-600 text-white px-6 py-2.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center space-x-2"
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center space-x-2 cursor-pointer"
             >
               <Plus size={20} />
               <span>Novo Cadastro</span>
@@ -1657,9 +1767,16 @@ function MapaoAcademicoView({
                         <Users size={12} className="text-emerald-500" />
                         <span className="text-[10px] font-bold">
                           {disc.turma || "-"}
-
                         </span>
                       </div>
+                      {disc.sala && (
+                        <div className="flex items-center space-x-1.5 text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-100 shadow-sm">
+                          <DoorClosed size={12} className="text-blue-600" />
+                          <span className="text-[10px] font-bold">
+                            Sala: {disc.sala}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {disc.observacao && (
@@ -1967,6 +2084,40 @@ function MapaoAcademicoView({
                             <option value="TEAMS">Teams</option>
                           </select>
                         </div>
+
+                        {disc.tipoDisciplina === "PRESENCIAL" && (
+                          <div>
+                            <label className="block text-xs font-bold text-blue-700 mb-1 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <DoorClosed size={13} className="text-blue-600" />
+                                Sala de Aula Presencial
+                              </span>
+                              {salas.length === 0 && (
+                                <span className="text-[10px] text-amber-600 font-normal">
+                                  (Cadastre em Controle de Salas)
+                                </span>
+                              )}
+                            </label>
+                            <select
+                              className="w-full px-3 py-2.5 rounded-xl border border-blue-200 bg-blue-50/40 outline-none text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                              value={disc.sala || ""}
+                              onChange={(e) =>
+                                handleChangeDisciplina(
+                                  idx,
+                                  "sala",
+                                  e.target.value,
+                                )
+                              }
+                            >
+                              <option value="">Selecione a sala de aula...</option>
+                              {salas.map((s) => (
+                                <option key={s.id} value={s.nome}>
+                                  {s.nome} {s.bloco ? `(${s.bloco})` : ""} - Cap. {s.capacidade || 40} ({s.status || "Disponível"})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                         {(disc.tipoDisciplina === "PRESENCIAL" || disc.tipoDisciplina === "TEAMS") && (
                           <div className="md:col-span-2">

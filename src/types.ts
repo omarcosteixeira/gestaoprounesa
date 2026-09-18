@@ -465,6 +465,38 @@ export interface MapaoDisciplina {
   matricula: string;
   observacao: string;
   linkAula?: string;
+  sala?: string;
+  salaId?: string;
+}
+
+export interface SalaAula {
+  id: string;
+  nome: string;
+  bloco?: string;
+  capacidade?: number;
+  tipo?: 'Sala de Aula' | 'Laboratório' | 'Auditório' | 'Outro';
+  recursos?: string[];
+  status?: 'Disponível' | 'Ocupada' | 'Manutenção';
+  observacoes?: string;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+export interface HistoricoSala {
+  id: string;
+  salaId?: string;
+  salaNome: string;
+  dia: string;
+  horario: string;
+  disciplina: string;
+  codDisc?: string;
+  professor?: string;
+  curso?: string;
+  periodo?: string;
+  turma?: string;
+  origem?: 'MAPAO' | 'MANUAL';
+  mapaoId?: string;
+  createdAt?: any;
 }
 
 export interface MapaoAcademicoEntry {
