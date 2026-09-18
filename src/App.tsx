@@ -128,6 +128,7 @@ import {
   Award,
   Image as ImageIcon,
   Paperclip,
+  DoorOpen,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -219,6 +220,7 @@ import { PublicPedidoCursoForm } from "./components/PublicPedidoCursoForm";
 import { PublicClubeLocalView } from "./components/PublicClubeLocalView";
 import { PublicDocenteForm } from "./components/PublicDocenteForm";
 import { AlocacaoDocenteView } from "./components/AlocacaoDocenteView";
+import { ControleSalasAulaView } from "./components/ControleSalasAulaView";
 import { MessageTemplateModal } from "./components/MessageTemplateModal";
 import { CursosDisponiveisView } from "./components/CursosDisponiveisView";
 import { ControleInsumosView } from "./components/ControleInsumosView";
@@ -1035,7 +1037,7 @@ function AcademicoView({
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
 }) {
-  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao">("mapao");
+  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao" | "salas">("mapao");
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1066,6 +1068,19 @@ function AcademicoView({
           <Users size={15} />
           <span>Alocação Docente</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab("salas")}
+          className={cn(
+            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+            activeTab === "salas"
+              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+          )}
+        >
+          <DoorOpen size={15} />
+          <span>Controle de Salas</span>
+        </button>
       </div>
 
       {activeTab === "mapao" && (
@@ -1073,6 +1088,9 @@ function AcademicoView({
       )}
       {activeTab === "alocacao" && (
         <AlocacaoDocenteView onToast={onToast} profile={profile} />
+      )}
+      {activeTab === "salas" && (
+        <ControleSalasAulaView onToast={onToast} profile={profile} />
       )}
     </div>
   );

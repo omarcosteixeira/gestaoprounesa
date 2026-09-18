@@ -20,6 +20,29 @@
       },
       "required": ["nome", "matricula"]
     },
+    "SalaAula": {
+      "title": "SalaAula",
+      "description": "Controle de salas de aula, capacidade e ocupação semanal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "numero": { "type": "string" },
+        "andar": { "type": "string" },
+        "quantidadeCadeiras": { "type": "number" },
+        "diasOcupados": { "type": "array", "items": { "type": "string" } },
+        "turnosOcupados": { "type": "array", "items": { "type": "string" } },
+        "tipo": { "type": "string" },
+        "recursos": { "type": "array", "items": { "type": "string" } },
+        "disciplinaTurma": { "type": "string" },
+        "responsavel": { "type": "string" },
+        "unidade": { "type": "string" },
+        "obs": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["numero", "andar", "quantidadeCadeiras", "diasOcupados"]
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "User profile information and role",
@@ -464,6 +487,10 @@
     "artifacts/gen-lang-client-0111023338/public/data/docentes/{docenteId}": {
       "schema": "Docente",
       "description": "Docentes registration and availability data"
+    },
+    "artifacts/gestaopro-761e1/public/data/salas_aula/{salaId}": {
+      "schema": "SalaAula",
+      "description": "Classrooms, capacity and weekly occupation data"
     }
   }
 }
