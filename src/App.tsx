@@ -128,6 +128,8 @@ import {
   Award,
   Image as ImageIcon,
   Paperclip,
+  DoorOpen,
+  CalendarCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -154,6 +156,8 @@ import * as XLSX from "xlsx";
 import { EmailMarketingView } from "./components/EmailMarketingView";
 import { RelatoriosView } from "./components/RelatoriosView";
 import { ControleConcorrenciaView } from "./components/ControleConcorrenciaView";
+import { ControleSalasView } from "./components/ControleSalasView";
+import { RelatorioDoDiaModal } from "./components/RelatorioDoDiaModal";
 import Mapa3D from "./components/Mapa3D";
 import {
   UnidadeRegional,
@@ -182,6 +186,8 @@ import {
   EmpresaParceira,
   WhatsAppMessage,
   MapaoAcademicoEntry,
+  SalaAula,
+  HistoricoSalaAula,
   BaseDisparoEntry,
   BotConfig,
   MetaDia,
@@ -1035,57 +1041,143 @@ function AcademicoView({
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
 }) {
-  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao">("mapao");
+  const [activeTab, setActiveTab] = useState<"mapao" | "alocacao" | "salas">("mapao");
+  const [salas, setSalas] = useState<SalaAula[]>([]);
+  const [historicoSalas, setHistoricoSalas] = useState<HistoricoSalaAula[]>([]);
+  const [showRelatorioModal, setShowRelatorioModal] = useState(false);
+
+  useEffect(() => {
+    const unsubSalas = onSnapshot(
+      collection(db, COLLECTIONS.SALAS),
+      (snap) => {
+        const list: SalaAula[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as SalaAula));
+        list.sort((a, b) => a.nome.localeCompare(b.nome));
+        setSalas(list);
+      },
+      (err) => console.error("Erro ao carregar salas:", err)
+    );
+
+    const unsubHistorico = onSnapshot(
+      collection(db, COLLECTIONS.HISTORICO_SALAS),
+      (snap) => {
+        const list: HistoricoSalaAula[] = [];
+        snap.forEach((d) => list.push({ id: d.id, ...d.data() } as HistoricoSalaAula));
+        setHistoricoSalas(list);
+      },
+      (err) => console.error("Erro ao carregar historico salas:", err)
+    );
+
+    return () => {
+      unsubSalas();
+      unsubHistorico();
+    };
+  }, []);
+
+  const canEdit = ["Admin Master", "Acadêmico", "Gestor Unidade"].includes(profile.role);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* BARRA SUPERIOR DE SUB-ABAS (MATCHING ADMIN STYLE) */}
-      <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap gap-2">
-        <button
-          onClick={() => setActiveTab("mapao")}
-          className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
-            activeTab === "mapao"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-          )}
-        >
-          <MapPin size={15} />
-          <span>Mapão Acadêmico</span>
-        </button>
+      <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setActiveTab("mapao")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "mapao"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <MapPin size={15} />
+            <span>Mapão Acadêmico</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab("alocacao")}
-          className={cn(
-            "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
-            activeTab === "alocacao"
-              ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-          )}
-        >
-          <Users size={15} />
-          <span>Alocação Docente</span>
-        </button>
+          <button
+            onClick={() => setActiveTab("alocacao")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "alocacao"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <Users size={15} />
+            <span>Alocação Docente</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("salas")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "salas"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <DoorOpen size={15} />
+            <span>Controle de Salas</span>
+          </button>
+        </div>
+
+        <div>
+          <button
+            onClick={() => setShowRelatorioModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 transition-all flex items-center space-x-2 cursor-pointer"
+            title="Gerar Relatório do Dia em PDF"
+          >
+            <CalendarCheck size={16} />
+            <span>Relatório do Dia (PDF)</span>
+          </button>
+        </div>
       </div>
 
       {activeTab === "mapao" && (
-        <MapaoAcademicoView mapao={mapao} onToast={onToast} profile={profile} />
+        <MapaoAcademicoView
+          mapao={mapao}
+          salas={salas}
+          onToast={onToast}
+          profile={profile}
+          onOpenRelatorioDia={() => setShowRelatorioModal(true)}
+        />
       )}
       {activeTab === "alocacao" && (
         <AlocacaoDocenteView onToast={onToast} profile={profile} />
       )}
+      {activeTab === "salas" && (
+        <ControleSalasView
+          salas={salas}
+          historico={historicoSalas}
+          mapao={mapao}
+          canEdit={canEdit}
+          onToast={onToast}
+        />
+      )}
+
+      {/* Relatório do Dia Modal */}
+      <RelatorioDoDiaModal
+        isOpen={showRelatorioModal}
+        onClose={() => setShowRelatorioModal(false)}
+        mapao={mapao}
+        salas={salas}
+      />
     </div>
   );
 }
 
 function MapaoAcademicoView({
   mapao,
+  salas = [],
   onToast,
   profile,
+  onOpenRelatorioDia,
 }: {
   mapao: MapaoAcademicoEntry[];
+  salas?: SalaAula[];
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
+  onOpenRelatorioDia?: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<MapaoAcademicoEntry | null>(
@@ -1103,6 +1195,8 @@ function MapaoAcademicoView({
     matricula: "",
     observacao: "",
     linkAula: "",
+    sala: "",
+    salaId: "",
   };
 
   const [formData, setFormData] = useState<Partial<MapaoAcademicoEntry>>({
@@ -1172,6 +1266,7 @@ function MapaoAcademicoView({
     }
 
     try {
+      let savedId = editingEntry?.id;
       if (editingEntry) {
         await updateDoc(doc(db, COLLECTIONS.MAPAO_ACADEMICO, editingEntry.id), {
           ...formData,
@@ -1179,12 +1274,38 @@ function MapaoAcademicoView({
         });
         onToast("Registro atualizado!");
       } else {
-        await addDoc(collection(db, COLLECTIONS.MAPAO_ACADEMICO), {
+        const docRef = await addDoc(collection(db, COLLECTIONS.MAPAO_ACADEMICO), {
           ...formData,
           createdAt: serverTimestamp(),
         });
+        savedId = docRef.id;
         onToast("Registro cadastrado!");
       }
+
+      // Sincronizar automático no histórico de controle de salas de aula
+      if (formData.disciplinas && formData.disciplinas.length > 0) {
+        for (const disc of formData.disciplinas) {
+          if ((disc.tipoDisciplina || "PRESENCIAL").toUpperCase() === "PRESENCIAL" && disc.sala?.trim()) {
+            await addDoc(collection(db, COLLECTIONS.HISTORICO_SALAS), {
+              salaId: disc.salaId || "",
+              salaNome: disc.sala.trim(),
+              dia: disc.dia || "Segunda-feira",
+              horario: disc.horario || "",
+              disciplina: disc.disciplina || "",
+              codDisc: disc.codDisc || "",
+              professor: disc.professor || "",
+              curso: formData.curso || "",
+              turma: disc.turma || "",
+              tipoCurso: formData.tipoCurso || "GRADUACAO",
+              mapaoId: savedId || "",
+              tipoDisciplina: "PRESENCIAL",
+              dataAlocacao: serverTimestamp(),
+              ativo: true
+            });
+          }
+        }
+      }
+
       setShowModal(false);
       setEditingEntry(null);
       setFormData({
@@ -1258,6 +1379,7 @@ function MapaoAcademicoView({
           "Tipo Disciplina": "",
           Professor: "",
           Matrícula: "",
+          "Sala de Aula": "",
           Observação: "",
           "Link Aula": ""
         });
@@ -1276,6 +1398,7 @@ function MapaoAcademicoView({
             "Tipo Disciplina": d.tipoDisciplina,
             Professor: d.professor,
             Matrícula: d.matricula,
+            "Sala de Aula": d.sala || "",
             Observação: d.observacao,
             "Link Aula": d.linkAula || ""
           });
@@ -1336,6 +1459,7 @@ function MapaoAcademicoView({
               tipoDisciplina: String(getVal(row, "tipo disciplina", "tipodisciplina") || "").trim() || "PRESENCIAL",
               professor: String(getVal(row, "professor") || "").trim(),
               matricula: String(getVal(row, "matrícula", "matricula") || "").trim(),
+              sala: String(getVal(row, "sala", "sala de aula", "saladeaula") || "").trim(),
               observacao: String(getVal(row, "observação", "observacao") || "").trim(),
               linkAula: String(getVal(row, "link aula", "linkaula") || "").trim()
             });
@@ -1426,6 +1550,16 @@ function MapaoAcademicoView({
               <Download size={18} />
               <span className="hidden sm:inline">Exportar</span>
             </button>
+            {onOpenRelatorioDia && (
+              <button
+                onClick={onOpenRelatorioDia}
+                className="bg-emerald-600 text-white px-4 py-2.5 rounded-2xl font-bold hover:bg-emerald-700 transition-all shadow-md shadow-emerald-600/20 flex items-center space-x-2 cursor-pointer"
+                title="Gerar Relatório do Dia em PDF"
+              >
+                <CalendarCheck size={18} />
+                <span className="hidden sm:inline">Relatório do Dia</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 setEditingEntry(null);
@@ -1657,9 +1791,16 @@ function MapaoAcademicoView({
                         <Users size={12} className="text-emerald-500" />
                         <span className="text-[10px] font-bold">
                           {disc.turma || "-"}
-
                         </span>
                       </div>
+                      {disc.sala && (
+                        <div className="flex items-center space-x-1.5 text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200 shadow-sm font-bold">
+                          <DoorOpen size={12} className="text-blue-600 shrink-0" />
+                          <span className="text-[10px] font-bold">
+                            Sala: {disc.sala}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {disc.observacao && (
@@ -1986,6 +2127,51 @@ function MapaoAcademicoView({
                               }
                               placeholder="Digite o nome do professor..."
                             />
+                          </div>
+                        )}
+
+                        {disc.tipoDisciplina === "PRESENCIAL" && (
+                          <div className="md:col-span-2 bg-blue-50/70 p-3.5 rounded-2xl border border-blue-200">
+                            <label className="block text-xs font-bold text-blue-900 mb-1.5 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <DoorOpen size={14} className="text-blue-600" />
+                                Sala de Aula Alocada
+                              </span>
+                              {salas.length === 0 ? (
+                                <span className="text-[10px] text-amber-700 font-normal">
+                                  (Nenhuma sala cadastrada em Controle de Salas)
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-blue-600 font-normal">
+                                  {salas.length} salas cadastradas
+                                </span>
+                              )}
+                            </label>
+                            <select
+                              className="w-full px-3 py-2.5 rounded-xl border border-blue-200 outline-none text-sm font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 bg-white shadow-sm"
+                              value={disc.sala || ""}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const found = salas.find((s) => s.nome === val);
+                                handleChangeDisciplina(idx, "sala", val);
+                                if (found) {
+                                  handleChangeDisciplina(idx, "salaId", found.id);
+                                }
+                              }}
+                            >
+                              <option value="">Selecione a sala de aula...</option>
+                              {salas.map((s) => (
+                                <option key={s.id} value={s.nome}>
+                                  {s.nome} {s.bloco ? `(${s.bloco})` : ""} {s.capacidade ? `- Cap: ${s.capacidade} alunos` : ""} {s.status !== "Ativa" ? `[${s.status}]` : ""}
+                                </option>
+                              ))}
+                            </select>
+                            {disc.sala && (
+                              <p className="text-[11px] text-blue-700 font-semibold mt-1.5 flex items-center gap-1">
+                                <Check size={13} className="text-blue-600" />
+                                Sala selecionada: <strong>{disc.sala}</strong>. O histórico de controle de salas será atualizado automaticamente ao salvar.
+                              </p>
+                            )}
                           </div>
                         )}
 

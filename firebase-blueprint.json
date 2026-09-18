@@ -20,6 +20,44 @@
       },
       "required": ["nome", "matricula"]
     },
+    "SalaAula": {
+      "title": "SalaAula",
+      "description": "Cadastro e gerenciamento de salas de aula e laboratórios",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string" },
+        "bloco": { "type": "string" },
+        "andar": { "type": "string" },
+        "capacidade": { "type": "number" },
+        "tipo": { "type": "string" },
+        "recursos": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["Ativa", "Manutenção", "Inativa"] },
+        "observacao": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nome", "status"]
+    },
+    "HistoricoSalaAula": {
+      "title": "HistoricoSalaAula",
+      "description": "Histórico e alocação de uso de salas de aula por disciplinas presenciais",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "salaId": { "type": "string" },
+        "salaNome": { "type": "string" },
+        "dia": { "type": "string" },
+        "horario": { "type": "string" },
+        "disciplina": { "type": "string" },
+        "codDisc": { "type": "string" },
+        "professor": { "type": "string" },
+        "curso": { "type": "string" },
+        "turma": { "type": "string" },
+        "mapaoId": { "type": "string" },
+        "dataAlocacao": { "type": "string", "format": "date-time" }
+      },
+      "required": ["salaId", "salaNome", "dia", "disciplina"]
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "User profile information and role",
@@ -464,6 +502,14 @@
     "artifacts/gen-lang-client-0111023338/public/data/docentes/{docenteId}": {
       "schema": "Docente",
       "description": "Docentes registration and availability data"
+    },
+    "artifacts/gen-lang-client-0111023338/public/data/salas_aula/{salaId}": {
+      "schema": "SalaAula",
+      "description": "Classrooms and laboratory rooms data"
+    },
+    "artifacts/gen-lang-client-0111023338/public/data/historico_salas_aula/{histId}": {
+      "schema": "HistoricoSalaAula",
+      "description": "Room occupancy and allocation history"
     }
   }
 }
