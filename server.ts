@@ -247,17 +247,6 @@ async function startServer() {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Global CORS and preflight handling
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, api-key, x-api-key");
-    if (req.method === "OPTIONS") {
-      return res.status(200).end();
-    }
-    next();
-  });
-
   // Request logger
   app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -576,99 +565,14 @@ async function startServer() {
     }
   });
 
-  function normalizeBrevoApiKey(key?: string): string {
-    if (!key) return "";
-    let clean = key.trim();
-    if (!clean) return "";
-    // If user copied the key without the 'xkeysib-' prefix (e.g. copied from table or double-clicked)
-    if (!clean.startsWith("xkeysib-")) {
-      if (/^[a-f0-9]{64}-[a-zA-Z0-9]+$/i.test(clean) || (clean.includes("-") && clean.length > 50)) {
-        clean = `xkeysib-${clean}`;
-      }
-    }
-    return clean;
-  }
-
-  // API endpoint for testing Brevo API connection
-  app.post("/api/test-brevo", async (req, res) => {
-    try {
-      const rawKey = (req.body.brevoApiKey || req.body.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY || "").trim();
-      if (!rawKey) {
-        return res.status(400).json({
-          success: false,
-          error: "Nenhuma chave de API da Brevo foi informada para o teste."
-        });
-      }
-
-      async function testKey(k: string) {
-        const r = await fetch("https://api.brevo.com/v3/account", {
-          headers: {
-            "api-key": k,
-            "Accept": "application/json"
-          }
-        });
-        const d = await r.json().catch(() => ({}));
-        return { ok: r.ok, status: r.status, data: d };
-      }
-
-      let normalizedKey = normalizeBrevoApiKey(rawKey);
-      let testResult = await testKey(normalizedKey);
-      let usedKey = normalizedKey;
-
-      // If normalizedKey failed and differed from rawKey, try rawKey as fallback
-      if (!testResult.ok && normalizedKey !== rawKey) {
-        const rawResult = await testKey(rawKey);
-        if (rawResult.ok) {
-          testResult = rawResult;
-          usedKey = rawKey;
-        }
-      } else if (!testResult.ok && !rawKey.startsWith("xkeysib-")) {
-        const prefixed = `xkeysib-${rawKey}`;
-        const prefixResult = await testKey(prefixed);
-        if (prefixResult.ok) {
-          testResult = prefixResult;
-          usedKey = prefixed;
-        }
-      }
-
-      if (!testResult.ok) {
-        let msg = testResult.data?.message || `Falha na autenticação (HTTP ${testResult.status})`;
-        if (msg.includes("unrecognised IP address")) {
-          msg = "Bloqueio de IP na Brevo. Acesse sua conta Brevo > Configurações > Segurança e desabilite a restrição de IPs autorizados para esta chave.";
-        }
-        return res.status(testResult.status >= 400 ? testResult.status : 400).json({
-          success: false,
-          error: msg
-        });
-      }
-
-      return res.json({
-        success: true,
-        normalizedKey: usedKey,
-        email: testResult.data.email,
-        companyName: testResult.data.companyName,
-        firstName: testResult.data.firstName,
-        lastName: testResult.data.lastName,
-        plan: testResult.data.plan
-      });
-    } catch (err: any) {
-      console.error("Erro ao testar API Brevo:", err);
-      return res.status(500).json({
-        success: false,
-        error: err.message || "Erro de conexão com os servidores da Brevo."
-      });
-    }
-  });
-
   // API endpoint for Brevo E-mail Marketing sending
   app.post("/api/send-email", async (req, res) => {
     try {
-      const rawKey = req.body.brevoApiKey || req.body.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
-      const apiKey = normalizeBrevoApiKey(rawKey);
+      const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
       if (!apiKey) {
         return res.status(401).json({
           success: false,
-          error: "A chave de API do Brevo não está configurada. Por favor, insira a chave da API do Brevo na aba Treinamento do Boot ou adicione a variável BREVO_API_KEY."
+          error: "A chave de API do Brevo (BREVO_API_KEY) não está configurada no servidor. Por favor, adicione-a nas variáveis de ambiente."
         });
       }
 
@@ -772,8 +676,7 @@ async function startServer() {
   // API endpoint for checking email status
   app.post("/api/email-status", async (req, res) => {
     try {
-      const rawKey = req.body.brevoApiKey || req.body.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
-      const apiKey = normalizeBrevoApiKey(rawKey);
+      const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
       if (!apiKey) {
         return res.status(401).json({ success: false });
       }

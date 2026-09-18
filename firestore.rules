@@ -117,7 +117,6 @@ service cloud.firestore {
     match /mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /evasao/{id} { allow read, write: if isAuthenticated(); }
     match /bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
@@ -169,7 +168,6 @@ service cloud.firestore {
     match /artifacts/gestaopro-761e1/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
@@ -228,7 +226,6 @@ service cloud.firestore {
     match /artifacts/unesa-gestaopro/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
@@ -287,7 +284,6 @@ service cloud.firestore {
     match /artifacts/gestaodeleadspro-d4230/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
@@ -339,7 +335,6 @@ service cloud.firestore {
     match /artifacts/gen-lang-client-0111023338/public/data/mapao_academico/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/evasao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/bases_renovacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/salas_aula/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/docentes/{id} {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();

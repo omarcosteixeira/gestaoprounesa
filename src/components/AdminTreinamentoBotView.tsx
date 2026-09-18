@@ -17,9 +17,6 @@ import {
   History,
   ShieldCheck,
   ExternalLink,
-  Mail,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { BotConfig, TeamsAlertLog } from "../types";
 import { db, COLLECTIONS } from "../firebase";
@@ -46,45 +43,6 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
   const [teamsApiKey, setTeamsApiKey] = useState(botConfig?.teamsApiKey || "");
   const [teamsProcessWithAI, setTeamsProcessWithAI] = useState(botConfig?.teamsProcessWithAI !== false);
   const [teamsDefaultInstruction, setTeamsDefaultInstruction] = useState(botConfig?.teamsDefaultInstruction || "");
-
-  // Brevo API Key (E-mail Marketing)
-  const [brevoApiKey, setBrevoApiKey] = useState(botConfig?.brevoApiKey || "");
-  const [showBrevoKey, setShowBrevoKey] = useState(false);
-  const [testingBrevo, setTestingBrevo] = useState(false);
-  const [brevoTestResult, setBrevoTestResult] = useState<{
-    success: boolean;
-    error?: string;
-    email?: string;
-    companyName?: string;
-    plan?: any[];
-  } | null>(null);
-
-  const normalizeBrevoKey = (k: string) => {
-    let clean = k.trim();
-    if (!clean) return "";
-    if (!clean.startsWith("xkeysib-")) {
-      if (/^[a-f0-9]{64}-[a-zA-Z0-9]+$/i.test(clean) || (clean.includes("-") && clean.length > 50)) {
-        clean = `xkeysib-${clean}`;
-      }
-    }
-    return clean;
-  };
-
-  // Sync state if botConfig updates asynchronously from Firestore
-  useEffect(() => {
-    if (botConfig) {
-      if (botConfig.trainingContext !== undefined) setTrainingContext(botConfig.trainingContext);
-      if (botConfig.aiModel !== undefined) setAiModel(botConfig.aiModel);
-      if (botConfig.openRouterApiKey !== undefined) setOpenRouterApiKey(botConfig.openRouterApiKey);
-      if (botConfig.telegramBotUrl !== undefined) setTelegramBotUrl(botConfig.telegramBotUrl);
-      if (botConfig.telegramApiKey !== undefined) setTelegramApiKey(botConfig.telegramApiKey);
-      if (botConfig.teamsBotUrl !== undefined) setTeamsBotUrl(botConfig.teamsBotUrl);
-      if (botConfig.teamsApiKey !== undefined) setTeamsApiKey(botConfig.teamsApiKey);
-      if (botConfig.teamsProcessWithAI !== undefined) setTeamsProcessWithAI(botConfig.teamsProcessWithAI !== false);
-      if (botConfig.teamsDefaultInstruction !== undefined) setTeamsDefaultInstruction(botConfig.teamsDefaultInstruction);
-      if (botConfig.brevoApiKey !== undefined) setBrevoApiKey(botConfig.brevoApiKey);
-    }
-  }, [botConfig]);
 
   // Test Runner State
   const [testChatId, setTestChatId] = useState("");
@@ -130,10 +88,6 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const normalizedBrevo = normalizeBrevoKey(brevoApiKey);
-    if (normalizedBrevo !== brevoApiKey) {
-      setBrevoApiKey(normalizedBrevo);
-    }
     try {
       await setDoc(
         doc(db, COLLECTIONS.BOT_CONFIG, "main"),
@@ -147,7 +101,6 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
           teamsApiKey: teamsApiKey.trim(),
           teamsProcessWithAI,
           teamsDefaultInstruction: teamsDefaultInstruction.trim(),
-          brevoApiKey: normalizedBrevo,
           updatedAt: serverTimestamp(),
         },
         { merge: true }
@@ -158,117 +111,6 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
       onToast(`Erro ao salvar: ${err.message}`, "error");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleTestBrevo = async () => {
-    const keyToTest = normalizeBrevoKey(brevoApiKey);
-    if (!keyToTest) {
-      onToast("Informe a Chave de API da Brevo para testar.", "error");
-      return;
-    }
-
-    if (keyToTest !== brevoApiKey) {
-      setBrevoApiKey(keyToTest);
-    }
-
-    setTestingBrevo(true);
-    setBrevoTestResult(null);
-
-    try {
-      let isSuccess = false;
-      let accountData: any = null;
-      let lastErrorMessage = "";
-
-      // 1. Tentar validar via servidor proxy local
-      try {
-        const res = await fetch("/api/test-brevo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brevoApiKey: keyToTest }),
-        });
-
-        if (res.ok) {
-          const data = await res.json().catch(() => null);
-          if (data && data.success) {
-            isSuccess = true;
-            accountData = data;
-          } else if (data?.error) {
-            lastErrorMessage = data.error;
-          }
-        } else if (res.status === 405 || res.status === 404) {
-          console.warn(`[Brevo] Rota /api/test-brevo retornou ${res.status} (ambiente estático/Vercel). Tentando chamada direta à Brevo via CORS...`);
-        } else {
-          const data = await res.json().catch(() => null);
-          lastErrorMessage = data?.error || `Erro HTTP ${res.status}`;
-        }
-      } catch (proxyErr: any) {
-        console.warn("[Brevo] Falha ao conectar na rota local /api/test-brevo:", proxyErr.message);
-      }
-
-      // 2. Se a rota do servidor falhar ou retornar 405 (ex: Vercel estático), tenta chamada direta à API da Brevo via CORS
-      if (!isSuccess) {
-        try {
-          const directRes = await fetch("https://api.brevo.com/v3/account", {
-            method: "GET",
-            headers: {
-              "api-key": keyToTest,
-              "Accept": "application/json",
-            },
-          });
-
-          const directData = await directRes.json().catch(() => ({}));
-          if (directRes.ok && directData.email) {
-            isSuccess = true;
-            accountData = {
-              success: true,
-              normalizedKey: keyToTest,
-              email: directData.email,
-              companyName: directData.companyName,
-              firstName: directData.firstName,
-              lastName: directData.lastName,
-              plan: directData.plan,
-            };
-          } else {
-            let msg = directData.message || `Falha na autenticação Brevo (HTTP ${directRes.status})`;
-            if (msg.includes("unrecognised IP address")) {
-              msg = "Bloqueio de IP na Brevo. Acesse sua conta Brevo > Configurações > Segurança e desabilite a restrição de IPs autorizados para esta chave.";
-            } else if (msg.includes("Key not found")) {
-              msg = "Chave de API não encontrada na Brevo. Certifique-se de copiar a chave completa (iniciando com 'xkeysib-').";
-            }
-            lastErrorMessage = msg;
-          }
-        } catch (directErr: any) {
-          lastErrorMessage = lastErrorMessage || directErr.message || "Erro de conexão com os servidores da Brevo.";
-        }
-      }
-
-      if (isSuccess && accountData) {
-        if (accountData.normalizedKey && accountData.normalizedKey !== brevoApiKey) {
-          setBrevoApiKey(accountData.normalizedKey);
-        }
-        setBrevoTestResult({
-          success: true,
-          email: accountData.email,
-          companyName: accountData.companyName,
-          plan: accountData.plan,
-        });
-        onToast(`Chave validada com sucesso! Conectado a: ${accountData.email} (${accountData.companyName || "Brevo"})`, "success");
-      } else {
-        setBrevoTestResult({
-          success: false,
-          error: lastErrorMessage || "Chave de API da Brevo inválida.",
-        });
-        onToast(`Falha na validação: ${lastErrorMessage || "Chave inválida"}`, "error");
-      }
-    } catch (err: any) {
-      setBrevoTestResult({
-        success: false,
-        error: err.message || "Erro de rede ao conectar à API da Brevo",
-      });
-      onToast(`Erro: ${err.message}`, "error");
-    } finally {
-      setTestingBrevo(false);
     }
   };
 
@@ -432,173 +274,6 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
                 onChange={(e) => setTelegramApiKey(e.target.value)}
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Brevo (E-mail Marketing) Integration */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-[12px] shadow-sm">
-                  <Mail size={14} />
-                </div>
-                Integração Brevo (E-mail Marketing & Disparos de Captação)
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Configuração da chave de API da Brevo (antiga Sendinblue) para envio de campanhas de e-mail marketing, testes e mensagens transacionais.
-              </p>
-            </div>
-            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 self-start sm:self-auto">
-              Brevo API v3
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
-                    Chave de API Brevo (v3 API Key / SMTP)
-                  </label>
-                  <a
-                    href="https://app.brevo.com/settings/keys/api"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1"
-                  >
-                    <span>Obter chave no Brevo</span>
-                    <ExternalLink size={10} />
-                  </a>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type={showBrevoKey ? "text" : "password"}
-                    placeholder="xkeysib-..."
-                    value={brevoApiKey}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      const formatted = normalizeBrevoKey(raw);
-                      setBrevoApiKey(formatted);
-                      setBrevoTestResult(null);
-                    }}
-                    className="w-full px-3.5 py-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowBrevoKey(!showBrevoKey)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                    title={showBrevoKey ? "Ocultar chave" : "Exibir chave"}
-                  >
-                    {showBrevoKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-                <div className="flex items-center justify-between mt-1 text-[10px] text-slate-400">
-                  <span>
-                    Chaves da Brevo iniciam com <strong>xkeysib-</strong>. Se colar sem o prefixo, o sistema ajusta automaticamente.
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200/60 text-[11px] text-amber-900 leading-relaxed">
-                <div className="font-bold flex items-center gap-1 text-amber-800 mb-0.5">
-                  <Info size={13} />
-                  Dica de Segurança da Brevo
-                </div>
-                Se a API retornar erro de IP não reconhecido (<em>unrecognised IP address</em>), acesse{" "}
-                <a
-                  href="https://app.brevo.com/security/authorised_ips"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline font-bold hover:text-amber-950 inline-flex items-center gap-0.5"
-                >
-                  Segurança &gt; IPs Autorizados <ExternalLink size={9} />
-                </a>{" "}
-                no painel da Brevo e desative a restrição de IPs ou autorize a aplicação.
-              </div>
-            </div>
-
-            {/* Test Connection Console */}
-            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col justify-between space-y-3">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Sparkles size={14} className="text-emerald-600" />
-                    Teste de Conexão com a API Brevo
-                  </span>
-                  {brevoApiKey.trim() ? (
-                    <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded font-mono font-bold">
-                      Chave Preenchida
-                    </span>
-                  ) : (
-                    <span className="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded font-mono">
-                      Não Configurada
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-500 mb-3">
-                  Valide se a chave informada está ativa e autorizada a autenticar na API da Brevo antes de salvar.
-                </p>
-
-                {brevoTestResult && (
-                  <div
-                    className={`p-3 rounded-xl border text-xs leading-relaxed ${
-                      brevoTestResult.success
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                        : "bg-rose-50 border-rose-200 text-rose-800"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-bold mb-1">
-                      {brevoTestResult.success ? (
-                        <CheckCircle2 size={15} className="text-emerald-600" />
-                      ) : (
-                        <AlertTriangle size={15} className="text-rose-600" />
-                      )}
-                      <span>
-                        {brevoTestResult.success
-                          ? "Conexão com a Brevo validada com sucesso!"
-                          : "Falha ao validar chave da Brevo"}
-                      </span>
-                    </div>
-
-                    {brevoTestResult.success && (
-                      <div className="text-[11px] space-y-0.5 mt-1 font-mono text-emerald-900">
-                        {brevoTestResult.email && <div>E-mail da Conta: <strong>{brevoTestResult.email}</strong></div>}
-                        {brevoTestResult.companyName && <div>Empresa: <strong>{brevoTestResult.companyName}</strong></div>}
-                      </div>
-                    )}
-
-                    {brevoTestResult.error && (
-                      <p className="text-[11px] mt-1 font-mono break-all text-rose-700">
-                        {brevoTestResult.error}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <button
-                  type="button"
-                  disabled={testingBrevo || !brevoApiKey.trim()}
-                  onClick={handleTestBrevo}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/40 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  {testingBrevo ? (
-                    <>
-                      <RefreshCw size={13} className="animate-spin" />
-                      <span>Validando Chave com a Brevo...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={14} />
-                      <span>Testar Conexão Brevo</span>
-                    </>
-                  )}
-                </button>
-              </div>
             </div>
           </div>
         </div>

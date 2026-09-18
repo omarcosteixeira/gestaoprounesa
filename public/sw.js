@@ -1,4 +1,4 @@
-const CACHE_NAME = 'gestao-oeste-v2';
+const CACHE_NAME = 'gestao-oeste-v1';
 const ASSETS = [
   '/',
   '/index.html',
@@ -10,7 +10,7 @@ const ASSETS = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching Core Shell v2');
+      console.log('[Service Worker] Pre-caching Core Shell');
       return cache.addAll(ASSETS);
     }).then(() => self.skipWaiting())
   );
@@ -47,44 +47,29 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Network-first for navigate / index.html to ensure users always see newly deployed views
-  if (e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
-    e.respondWith(
-      fetch(e.request)
-        .then((response) => {
-          if (response.status === 200) {
-            const resClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(e.request, resClone);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
-    );
-    return;
-  }
-
   e.respondWith(
-    caches.match(e.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cached and refresh in background
-        fetch(e.request)
-          .then((networkResponse) => {
-            if (networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(e.request, networkResponse));
-            }
-          })
-          .catch(() => {});
-        return cachedResponse;
-      }
-      return fetch(e.request).then((networkResponse) => {
-        if (networkResponse.status === 200) {
-          const resClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, resClone));
+    fetch(e.request)
+      .then((response) => {
+        // If we successfully fetch the asset, update our cache clone
+        if (response.status === 200) {
+          const resClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(e.request, resClone);
+          });
         }
-        return networkResponse;
-      });
-    })
+        return response;
+      })
+      .catch(() => {
+        // If network request fails (offline), fall back to cached copy
+        return caches.match(e.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // For single-page navigation requests, return the root cache index.html
+          if (e.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+        });
+      })
   );
 });

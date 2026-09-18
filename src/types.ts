@@ -97,24 +97,6 @@ export interface Docente {
   updatedAt: any;
 }
 
-export interface SalaAula {
-  id: string;
-  numero: string; // Número ou Identificação da Sala (ex: "101", "Lab 204")
-  andar: string; // Andar (ex: "Térreo", "1º Andar", "2º Andar", "3º Andar", "Subsolo")
-  quantidadeCadeiras: number; // Quantidade de cadeiras / capacidade
-  diasOcupados: string[]; // Dias da semana em que está ocupada (Segunda-feira, Terça-feira...)
-  turnosOcupados?: string[]; // Turnos ocupados: Manhã, Tarde, Noite
-  tipo?: 'Sala de Aula' | 'Laboratório' | 'Auditório' | 'Sala de Reunião' | 'Oficina' | 'Outro';
-  recursos?: string[]; // Projetor, Ar Condicionado, Computadores, etc.
-  disciplinaTurma?: string; // Disciplinas ou turmas alocadas
-  responsavel?: string; // Professor ou responsável
-  unidade?: string;
-  obs?: string;
-  status?: 'Ocupada' | 'Livre' | 'Manutenção' | 'Ocupação Parcial';
-  createdAt?: any;
-  updatedAt?: any;
-}
-
 export interface Campanha {
   id: string;
   nome: string;
@@ -613,7 +595,6 @@ export interface BotConfig {
   teamsApiKey?: string; // Senha x-api-key criada no Railway
   teamsProcessWithAI?: boolean; // Se deve enviar com processarComIA: true
   teamsDefaultInstruction?: string; // Instrução opcional para a IA
-  brevoApiKey?: string; // Chave de API Brevo (Sendinblue) para e-mail marketing
   updatedAt?: any;
 }
 

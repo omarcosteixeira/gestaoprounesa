@@ -18,7 +18,6 @@ import {
   Settings,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { BotConfig } from "../types";
 
 interface EmailLog {
   id: string;
@@ -30,15 +29,11 @@ interface EmailLog {
   error?: string;
 }
 
-interface EmailMarketingViewProps {
-  onToast: (m: string, t?: "success" | "error") => void;
-  botConfig?: BotConfig;
-}
-
 export function EmailMarketingView({
   onToast,
-  botConfig,
-}: EmailMarketingViewProps) {
+}: {
+  onToast: (m: string, t?: "success" | "error") => void;
+}) {
   // Config
   const [senderName, setSenderName] = useState("Leads Pro Marketing");
   const [senderEmail, setSenderEmail] = useState(
@@ -125,10 +120,7 @@ export function EmailMarketingView({
       const response = await fetch("/api/email-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messageIds,
-          ...(botConfig?.brevoApiKey ? { brevoApiKey: botConfig.brevoApiKey } : {}),
-        }),
+        body: JSON.stringify({ messageIds }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -397,34 +389,13 @@ export function EmailMarketingView({
     return { body: compiledHtml, attachments: attachmentsList };
   };
 
-  // Normalize Brevo Key
-  const normalizeBrevoKey = (key?: string): string => {
-    if (!key) return "";
-    let clean = key.trim();
-    if (!clean) return "";
-    if (!clean.startsWith("xkeysib-")) {
-      if (/^[a-f0-9]{64}-[a-zA-Z0-9]+$/i.test(clean) || (clean.includes("-") && clean.length > 50)) {
-        clean = `xkeysib-${clean}`;
-      }
-    }
-    return clean;
-  };
-
-  // Trigger API route to send a single mail with automatic CORS fallback
+  // Trigger API route to send a single mail
   const sendIndividualEmail = async (
     recipient: string,
     subjectLine: string,
     bodyHtml: string,
     attachments: any[],
   ): Promise<{ success: boolean; messageId?: string; error?: string }> => {
-    const rawApiKey = botConfig?.brevoApiKey;
-    const normalizedKey = normalizeBrevoKey(rawApiKey);
-
-    let isSuccess = false;
-    let messageId: string | undefined;
-    let lastError = "";
-
-    // 1. Tentar envio via rota local do servidor
     try {
       const response = await fetch("/api/send-email", {
         method: "POST",
@@ -438,69 +409,24 @@ export function EmailMarketingView({
           senderName,
           senderEmail,
           attachments,
-          ...(normalizedKey ? { brevoApiKey: normalizedKey } : {}),
         }),
       });
 
-      const resJson = await response.json().catch(() => null);
-      if (response.ok && resJson?.success) {
-        isSuccess = true;
-        messageId = resJson.messageId;
-      } else if (response.status === 405 || response.status === 404 || !resJson) {
-        console.warn(`[Brevo Email] Servidor retornou HTTP ${response.status} (ambiente estático/Vercel). Acionando envio direto via Brevo API...`);
-      } else {
-        lastError = resJson?.error || `Erro HTTP ${response.status}`;
-      }
-    } catch (proxyErr: any) {
-      console.warn("[Brevo Email] Falha na chamada da rota proxy local:", proxyErr.message);
-    }
-
-    // 2. Se a rota do servidor falhar ou retornar 405 (ex: Vercel estático) e possuirmos a chave da Brevo, faz o envio direto
-    if (!isSuccess && normalizedKey) {
-      try {
-        const payload: any = {
-          sender: {
-            name: senderName || "Leads Pro Marketing",
-            email: senderEmail || "estaciocomercialoeste@gmail.com",
-          },
-          to: [{ email: recipient.trim() }],
-          subject: subjectLine,
-          htmlContent: bodyHtml,
+      const resJson = await response.json();
+      if (!response.ok || !resJson.success) {
+        return {
+          success: false,
+          error: resJson.error || "Erro desconhecido no servidor.",
         };
-        if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-          payload.attachment = attachments;
-        }
-
-        const directRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: {
-            "api-key": normalizedKey,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const directJson = await directRes.json().catch(() => ({}));
-        if (directRes.ok && directJson?.messageId) {
-          isSuccess = true;
-          messageId = directJson.messageId;
-        } else {
-          lastError = directJson?.message || `Erro Brevo (HTTP ${directRes.status})`;
-        }
-      } catch (directErr: any) {
-        lastError = directErr.message || "Erro de conexão direta com a Brevo.";
       }
-    }
 
-    if (isSuccess) {
-      return { success: true, messageId };
+      return { success: true, messageId: resJson.messageId };
+    } catch (e: any) {
+      return {
+        success: false,
+        error: e.message || "Erro de rede na requisição externa.",
+      };
     }
-
-    return {
-      success: false,
-      error: lastError || "Não foi possível enviar o e-mail. Verifique a chave da Brevo nas configurações do Bot.",
-    };
   };
 
   const [testEmailDialogOpen, setTestEmailDialogOpen] = useState(false);
@@ -632,10 +558,7 @@ export function EmailMarketingView({
       const response = await fetch("/api/email-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messageIds,
-          ...(botConfig?.brevoApiKey ? { brevoApiKey: botConfig.brevoApiKey } : {}),
-        }),
+        body: JSON.stringify({ messageIds }),
       });
       const data = await response.json();
       if (data.success && data.statuses) {
