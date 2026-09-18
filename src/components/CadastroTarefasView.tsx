@@ -30,6 +30,7 @@ interface Props {
 const STATUS_OPTIONS = [
   "Em Andamento",
   "Parado",
+  "Urgente",
   "Atrasado",
   "Deferido",
   "Cancelado",
@@ -349,6 +350,8 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
                             ? "bg-blue-100 text-blue-800 border border-blue-200"
                             : t.status === "Parado"
                             ? "bg-amber-100 text-amber-800 border border-amber-200"
+                            : t.status === "Urgente"
+                            ? "bg-orange-100 text-orange-800 border border-orange-200"
                             : t.status === "Atrasado"
                             ? "bg-rose-100 text-rose-800 border border-rose-200"
                             : t.status === "Deferido"

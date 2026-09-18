@@ -977,7 +977,7 @@ export interface Tarefa {
   envolvidosIds?: string[];
   envolvidosNomes?: string[];
   dataPrazo?: string;
-  status: 'Em Andamento' | 'Parado' | 'Atrasado' | 'Deferido' | 'Cancelado';
+  status: 'Em Andamento' | 'Parado' | 'Atrasado' | 'Deferido' | 'Cancelado' | 'Urgente';
   creatorId?: string;
   creatorNome?: string;
   servidor?: string;
