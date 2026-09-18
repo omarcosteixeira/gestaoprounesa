@@ -565,14 +565,61 @@ async function startServer() {
     }
   });
 
+  // API endpoint for testing Brevo API connection
+  app.post("/api/test-brevo", async (req, res) => {
+    try {
+      const apiKey = req.body.brevoApiKey || req.body.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+      if (!apiKey || !apiKey.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: "Nenhuma chave de API da Brevo foi informada para o teste."
+        });
+      }
+
+      const response = await fetch("https://api.brevo.com/v3/account", {
+        headers: {
+          "api-key": apiKey.trim(),
+          "Accept": "application/json"
+        }
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        let msg = data.message || `Falha na autenticação (HTTP ${response.status})`;
+        if (msg.includes("unrecognised IP address")) {
+          msg = "Bloqueio de IP na Brevo. Acesse sua conta Brevo > Configurações > Segurança e desabilite a restrição de IPs autorizados para esta chave.";
+        }
+        return res.status(response.status >= 400 ? response.status : 400).json({
+          success: false,
+          error: msg
+        });
+      }
+
+      return res.json({
+        success: true,
+        email: data.email,
+        companyName: data.companyName,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        plan: data.plan
+      });
+    } catch (err: any) {
+      console.error("Erro ao testar API Brevo:", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "Erro de conexão com os servidores da Brevo."
+      });
+    }
+  });
+
   // API endpoint for Brevo E-mail Marketing sending
   app.post("/api/send-email", async (req, res) => {
     try {
-      const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+      const apiKey = req.body.brevoApiKey || req.body.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
       if (!apiKey) {
         return res.status(401).json({
           success: false,
-          error: "A chave de API do Brevo (BREVO_API_KEY) não está configurada no servidor. Por favor, adicione-a nas variáveis de ambiente."
+          error: "A chave de API do Brevo não está configurada. Por favor, insira a chave da API do Brevo na aba Treinamento do Boot ou adicione a variável BREVO_API_KEY."
         });
       }
 
@@ -676,7 +723,7 @@ async function startServer() {
   // API endpoint for checking email status
   app.post("/api/email-status", async (req, res) => {
     try {
-      const apiKey = process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
+      const apiKey = req.body.brevoApiKey || req.body.apiKey || process.env.BREVO_API_KEY || process.env.SENDINBLUE_API_KEY;
       if (!apiKey) {
         return res.status(401).json({ success: false });
       }

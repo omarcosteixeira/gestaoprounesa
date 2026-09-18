@@ -595,6 +595,7 @@ export interface BotConfig {
   teamsApiKey?: string; // Senha x-api-key criada no Railway
   teamsProcessWithAI?: boolean; // Se deve enviar com processarComIA: true
   teamsDefaultInstruction?: string; // Instrução opcional para a IA
+  brevoApiKey?: string; // Chave de API Brevo (Sendinblue) para e-mail marketing
   updatedAt?: any;
 }
 

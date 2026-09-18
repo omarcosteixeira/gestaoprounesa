@@ -8842,7 +8842,7 @@ export default function App() {
               )}
               {currentView === "calculo" && <CalculoRemuneracaoView />}
               {currentView === "emailMarketing" && (
-                <EmailMarketingView onToast={showToast} />
+                <EmailMarketingView onToast={showToast} botConfig={botConfig} />
               )}
               {currentView === "controlePagamentos" && (
                 <ControlePagamentosView

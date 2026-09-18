@@ -18,6 +18,7 @@ import {
   Settings,
 } from "lucide-react";
 import * as XLSX from "xlsx";
+import { BotConfig } from "../types";
 
 interface EmailLog {
   id: string;
@@ -29,11 +30,15 @@ interface EmailLog {
   error?: string;
 }
 
+interface EmailMarketingViewProps {
+  onToast: (m: string, t?: "success" | "error") => void;
+  botConfig?: BotConfig;
+}
+
 export function EmailMarketingView({
   onToast,
-}: {
-  onToast: (m: string, t?: "success" | "error") => void;
-}) {
+  botConfig,
+}: EmailMarketingViewProps) {
   // Config
   const [senderName, setSenderName] = useState("Leads Pro Marketing");
   const [senderEmail, setSenderEmail] = useState(
@@ -120,7 +125,10 @@ export function EmailMarketingView({
       const response = await fetch("/api/email-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageIds }),
+        body: JSON.stringify({
+          messageIds,
+          ...(botConfig?.brevoApiKey ? { brevoApiKey: botConfig.brevoApiKey } : {}),
+        }),
       });
       if (response.ok) {
         const data = await response.json();
@@ -409,6 +417,7 @@ export function EmailMarketingView({
           senderName,
           senderEmail,
           attachments,
+          ...(botConfig?.brevoApiKey ? { brevoApiKey: botConfig.brevoApiKey } : {}),
         }),
       });
 
@@ -558,7 +567,10 @@ export function EmailMarketingView({
       const response = await fetch("/api/email-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageIds }),
+        body: JSON.stringify({
+          messageIds,
+          ...(botConfig?.brevoApiKey ? { brevoApiKey: botConfig.brevoApiKey } : {}),
+        }),
       });
       const data = await response.json();
       if (data.success && data.statuses) {
