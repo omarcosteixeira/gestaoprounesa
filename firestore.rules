@@ -83,15 +83,23 @@ service cloud.firestore {
     match /funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
     match /tarefas/{id} { allow read, write: if isAuthenticated(); }
     match /checklist/{id} { allow read, write: if isAuthenticated(); }
-    match /meta_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /meta_sm/{id} { allow read, write: if isAuthenticated(); }
-    match /meta_cursos/{id} { allow read, write: if isAuthenticated(); }
-    match /bom_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
-    match /linksUteis/{id} { allow read, write: if isAuthenticated(); }
-    match /planner/{id} { allow read, write: if isAuthenticated(); }
-    match /periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
-    match /forecast/{id} { allow read, write: if isAuthenticated(); }
+    
+    // Admin & Metrics (Restricted to Lider SM and Admins)
+    match /meta_dia/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /meta_sm/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /meta_cursos/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /meta_rvv/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /bom_dia/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /meta_unidade_regional/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /linksUteis/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /planner/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /periodo_captacao/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /forecast/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /crescimento_anual/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /solicitacoes_folga/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /qg_ligacoes/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /acao_rua/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+
     match /cursos/{id} { allow read, write: if isAuthenticated(); }
     match /campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /funcionarios/{id} { allow read, write: if isAuthenticated(); }
@@ -99,9 +107,6 @@ service cloud.firestore {
     match /controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
     match /precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
     match /evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
-    match /crescimento_anual/{id} { allow read, write: if isAuthenticated(); }
-    match /solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
-    match /qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
     match /clube_resgates/{id} {
       allow read, create, update: if true;
@@ -123,7 +128,7 @@ service cloud.firestore {
     }
 
     match /{collectionName}/{id} {
-      allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
+      allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }
 
     // ===============================================================
@@ -141,15 +146,23 @@ service cloud.firestore {
     match /artifacts/gestaopro-761e1/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/meta_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/meta_sm/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/meta_cursos/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/bom_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+
+    // Admin & Metrics (Restricted to Lider SM and Admins)
+    match /artifacts/gestaopro-761e1/public/data/meta_dia/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaopro-761e1/public/data/meta_sm/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/meta_cursos/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/meta_rvv/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/bom_dia/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/meta_unidade_regional/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaopro-761e1/public/data/linksUteis/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaopro-761e1/public/data/planner/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaopro-761e1/public/data/periodo_captacao/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaopro-761e1/public/data/forecast/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaopro-761e1/public/data/crescimento_anual/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/solicitacoes_folga/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/qg_ligacoes/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaopro-761e1/public/data/acao_rua/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+
     match /artifacts/gestaopro-761e1/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
@@ -157,9 +170,6 @@ service cloud.firestore {
     match /artifacts/gestaopro-761e1/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/crescimento_anual/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaopro-761e1/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaopro-761e1/public/data/clube_resgates/{id} { allow read, write: if true; }
     match /artifacts/gestaopro-761e1/public/data/clube_empresas_validadoras/{id} { allow read, write: if true; }
@@ -174,7 +184,7 @@ service cloud.firestore {
     }
 
     match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
-      allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
+      allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }
 
     // ===============================================================
@@ -192,15 +202,23 @@ service cloud.firestore {
     match /artifacts/unesa-gestaopro/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/meta_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/meta_sm/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/meta_cursos/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/bom_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+
+    // Admin & Metrics (Restricted to Lider SM and Admins)
+    match /artifacts/unesa-gestaopro/public/data/meta_dia/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/unesa-gestaopro/public/data/meta_sm/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/meta_cursos/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/meta_rvv/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/bom_dia/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/meta_unidade_regional/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/unesa-gestaopro/public/data/linksUteis/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/unesa-gestaopro/public/data/planner/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/unesa-gestaopro/public/data/periodo_captacao/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/unesa-gestaopro/public/data/forecast/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/unesa-gestaopro/public/data/crescimento_anual/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/solicitacoes_folga/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/qg_ligacoes/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/unesa-gestaopro/public/data/acao_rua/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+
     match /artifacts/unesa-gestaopro/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
@@ -208,9 +226,6 @@ service cloud.firestore {
     match /artifacts/unesa-gestaopro/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/crescimento_anual/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/unesa-gestaopro/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/unesa-gestaopro/public/data/clube_resgates/{id} {
       allow read, create, update: if true;
@@ -232,7 +247,7 @@ service cloud.firestore {
     }
 
     match /artifacts/unesa-gestaopro/public/data/{collectionName}/{id} {
-      allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
+      allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }
 
     // ===============================================================
@@ -250,15 +265,23 @@ service cloud.firestore {
     match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/meta_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/meta_sm/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/meta_cursos/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/bom_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+
+    // Admin & Metrics (Restricted to Lider SM and Admins)
+    match /artifacts/gestaodeleadspro-d4230/public/data/meta_dia/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/meta_sm/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/meta_cursos/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/meta_rvv/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/bom_dia/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/meta_unidade_regional/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/linksUteis/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/planner/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/periodo_captacao/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/forecast/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/crescimento_anual/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/solicitacoes_folga/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/qg_ligacoes/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/acao_rua/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+
     match /artifacts/gestaodeleadspro-d4230/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
@@ -266,9 +289,6 @@ service cloud.firestore {
     match /artifacts/gestaodeleadspro-d4230/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/crescimento_anual/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gestaodeleadspro-d4230/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gestaodeleadspro-d4230/public/data/clube_resgates/{id} {
       allow read, create, update: if true;
@@ -290,7 +310,7 @@ service cloud.firestore {
     }
 
     match /artifacts/gestaodeleadspro-d4230/public/data/{collectionName}/{id} {
-      allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
+      allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }
 
     // ===============================================================
@@ -308,15 +328,23 @@ service cloud.firestore {
     match /artifacts/gen-lang-client-0111023338/public/data/funcionarios_sm/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/tarefas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/checklist/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/meta_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/meta_sm/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/meta_cursos/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/bom_dia/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/meta_unidade_regional/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/linksUteis/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/planner/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/periodo_captacao/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/forecast/{id} { allow read, write: if isAuthenticated(); }
+
+    // Admin & Metrics (Restricted to Lider SM and Admins)
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_dia/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_sm/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_cursos/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_rvv/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/bom_dia/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/meta_unidade_regional/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/linksUteis/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/planner/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/periodo_captacao/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/forecast/{id} { allow read, write: if isMasterUser() || isLiderSM() || isRegional(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/crescimento_anual/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/solicitacoes_folga/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/qg_ligacoes/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/acao_rua/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
+
     match /artifacts/gen-lang-client-0111023338/public/data/cursos/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/funcionarios/{id} { allow read, write: if isAuthenticated(); }
@@ -324,9 +352,6 @@ service cloud.firestore {
     match /artifacts/gen-lang-client-0111023338/public/data/controle_concorrencia/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/precos_instituicao/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/evidencias_cliente_oculto/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/crescimento_anual/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/solicitacoes_folga/{id} { allow read, write: if isAuthenticated(); }
-    match /artifacts/gen-lang-client-0111023338/public/data/qg_ligacoes/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/clube_parceiros/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/clube_resgates/{id} { allow read, write: if true; }
     match /artifacts/gen-lang-client-0111023338/public/data/clube_empresas_validadoras/{id} { allow read, write: if true; }
@@ -340,7 +365,7 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
     match /artifacts/gen-lang-client-0111023338/public/data/{collectionName}/{id} {
-      allow read, write: if isAuthenticated() && (isMasterUser() || !isRegional());
+      allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }
   }
 }

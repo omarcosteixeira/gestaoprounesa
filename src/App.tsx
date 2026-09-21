@@ -583,7 +583,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
   calculo: [
     ROLES.ADMIN_MASTER,
     ROLES.FDV,
-    ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
     ROLES.GESTOR_COMERCIAL,
@@ -593,13 +592,11 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
     ROLES.PROMOTOR_RUA,
     ROLES.REGIONAL,
-    ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
   academico: [
     ROLES.ADMIN_MASTER,
     ROLES.FDV,
-    ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
     ROLES.SSA,
@@ -612,7 +609,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV_COMERCIAL,
     ROLES.FINANCEIRO,
     ROLES.TECNICO,
-    ROLES.LIDER_SM,
     ROLES.GESTOR,
     ROLES.REGIONAL
   ],
@@ -626,7 +622,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
   mapao: [
     ROLES.ADMIN_MASTER,
     ROLES.FDV,
-    ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
     ROLES.SSA,
@@ -639,7 +634,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FDV_COMERCIAL,
     ROLES.FINANCEIRO,
     ROLES.TECNICO,
-    ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
   basesDisparo: [
@@ -656,14 +650,12 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
   avisos: [
     ROLES.ADMIN_MASTER,
     ROLES.FDV,
-    ROLES.SALA_MATRICULA,
     ROLES.QG,
     ROLES.LIDER_FDV,
     ROLES.SSA,
     ROLES.GESTOR_COMERCIAL,
     ROLES.PROMOTOR,
     ROLES.ACADEMICO,
-    ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
   emailMarketing: [
@@ -672,12 +664,10 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.GESTOR_COMERCIAL_COMERCIAL,
     ROLES.QG,
-    ROLES.SALA_MATRICULA,
     ROLES.FDV,
     ROLES.PROMOTOR,
     ROLES.PROMOTOR_RUA,
     ROLES.FDV_COMERCIAL,
-    ROLES.LIDER_SM,
     ROLES.GESTOR
   ],
   controleConcorrencia: [
