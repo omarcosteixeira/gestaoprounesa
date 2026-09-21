@@ -23,7 +23,8 @@ import {
   Lightbulb,
   Lock,
   Box,
-  Armchair
+  Armchair,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -144,7 +145,7 @@ export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInsp
   };
 
   return (
-    <div className="space-y-6">
+    <div id="inspectorChecklist-container" className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -296,7 +297,78 @@ export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInsp
           </div>
         )}
       </div>
+
+      {/* History Table */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <ClipboardList className="text-blue-600" />
+            Histórico de Checklists (Hoje)
+          </h3>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-slate-100">
+                <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Hora</th>
+                <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Sala</th>
+                <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Inspetor</th>
+                <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Status de Conclusão</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-slate-400 text-sm italic">
+                    Nenhum checklist preenchido para hoje.
+                  </td>
+                </tr>
+              ) : (
+                history.map((h) => {
+                  const itemsCount = [h.arDesligado, h.luzDesligada, h.trancada, h.materiaisOk, h.cadeirasOk].filter(v => v).length;
+                  const totalItems = 5;
+                  const isFullyComplete = itemsCount === totalItems;
+
+                  return (
+                    <tr key={h.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-4 text-sm text-slate-600 font-medium">
+                        {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...'}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                            {h.salaNome}
+                          </div>
+                          <span className="text-sm font-bold text-slate-700">Sala {h.salaNome}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-sm text-slate-500">
+                        {h.inspetorNome}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex justify-center">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5",
+                            isFullyComplete 
+                              ? "bg-emerald-100 text-emerald-700" 
+                              : "bg-amber-100 text-amber-700"
+                          )}>
+                            {isFullyComplete ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                            {itemsCount}/{totalItems} Concluído
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
+
   );
 }
 

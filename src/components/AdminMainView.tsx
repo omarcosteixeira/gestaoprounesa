@@ -598,6 +598,11 @@ export function AdminMainView({
     "formularios",
   ];
 
+  const academicoAllowedSubTabs = [
+    "tarefas",
+    "formularios",
+  ];
+
   const subTabsConfig = isRegionalProfile
     ? allSubTabsConfig.filter((tab) => regionalAllowedSubTabs.includes(tab.id))
     : profile?.role === ROLES.GESTOR_UNIDADE
@@ -606,6 +611,8 @@ export function AdminMainView({
     ? allSubTabsConfig.filter((tab) => liderSMAllowedSubTabs.includes(tab.id))
     : profile?.role === ROLES.SALA_MATRICULA
     ? allSubTabsConfig.filter((tab) => salaMatriculaAllowedSubTabs.includes(tab.id))
+    : profile?.role === ROLES.ACADEMICO
+    ? allSubTabsConfig.filter((tab) => academicoAllowedSubTabs.includes(tab.id))
     : allSubTabsConfig;
 
   return (
