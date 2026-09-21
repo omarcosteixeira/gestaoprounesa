@@ -182,6 +182,8 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
     }
+    match /artifacts/gestaopro-761e1/public/data/achados_perdidos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaopro-761e1/public/data/checklist_inspetor/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/gestaopro-761e1/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
@@ -245,6 +247,8 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
     }
+    match /artifacts/unesa-gestaopro/public/data/achados_perdidos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/unesa-gestaopro/public/data/checklist_inspetor/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/unesa-gestaopro/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
@@ -308,6 +312,8 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
     }
+    match /artifacts/gestaodeleadspro-d4230/public/data/achados_perdidos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gestaodeleadspro-d4230/public/data/checklist_inspetor/{id} { allow read, write: if isAuthenticated(); }
 
     match /artifacts/gestaodeleadspro-d4230/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
@@ -364,6 +370,8 @@ service cloud.firestore {
       allow read, create, update: if true;
       allow delete: if isAuthenticated();
     }
+    match /artifacts/gen-lang-client-0111023338/public/data/achados_perdidos/{id} { allow read, write: if isAuthenticated(); }
+    match /artifacts/gen-lang-client-0111023338/public/data/checklist_inspetor/{id} { allow read, write: if isAuthenticated(); }
     match /artifacts/gen-lang-client-0111023338/public/data/{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }

@@ -761,6 +761,35 @@ export interface InsumoBaixa {
   createdAt: any;
 }
 
+export interface AchadosPerdidos {
+  id: string;
+  item: string;
+  sala: string;
+  dia: string;
+  localGuarda: string;
+  status: 'Pendente' | 'Entregue';
+  retiradoPor?: string;
+  dataRetirada?: any;
+  createdAt: any;
+  updatedAt?: any;
+}
+
+export interface ChecklistInspetor {
+  id: string;
+  data: string;
+  salaId: string;
+  salaNome: string;
+  arDesligado: boolean;
+  luzDesligada: boolean;
+  trancada: boolean;
+  materiaisOk: boolean;
+  cadeirasOk: boolean;
+  observacoes?: string;
+  inspetorId: string;
+  inspetorNome: string;
+  createdAt: any;
+}
+
 export interface BotReport {
   id: string;
   userId: string;

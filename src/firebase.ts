@@ -131,6 +131,8 @@ export const COLLECTIONS = new Proxy({} as any, {
       DOCENTES: `artifacts/${currentProjectId}/public/data/docentes`,
       SALAS_AULA: `artifacts/${currentProjectId}/public/data/salas_aula`,
       HISTORICO_SALAS: `artifacts/${currentProjectId}/public/data/historico_salas`,
+      ACHADOS_PERDIDOS: `artifacts/${currentProjectId}/public/data/achados_perdidos`,
+      CHECKLIST_INSPETOR: `artifacts/${currentProjectId}/public/data/checklist_inspetor`,
     };
     return paths[prop];
   }

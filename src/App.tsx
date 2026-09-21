@@ -222,6 +222,8 @@ import { PublicMaintenanceForm } from "./components/PublicMaintenanceForm";
 import { PublicPedidoCursoForm } from "./components/PublicPedidoCursoForm";
 import { PublicClubeLocalView } from "./components/PublicClubeLocalView";
 import { PublicDocenteForm } from "./components/PublicDocenteForm";
+import { AchadosPerdidosView } from "./components/AchadosPerdidosView";
+import { ChecklistInspetorView } from "./components/ChecklistInspetorView";
 import { AlocacaoDocenteView } from "./components/AlocacaoDocenteView";
 import { MessageTemplateModal } from "./components/MessageTemplateModal";
 import { CursosDisponiveisView } from "./components/CursosDisponiveisView";
@@ -610,7 +612,9 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.FINANCEIRO,
     ROLES.TECNICO,
     ROLES.GESTOR,
-    ROLES.REGIONAL
+    ROLES.REGIONAL,
+    ROLES.LIDER_SM,
+    ROLES.SALA_MATRICULA
   ],
   alocacaoDocente: [
     ROLES.ADMIN_MASTER,
@@ -1029,7 +1033,7 @@ function AcademicoView({
   onToast: (m: string, t?: "success" | "error") => void;
   profile: UserProfile;
 }) {
-  const [activeTab, setActiveTab] = useState<"mapao" | "salas" | "alocacao">("mapao");
+  const [activeTab, setActiveTab] = useState<"mapao" | "salas" | "alocacao" | "lostAndFound" | "inspectorChecklist">("mapao");
   const [showRelatorioModal, setShowRelatorioModal] = useState(false);
 
   return (
@@ -1075,6 +1079,32 @@ function AcademicoView({
             <Users size={15} />
             <span>Alocação Docente</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab("lostAndFound")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "lostAndFound"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <Search size={15} />
+            <span>Achados e Perdidos</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("inspectorChecklist")}
+            className={cn(
+              "flex items-center space-x-2 py-2 px-4 text-xs font-bold rounded-xl transition-all cursor-pointer",
+              activeTab === "inspectorChecklist"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            )}
+          >
+            <ClipboardList size={15} />
+            <span>Checklist Inspetor</span>
+          </button>
         </div>
 
         {/* Botão Relatório do Dia */}
@@ -1100,6 +1130,12 @@ function AcademicoView({
       )}
       {activeTab === "alocacao" && (
         <AlocacaoDocenteView onToast={onToast} profile={profile} />
+      )}
+      {activeTab === "lostAndFound" && (
+        <AchadosPerdidosView profile={profile} onToast={onToast} />
+      )}
+      {activeTab === "inspectorChecklist" && (
+        <ChecklistInspetorView profile={profile} onToast={onToast} mapao={mapao} />
       )}
 
       {/* Modal do Relatório do Dia */}
