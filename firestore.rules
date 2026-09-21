@@ -11,28 +11,37 @@ service cloud.firestore {
     }
     
     function getUserData() {
-      let path1 = /databases/$(database)/documents/artifacts/gestaopro-761e1/public/data/users/$(request.auth.uid);
-      let path2 = /databases/$(database)/documents/artifacts/gen-lang-client-0111023338/public/data/users/$(request.auth.uid);
-      let path3 = /databases/$(database)/documents/artifacts/unesa-gestaopro/public/data/users/$(request.auth.uid);
-      let path4 = /databases/$(database)/documents/artifacts/gestaodeleadspro-d4230/public/data/users/$(request.auth.uid);
-      let path5 = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path1) ? get(path1).data : (exists(path2) ? get(path2).data : (exists(path3) ? get(path3).data : (exists(path4) ? get(path4).data : (exists(path5) ? get(path5).data : {"role": "none", "unidade": "none"}))));
+      let uid = request.auth.uid;
+      let path1 = /databases/$(database)/documents/artifacts/gestaopro-761e1/public/data/users/$(uid);
+      let path2 = /databases/$(database)/documents/artifacts/gen-lang-client-0111023338/public/data/users/$(uid);
+      let path3 = /databases/$(database)/documents/artifacts/unesa-gestaopro/public/data/users/$(uid);
+      let path4 = /databases/$(database)/documents/artifacts/gestaodeleadspro-d4230/public/data/users/$(uid);
+      let path5 = /databases/$(database)/documents/users/$(uid);
+      
+      return exists(path2) ? get(path2).data : 
+             (exists(path1) ? get(path1).data : 
+             (exists(path3) ? get(path3).data : 
+             (exists(path4) ? get(path4).data : 
+             (exists(path5) ? get(path5).data : {"role": "none", "unidade": "none"}))));
     }
     
     function isMasterUser() {
+      let masterEmails = ["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"];
       let data = getUserData();
       return isAuthenticated() && (
-        request.auth.token.email in ["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"] || 
-        data.email in ["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"] ||
-        data.role == "Admin Master" || 
-        data.role == "Líder/FDV"
+        request.auth.token.email in masterEmails ||
+        data.get('email', '') in masterEmails || 
+        data.role in ["Admin Master", "Líder/FDV"]
       );
     }
     
     function hasAnyRole(roles) {
+      let masterEmails = ["canaldonutri@gmail.com", "marcos.teixeira@estacio.br"];
       let data = getUserData();
       return isAuthenticated() && (
-        isMasterUser() ||
+        request.auth.token.email in masterEmails ||
+        data.get('email', '') in masterEmails ||
+        data.role in ["Admin Master", "Líder/FDV"] ||
         data.role in roles
       );
     }
@@ -51,10 +60,7 @@ service cloud.firestore {
     function isAcademico() { return hasAnyRole(['Acadêmico']); }
     function isFinanceiro() { return hasAnyRole(['Financeiro']); }
     function isTecnico() { return hasAnyRole(['Técnico']); }
-    function isRegional() { 
-      let data = getUserData();
-      return isAuthenticated() && data.role == 'Regional'; 
-    }
+    function isRegional() { return hasAnyRole(['Regional']); }
     function isLiderSM() { return hasAnyRole(['Líder SM']); }
     function isGestor() { return hasAnyRole(['Gestor']); }
     function isSM() { return hasAnyRole(['SM']); }
@@ -72,10 +78,9 @@ service cloud.firestore {
     // Root Collection Rules
     // ===============================================================
     match /users/{userId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated();
+      allow get, list: if isAuthenticated();
       allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
-      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow update: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
       allow delete: if isMasterUser() || isRegional();
     }
     
@@ -135,10 +140,9 @@ service cloud.firestore {
     // Artifact Collection Rules - gestaopro-761e1
     // ===============================================================
     match /artifacts/gestaopro-761e1/public/data/users/{userId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated();
+      allow get, list: if isAuthenticated();
       allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
-      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow update: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
       allow delete: if isMasterUser() || isRegional();
     }
     
@@ -193,10 +197,9 @@ service cloud.firestore {
     // Artifact Collection Rules - unesa-gestaopro
     // ===============================================================
     match /artifacts/unesa-gestaopro/public/data/users/{userId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated();
+      allow get, list: if isAuthenticated();
       allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
-      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow update: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
       allow delete: if isMasterUser() || isRegional();
     }
     
@@ -258,10 +261,9 @@ service cloud.firestore {
     // Artifact Collection Rules - gestaodeleadspro-d4230
     // ===============================================================
     match /artifacts/gestaodeleadspro-d4230/public/data/users/{userId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated();
+      allow get, list: if isAuthenticated();
       allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
-      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow update: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
       allow delete: if isMasterUser() || isRegional();
     }
     
@@ -323,10 +325,9 @@ service cloud.firestore {
     // Artifact Collection Rules - gen-lang-client-0111023338
     // ===============================================================
     match /artifacts/gen-lang-client-0111023338/public/data/users/{userId} {
-      allow get: if isAuthenticated();
-      allow list: if isAuthenticated();
+      allow get, list: if isAuthenticated();
       allow create: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
-      allow update: if isAuthenticated() && (isMasterUser() || isRegional() || (userId == request.auth.uid));
+      allow update: if isAuthenticated() && (userId == request.auth.uid || isMasterUser() || isRegional());
       allow delete: if isMasterUser() || isRegional();
     }
     
