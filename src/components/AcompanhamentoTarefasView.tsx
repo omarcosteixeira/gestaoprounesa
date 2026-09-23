@@ -111,14 +111,27 @@ export function AcompanhamentoTarefasView({
       });
 
       const t = tarefas.find((item) => item.id === id);
-      if (t && onSendNotification && t.envolvidosIds && t.envolvidosIds.length > 0) {
-        onSendNotification(
-          t.responsavelNome || "",
-          t.titulo,
-          `Status Atualizado para "${newStatus}"`,
-          t.envolvidosIds,
-          { status: newStatus, prazo: t.dataPrazo, unidade: t.unidade }
-        );
+      if (t) {
+        // Sync with Action Plan if linked
+        if (t.linkedAcaoId) {
+          try {
+            await updateDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, t.linkedAcaoId), {
+              concluida: newStatus === "Deferido",
+            });
+          } catch (e) {
+            console.error("Erro ao sincronizar status com o plano de ação:", e);
+          }
+        }
+
+        if (onSendNotification && t.envolvidosIds && t.envolvidosIds.length > 0) {
+          onSendNotification(
+            t.responsavelNome || "",
+            t.titulo,
+            `Status Atualizado para "${newStatus}"`,
+            t.envolvidosIds,
+            { status: newStatus, prazo: t.dataPrazo, unidade: t.unidade }
+          );
+        }
       }
 
       onToast(`Status da tarefa atualizado para "${newStatus}"!`);

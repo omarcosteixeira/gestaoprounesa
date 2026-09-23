@@ -309,12 +309,32 @@ export function CalendarioAcoesView({
       };
 
       if (editingAcao) {
-        await updateDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, editingAcao.id), {
+        const acaoRef = doc(db, COLLECTIONS.CALENDARIO_ACOES, editingAcao.id);
+        await updateDoc(acaoRef, {
           ...payload,
         });
+
+        // Sync with linked task if exists
+        if (editingAcao.linkedTaskId) {
+          try {
+            await updateDoc(doc(db, COLLECTIONS.TAREFAS, editingAcao.linkedTaskId), {
+              titulo: `[Plano de Ação] ${payload.nome}`,
+              descricao: `Atividade do Plano de Ação em ${payload.local}. ${payload.observacao || ""}`,
+              unidade: profile.unidade || "",
+              responsavelNome: payload.colaboradorNome || "",
+              envolvidosIds: payload.colaboradoresIds || [],
+              envolvidosNomes: payload.colaboradoresNomes || [],
+              dataPrazo: payload.dataInicio || "",
+              status: formData.concluida ? "Deferido" : "Em Andamento",
+            });
+          } catch (e) {
+            console.error("Erro ao sincronizar tarefa vinculada:", e);
+          }
+        }
+
         onToast("Ação atualizada com sucesso!");
       } else {
-        await addDoc(collection(db, COLLECTIONS.CALENDARIO_ACOES), {
+        const acaoRef = await addDoc(collection(db, COLLECTIONS.CALENDARIO_ACOES), {
           ...payload,
           creatorId: profile.uid,
           creatorRole: profile.role,
@@ -322,10 +342,35 @@ export function CalendarioAcoesView({
           concluida: false,
           createdAt: serverTimestamp(),
         });
+
+        // Automatically create a task for this action plan
+        try {
+          const taskRef = await addDoc(collection(db, COLLECTIONS.TAREFAS), {
+            titulo: `[Plano de Ação] ${payload.nome}`,
+            descricao: `Atividade do Plano de Ação em ${payload.local}. ${payload.observacao || ""}`,
+            unidade: profile.unidade || "",
+            responsavelNome: payload.colaboradorNome || "",
+            envolvidosIds: payload.colaboradoresIds || [],
+            envolvidosNomes: payload.colaboradoresNomes || [],
+            dataPrazo: payload.dataInicio || "",
+            status: "Em Andamento",
+            creatorId: profile.uid,
+            creatorNome: profile.name || profile.nome,
+            servidor: profile.servidor || "unesa",
+            linkedAcaoId: acaoRef.id,
+            createdAt: serverTimestamp(),
+          });
+
+          // Update action with linkedTaskId
+          await updateDoc(acaoRef, { linkedTaskId: taskRef.id });
+        } catch (e) {
+          console.error("Erro ao criar tarefa automática para o plano de ação:", e);
+        }
+
         onToast("Ação agendada com sucesso!");
         if (onSendNotification) {
           const textToSearch = `${payload.nome} ${payload.local} ${payload.observacao} ${payload.colaboradoresNomes?.join(" ")}`;
-          onSendNotification(textToSearch, payload.nome || "Ação", "Plano de Ação");
+          onSendNotification(textToSearch, payload.nome || "Ação", "Plano de Ação", payload.colaboradoresIds);
         }
       }
       setIsModalOpen(false);
@@ -338,19 +383,42 @@ export function CalendarioAcoesView({
 
   const handleToggleConcluida = async (acao: CalendarioAcao) => {
     try {
+      const nextConcluida = !acao.concluida;
       await updateDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, acao.id), {
-        concluida: !acao.concluida,
+        concluida: nextConcluida,
       });
+
+      // Sync with task if exists
+      if (acao.linkedTaskId) {
+        try {
+          await updateDoc(doc(db, COLLECTIONS.TAREFAS, acao.linkedTaskId), {
+            status: nextConcluida ? "Deferido" : "Em Andamento",
+          });
+        } catch (e) {
+          console.error("Erro ao atualizar status da tarefa vinculada:", e);
+        }
+      }
+
       onToast("Status da ação atualizado!");
     } catch (err: any) {
       onToast(err.message, "error");
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (acao: CalendarioAcao) => {
     if (!window.confirm("Deseja excluir esta ação do plano de ação?")) return;
     try {
-      await deleteDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, id));
+      await deleteDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, acao.id));
+      
+      // Delete linked task if exists
+      if (acao.linkedTaskId) {
+        try {
+          await deleteDoc(doc(db, COLLECTIONS.TAREFAS, acao.linkedTaskId));
+        } catch (e) {
+          console.error("Erro ao excluir tarefa vinculada:", e);
+        }
+      }
+
       onToast("Ação excluída com sucesso!");
     } catch (err: any) {
       onToast(err.message, "error");
@@ -552,7 +620,7 @@ export function CalendarioAcoesView({
                       <Edit2 size={16} />
                     </button>
                     <button
-                      onClick={() => handleDelete(acao.id)}
+                      onClick={() => handleDelete(acao)}
                       className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-100 transition-colors"
                       title="Excluir"
                     >

@@ -80,6 +80,7 @@ export interface CalendarioAcao {
   empresaParceiraNome?: string;
   unidade?: string;
   horario?: string;
+  linkedTaskId?: string;
 }
 
 export interface Docente {
@@ -1047,6 +1048,7 @@ export interface Tarefa {
   notificadoHoje?: boolean;
   recorrencia?: 'Uma vez' | 'Diariamente' | 'Semanalmente' | 'Mensalmente' | 'Datas Específicas';
   datasEspecificas?: string[];
+  linkedAcaoId?: string;
   createdAt?: any;
 }
 

@@ -110,6 +110,21 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
           recorrencia,
           datasEspecificas: recorrencia === 'Datas Específicas' ? datasEspecificas : [],
         });
+
+        // Sync with Action Plan if linked
+        const existingTask = tarefas.find(t => t.id === editingId);
+        if (existingTask && existingTask.linkedAcaoId) {
+          try {
+            await updateDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, existingTask.linkedAcaoId), {
+              concluida: status === "Deferido",
+              nome: titulo.replace("[Plano de Ação] ", ""),
+              local: descricao.split("Ação em ")[1]?.split(".")[0] || "", // Basic extraction attempt
+            });
+          } catch (e) {
+            console.error("Erro ao sincronizar atualização com o plano de ação:", e);
+          }
+        }
+
         onToast("Atividade atualizada com sucesso!", "success");
         if (onSendNotification) {
           const res: any = await onSendNotification(
@@ -187,13 +202,26 @@ export function CadastroTarefasView({ tarefas, unidades, users = [], profile, on
     try {
       await updateDoc(doc(db, COLLECTIONS.TAREFAS, id), { status: newStatus });
       const t = tarefas.find((item) => item.id === id);
-      if (t && onSendNotification && t.envolvidosIds && t.envolvidosIds.length > 0) {
-        onSendNotification(
-          t.responsavelNome || "",
-          t.titulo,
-          `Status Atualizado para "${newStatus}"`,
-          t.envolvidosIds
-        );
+      if (t) {
+        // Sync with Action Plan if linked
+        if (t.linkedAcaoId) {
+          try {
+            await updateDoc(doc(db, COLLECTIONS.CALENDARIO_ACOES, t.linkedAcaoId), {
+              concluida: newStatus === "Deferido",
+            });
+          } catch (e) {
+            console.error("Erro ao sincronizar status com o plano de ação:", e);
+          }
+        }
+
+        if (onSendNotification && t.envolvidosIds && t.envolvidosIds.length > 0) {
+          onSendNotification(
+            t.responsavelNome || "",
+            t.titulo,
+            `Status Atualizado para "${newStatus}"`,
+            t.envolvidosIds
+          );
+        }
       }
       onToast(`Status alterado para "${newStatus}"`);
     } catch (err: any) {
