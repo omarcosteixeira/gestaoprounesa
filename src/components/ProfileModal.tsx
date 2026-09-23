@@ -139,11 +139,6 @@ export function ProfileModal({
     if (!profile?.uid || activeTab !== "folgas" || !isOpen) return;
 
     setLoadingFolgas(true);
-    const q = query(
-      collection(db, COLLECTIONS.USERS, profile.uid),
-      where("solicitanteId", "==", profile.uid),
-    );
-    // Note: The collection path for USERS is handled by the proxy in firebase.ts, but SOLICITACAO_FOLGA is separate.
     // Fixed the collection reference to use the correct constant from COLLECTIONS proxy
     const colRef = collection(db, COLLECTIONS.SOLICITACAO_FOLGA);
     const qFixed = query(colRef, where("solicitanteId", "==", profile.uid));
@@ -1725,6 +1720,8 @@ export function ProfileModal({
                       // reset
                       setDataInicio("");
                       setDataFim("");
+                      setHoraInicio("08:00");
+                      setHoraFim("12:00");
                       setJustificativa("");
                     } catch (err) {
                       handleFirestoreError(
