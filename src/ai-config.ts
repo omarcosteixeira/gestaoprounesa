@@ -41,4 +41,11 @@ export const OPENROUTER_MODELS = [
   { id: "z-ai/glm-5", name: "Z-AI/GLM-5" }
 ];
 
+export const GROQ_MODELS = [
+  { id: "llama-3.3-70b-versatile", name: "Groq: Llama 3.3 70B Versatile" },
+  { id: "llama-3.1-8b-instant", name: "Groq: Llama 3.1 8B Instant" },
+  { id: "mixtral-8x7b-32768", name: "Groq: Mixtral 8x7B" },
+  { id: "gemma2-9b-it", name: "Groq: Gemma 2 9B" },
+];
+
 export const DEFAULT_MODEL = "google/gemini-2.0-flash-001"; // Defaulting to a high-quality available model

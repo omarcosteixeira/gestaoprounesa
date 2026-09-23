@@ -4,6 +4,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import { OpenRouter } from "@openrouter/sdk";
+import Groq from "groq-sdk";
 import { OPENROUTER_MODELS, DEFAULT_MODEL } from "./src/ai-config";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
@@ -794,7 +795,48 @@ Caso contrário (se não houver correspondência lógica ou for um item completa
         return JSON.parse(cleaned.trim());
       };
 
-      // 0. Try OpenRouter API first (user's new preference)
+      // 0. Try Groq API first if key provided
+      const groqApiKey = req.body.groqApiKey || process.env.GROQ_API_KEY;
+      if (groqApiKey) {
+        try {
+          console.log("[AI Match] Using Groq SDK for material match...");
+          const groq = new Groq({ apiKey: groqApiKey });
+          const isGroqModel = req.body.aiModel && (req.body.aiModel.includes("llama-3") || req.body.aiModel.includes("mixtral") || req.body.aiModel.includes("gemma2"));
+          
+          const response = await groq.chat.completions.create({
+            model: isGroqModel ? req.body.aiModel : "llama-3.3-70b-versatile",
+            messages: [
+              {
+                role: "system",
+                content: `Você é um assistente de almoxarifado altamente preciso. Responda estritamente no formato JSON:
+{
+  "matched": true | false,
+  "suggestion": "Nome Exato do Item" | null,
+  "reason": "Sua explicação amigável em português"
+}`
+              },
+              {
+                role: "user",
+                content: prompt
+              }
+            ],
+            response_format: { type: "json_object" }
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (content) {
+            const result = parseJSONRobustly(content);
+            return res.json({
+              success: true,
+              ...result
+            });
+          }
+        } catch (groqErr: any) {
+          console.error("[AI Match] Groq SDK call failed:", groqErr.message);
+        }
+      }
+
+      // 1. Try OpenRouter API
       const openRouterApiKey = req.body.openRouterApiKey || process.env.OPENROUTER_API_KEY;
       if (openRouterApiKey) {
         try {
@@ -1063,7 +1105,60 @@ Caso contrário (se não houver correspondência lógica ou for um item completa
         return JSON.parse(cleaned.trim());
       };
 
-      // 2. Try OpenRouter API first (user's new preference)
+      // 0. Try Groq API first if key provided
+      const groqApiKey = req.body.groqApiKey || process.env.GROQ_API_KEY;
+      if (groqApiKey) {
+        try {
+          console.log("[AI Reports] Using Groq SDK for analysis...");
+          const groq = new Groq({ apiKey: groqApiKey });
+          const isGroqModel = req.body.aiModel && (req.body.aiModel.includes("llama-3") || req.body.aiModel.includes("mixtral") || req.body.aiModel.includes("gemma2"));
+          
+          const response = await groq.chat.completions.create({
+            model: isGroqModel ? req.body.aiModel : "llama-3.3-70b-versatile",
+            messages: [
+              {
+                role: "system",
+                content: `Você é o "Goorq AI", um analista de inteligência de negócios (BI) extremamente capacitado.
+Você deve analisar os dados estatísticos fornecidos e a pergunta do usuário e responder estritamente no formato JSON estruturado com os seguintes campos:
+{
+  "title": "Título curto do relatório",
+  "answer": "Análise estratégica rica em formato markdown em português (nunca use cabeçalhos tipo # ou ##)",
+  "cards": [
+    { "title": "...", "value": "...", "icon": "users|target|file-text|check-circle|trending-up|briefcase|activity|calendar|message-square|award|percent|shield-alert", "color": "blue|emerald|purple|amber|rose|cyan|indigo|slate" }
+  ],
+  "chart": {
+    "type": "bar|line|pie",
+    "title": "Título do gráfico",
+    "data": [{ "name": "Rótulo", "value": 123 }],
+    "xKey": "name",
+    "yKey": "value"
+  } | null,
+  "suggestions": ["pergunta 1", "pergunta 2"]
+}
+Retorne exclusivamente o JSON puro. Não adicione textos adicionais antes ou depois.`
+              },
+              {
+                role: "user",
+                content: `Pergunta do usuário: "${searchQuery}"\n\nResumo estatístico:\n${JSON.stringify(dataSummary)}`
+              }
+            ],
+            response_format: { type: "json_object" }
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (content) {
+            const result = parseJSONRobustly(content);
+            return res.json({
+              success: true,
+              report: result
+            });
+          }
+        } catch (groqErr: any) {
+          console.error("[AI Reports] Groq SDK call failed:", groqErr.message);
+        }
+      }
+
+      // 1. Try OpenRouter API
       const openRouterApiKey = req.body.openRouterApiKey || process.env.OPENROUTER_API_KEY;
       if (openRouterApiKey) {
         try {
@@ -1245,15 +1340,16 @@ Não invente dados que não estão no resumo fornecido. Se alguma informação f
   // HUNTER: Buscar novas oportunidades (OpenRouter)
   app.post("/api/hunter/search", async (req, res) => {
     try {
-      const { location, empresasExistentes } = req.body;
+      const { location, empresasExistentes, groqApiKey, openRouterApiKey, aiModel } = req.body;
       if (!location) {
         return res.status(400).json({ success: false, error: "Localização é obrigatória." });
       }
 
-      const openRouterApiKey = req.body.openRouterApiKey || process.env.OPENROUTER_API_KEY;
+      const finalGroqKey = groqApiKey || process.env.GROQ_API_KEY;
+      const finalOpenRouterKey = openRouterApiKey || process.env.OPENROUTER_API_KEY;
 
-      if (!openRouterApiKey) {
-         return res.status(500).json({ success: false, error: "Chave da API OpenRouter não configurada no servidor." });
+      if (!finalGroqKey && !finalOpenRouterKey) {
+         return res.status(500).json({ success: false, error: "Chave da API (Groq ou OpenRouter) não configurada no servidor." });
       }
 
       const systemInstruction = `Você é a HUNTER, uma IA especialista em encontrar novas oportunidades de parcerias corporativas.
@@ -1263,27 +1359,37 @@ Retorne APENAS organizações novas. Seja abrangente na sua busca.
 Sua resposta deve ser estritamente no formato JSON. Retorne UM OBJETO com a chave "empresas" contendo um array de objetos com as chaves: 'nome', 'ramo', 'endereco', 'telefone'. Não adicione markdown como \`\`\`json.`;
 
       const promptStr = `Localização: ${location}\nEmpresas já no sistema (NÃO INCLUIR): ${(empresasExistentes || []).join(", ")}`;
+      let text = "";
 
-      console.log("[AI Hunter] Using OpenRouter SDK for search...");
-      const openrouter = new OpenRouter({ apiKey: openRouterApiKey });
+      const isGroqModel = aiModel && (aiModel.includes("llama-3") || aiModel.includes("mixtral") || aiModel.includes("gemma2"));
 
-      const response = await openrouter.chat.send({
-        chatRequest: {
-          model: req.body.aiModel || DEFAULT_MODEL,
+      if (finalGroqKey && (isGroqModel || !finalOpenRouterKey)) {
+        console.log("[AI Hunter] Using Groq SDK for search...");
+        const groq = new Groq({ apiKey: finalGroqKey });
+        const response = await groq.chat.completions.create({
+          model: isGroqModel ? aiModel : "llama-3.3-70b-versatile",
           messages: [
-            {
-              role: "system",
-              content: systemInstruction
-            },
-            {
-              role: "user",
-              content: promptStr
-            }
-          ]
-        }
-      });
+            { role: "system", content: systemInstruction },
+            { role: "user", content: promptStr }
+          ],
+          response_format: { type: "json_object" }
+        });
+        text = response.choices[0]?.message?.content || "";
+      } else {
+        console.log("[AI Hunter] Using OpenRouter SDK for search...");
+        const openrouter = new OpenRouter({ apiKey: finalOpenRouterKey });
+        const response = await openrouter.chat.send({
+          chatRequest: {
+            model: aiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: systemInstruction },
+              { role: "user", content: promptStr }
+            ]
+          }
+        });
+        text = (response as any).choices?.[0]?.message?.content || "";
+      }
 
-      const text = (response as any).choices?.[0]?.message?.content;
       if (!text) {
         return res.status(500).json({ success: false, error: "Resposta vazia da IA." });
       }
@@ -1305,15 +1411,13 @@ Sua resposta deve ser estritamente no formato JSON. Retorne UM OBJETO com a chav
   });
 
   app.post("/api/ai/variations", async (req, res) => {
-    const { message, openRouterApiKey, aiModel } = req.body;
+    const { message, openRouterApiKey, groqApiKey, aiModel } = req.body;
     
-    if (!openRouterApiKey) {
-      return res.status(400).json({ error: "OpenRouter API Key is required" });
+    if (!openRouterApiKey && !groqApiKey) {
+      return res.status(400).json({ error: "API Key (OpenRouter or Groq) is required" });
     }
 
     try {
-      const openrouter = new OpenRouter({ apiKey: openRouterApiKey });
-      
       const prompt = `Crie 4 variações diferentes da seguinte mensagem de oferta de WhatsApp, mantendo o contexto e os gatilhos mentais, mas alterando as palavras para evitar detecção de spam. Mantenha os placeholders como [nome], [curso], [matrícula] se existirem.
       
 Mensagem original:
@@ -1323,23 +1427,55 @@ Retorne as 4 variações estritamente no formato JSON como um array de strings:
 ["variação 1", "variação 2", "variação 3", "variação 4"]
 Retorne apenas o JSON puro.`;
 
-      const response = await openrouter.chat.send({
-        chatRequest: {
-          model: aiModel || DEFAULT_MODEL,
-          messages: [
-            {
-              role: "system",
-              content: "Você é um especialista em copy para WhatsApp focado em conversão e evitar banimentos."
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ]
-        }
-      });
+      let text = "";
 
-      const text = (response as any).choices?.[0]?.message?.content || "";
+      // Check if it's a Groq model or if only Groq key is provided
+      const isGroqModel = aiModel && (aiModel.includes("llama-3") || aiModel.includes("mixtral") || aiModel.includes("gemma2"));
+      
+      if (groqApiKey && (isGroqModel || !openRouterApiKey)) {
+        console.log("[AI Variations] Using Groq API...");
+        const groq = new Groq({ apiKey: groqApiKey });
+        const response = await groq.chat.completions.create({
+          model: aiModel || "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: "Você é um especialista em copy para WhatsApp focado em conversão e evitar banimentos." },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" }
+        });
+        
+        const content = response.choices[0]?.message?.content || "";
+        // Groq with json_object might return { "variations": [...] } or just the array if prompted correctly
+        // but to be safe we handle both
+        try {
+          const parsed = JSON.parse(content);
+          if (Array.isArray(parsed)) {
+            text = content;
+          } else if (parsed.variations) {
+            text = JSON.stringify(parsed.variations);
+          } else {
+            // Take the first array found
+            const firstArray = Object.values(parsed).find(v => Array.isArray(v));
+            text = firstArray ? JSON.stringify(firstArray) : content;
+          }
+        } catch {
+          text = content;
+        }
+      } else {
+        console.log("[AI Variations] Using OpenRouter API...");
+        const openrouter = new OpenRouter({ apiKey: openRouterApiKey });
+        const response = await openrouter.chat.send({
+          chatRequest: {
+            model: aiModel || DEFAULT_MODEL,
+            messages: [
+              { role: "system", content: "Você é um especialista em copy para WhatsApp focado em conversão e evitar banimentos." },
+              { role: "user", content: prompt }
+            ]
+          }
+        });
+        text = (response as any).choices?.[0]?.message?.content || "";
+      }
+
       let variations = [];
       try {
         variations = JSON.parse(text);
@@ -1358,26 +1494,59 @@ Retorne apenas o JSON puro.`;
 
   app.post("/api/crm/sentiment", async (req, res) => {
     try {
-      const { text } = req.body;
+      const { text, openRouterApiKey, groqApiKey, aiModel } = req.body;
       if (!text) {
         return res.status(400).json({ success: false, error: "Texto é obrigatório." });
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        // Return default neutral if no API key
-        return res.json({ success: true, sentiment: "Neutro" });
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       const prompt = `Analise o sentimento da seguinte mensagem de um cliente e responda APENAS com uma destas três palavras: Positivo, Negativo ou Neutro.\n\nMensagem: "${text}"\n\nSentimento:`;
+      let sentiment = "Neutro";
 
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-      });
-
-      let sentiment = response.text?.trim() || "Neutro";
+      // Try Groq
+      if (groqApiKey) {
+        try {
+          const groq = new Groq({ apiKey: groqApiKey });
+          const isGroqModel = aiModel && (aiModel.includes("llama-3") || aiModel.includes("mixtral") || aiModel.includes("gemma2"));
+          const response = await groq.chat.completions.create({
+            model: isGroqModel ? aiModel : "llama-3.1-8b-instant",
+            messages: [{ role: "user", content: prompt }]
+          });
+          sentiment = response.choices[0]?.message?.content?.trim() || "Neutro";
+        } catch (e) {
+          console.warn("Groq sentiment analysis failed:", e);
+        }
+      } 
+      // Try OpenRouter
+      else if (openRouterApiKey) {
+        try {
+          const openrouter = new OpenRouter({ apiKey: openRouterApiKey });
+          const response = await openrouter.chat.send({
+            chatRequest: {
+              model: aiModel || DEFAULT_MODEL,
+              messages: [{ role: "user", content: prompt }]
+            }
+          });
+          sentiment = (response as any).choices?.[0]?.message?.content?.trim() || "Neutro";
+        } catch (e) {
+          console.warn("OpenRouter sentiment analysis failed:", e);
+        }
+      }
+      // Fallback to Gemini
+      else {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (apiKey) {
+          try {
+            const ai = new GoogleGenAI({ apiKey });
+            const response = await ai.models.generateContent({
+              model: "gemini-2.5-flash",
+              contents: prompt,
+            });
+            sentiment = response.text?.trim() || "Neutro";
+          } catch (e) {
+            console.warn("Gemini sentiment analysis failed:", e);
+          }
+        }
+      }
       
       // Normalize
       const lower = sentiment.toLowerCase();

@@ -69,6 +69,7 @@ export function WhatsAppMessageSelector({
         body: JSON.stringify({
           message: messages[selectedIndices[0]].texto,
           openRouterApiKey: botConfig.openRouterApiKey,
+          groqApiKey: botConfig.groqApiKey,
           aiModel: botConfig.aiModel
         }),
       });

@@ -6011,7 +6011,12 @@ export default function App() {
           const res = await fetch("/api/crm/sentiment", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: message }),
+            body: JSON.stringify({ 
+              text: message,
+              openRouterApiKey: botConfig?.openRouterApiKey,
+              groqApiKey: botConfig?.groqApiKey,
+              aiModel: botConfig?.aiModel
+            }),
           });
           const data = await res.json();
           if (data.success && data.sentiment) {

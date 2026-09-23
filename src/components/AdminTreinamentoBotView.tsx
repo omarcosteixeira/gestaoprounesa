@@ -35,6 +35,7 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
   );
   const [aiModel, setAiModel] = useState(botConfig?.aiModel || "google/gemini-2.5-flash");
   const [openRouterApiKey, setOpenRouterApiKey] = useState(botConfig?.openRouterApiKey || "");
+  const [groqApiKey, setGroqApiKey] = useState(botConfig?.groqApiKey || "");
   const [telegramBotUrl, setTelegramBotUrl] = useState(botConfig?.telegramBotUrl || "");
   const [telegramApiKey, setTelegramApiKey] = useState(botConfig?.telegramApiKey || "");
   
@@ -95,6 +96,7 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
           trainingContext: trainingContext.trim(),
           aiModel: aiModel.trim(),
           openRouterApiKey: openRouterApiKey.trim(),
+          groqApiKey: groqApiKey.trim(),
           telegramBotUrl: telegramBotUrl.trim(),
           telegramApiKey: telegramApiKey.trim(),
           teamsBotUrl: teamsBotUrl.trim(),
@@ -226,7 +228,26 @@ export function AdminTreinamentoBotView({ botConfig, onToast }: Props) {
                 <option value="openai/gpt-4o">OpenAI GPT-4o</option>
                 <option value="deepseek/deepseek-chat">DeepSeek Chat V3</option>
                 <option value="anthropic/claude-3.5-sonnet">Anthropic Claude 3.5 Sonnet</option>
+                <optgroup label="GroqCloud (Ultrarrápido)">
+                  <option value="llama-3.3-70b-versatile">Groq: Llama 3.3 70B Versatile</option>
+                  <option value="llama-3.1-8b-instant">Groq: Llama 3.1 8B Instant</option>
+                  <option value="mixtral-8x7b-32768">Groq: Mixtral 8x7B</option>
+                  <option value="gemma2-9b-it">Groq: Gemma 2 9B</option>
+                </optgroup>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">
+                Chave de API GroqCloud (Opcional)
+              </label>
+              <input
+                type="password"
+                placeholder="gsk_..."
+                value={groqApiKey}
+                onChange={(e) => setGroqApiKey(e.target.value)}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <div>

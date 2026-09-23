@@ -43,6 +43,7 @@ export default function NovasOportunidadesView({ data, botConfig, onToast, onAdi
           location: bairro, 
           empresasExistentes,
           openRouterApiKey: botConfig?.openRouterApiKey,
+          groqApiKey: botConfig?.groqApiKey,
           aiModel: botConfig?.aiModel
         }),
       });
