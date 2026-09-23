@@ -43,9 +43,11 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
 
   // Form State for new folga
   const [solicitanteId, setSolicitanteId] = useState("");
-  const [tipo, setTipo] = useState<"Folga" | "Férias">("Folga");
+  const [tipo, setTipo] = useState<"Folga" | "Férias" | "Saída durante o dia">("Folga");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [horaInicio, setHoraInicio] = useState("08:00");
+  const [horaFim, setHoraFim] = useState("18:00");
   const [justificativa, setJustificativa] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -121,7 +123,7 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
 
     setSaving(true);
     try {
-      await addDoc(collection(db, COLLECTIONS.SOLICITACAO_FOLGA), {
+      const docData: any = {
         solicitanteId: selectedUser.uid,
         solicitanteNome: selectedUser.name || selectedUser.nome || selectedUser.email,
         solicitanteEmail: selectedUser.email,
@@ -134,7 +136,14 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
         aprovadoPorNome: profile.name || profile.nome || profile.email,
         justificativa: justificativa.trim() || "Registrado diretamente pela Administração",
         createdAt: serverTimestamp(),
-      });
+      };
+
+      if (tipo === "Saída durante o dia") {
+        docData.horaInicio = horaInicio;
+        docData.horaFim = horaFim;
+      }
+
+      await addDoc(collection(db, COLLECTIONS.SOLICITACAO_FOLGA), docData);
       onToast("Registro cadastrado com sucesso!", "success");
       setIsAddModalOpen(false);
       setSolicitanteId("");
@@ -259,6 +268,7 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
             <option value="TODOS">Todos os Tipos</option>
             <option value="Folga">Folga</option>
             <option value="Férias">Férias</option>
+            <option value="Saída durante o dia">Saída durante o dia</option>
           </select>
         </div>
       </div>
@@ -303,6 +313,8 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
                         className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${
                           f.tipo === "Férias"
                             ? "bg-purple-100 text-purple-700"
+                            : f.tipo === "Saída durante o dia"
+                            ? "bg-amber-100 text-amber-700"
                             : "bg-blue-100 text-blue-700"
                         }`}
                       >
@@ -310,7 +322,14 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
                       </span>
                     </td>
                     <td className="py-3 px-4 font-semibold text-slate-700">
-                      {f.dataInicio} <span className="text-slate-400 font-normal">até</span> {f.dataFim}
+                      {f.tipo === "Saída durante o dia" ? (
+                        <div>
+                          <div>{f.dataInicio}</div>
+                          <div className="text-[10px] text-slate-400 font-bold">{f.horaInicio} às {f.horaFim}</div>
+                        </div>
+                      ) : (
+                        <>{f.dataInicio} <span className="text-slate-400 font-normal">até</span> {f.dataFim}</>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={f.justificativa}>
                       {f.justificativa || "-"}
@@ -411,35 +430,68 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
                   >
                     <option value="Folga">Folga</option>
                     <option value="Férias">Férias</option>
+                    <option value="Saída durante o dia">Saída durante o dia</option>
                   </select>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">
-                    Data Início *
+                    {tipo === "Saída durante o dia" ? "Data *" : "Data Início *"}
                   </label>
                   <input
                     type="date"
                     required
                     value={dataInicio}
-                    onChange={(e) => setDataInicio(e.target.value)}
+                    onChange={(e) => {
+                      setDataInicio(e.target.value);
+                      if (tipo === "Saída durante o dia") setDataFim(e.target.value);
+                    }}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">
-                  Data Fim *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={dataFim}
-                  onChange={(e) => setDataFim(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {tipo === "Saída durante o dia" ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">
+                      Hora Início *
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={horaInicio}
+                      onChange={(e) => setHoraInicio(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">
+                      Hora Fim *
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={horaFim}
+                      onChange={(e) => setHoraFim(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">
+                    Data Fim *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={dataFim}
+                    onChange={(e) => setDataFim(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">

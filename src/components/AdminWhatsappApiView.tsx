@@ -50,6 +50,7 @@ export function AdminWhatsappApiView({
   // API URL Config
   const [apiUrl, setApiUrl] = useState(botConfig?.url || "");
   const [isActive, setIsActive] = useState(botConfig?.active ?? true);
+  const [groqApiKey, setGroqApiKey] = useState(botConfig?.groqApiKey || "");
   const [savingConfig, setSavingConfig] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
 
@@ -75,11 +76,12 @@ export function AdminWhatsappApiView({
         {
           url: apiUrl.trim(),
           active: isActive,
+          groqApiKey: groqApiKey.trim(),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
-      onToast("Configurações da API do WhatsApp salvas com sucesso!");
+      onToast("Configurações salvas com sucesso!");
     } catch (err: any) {
       console.error(err);
       onToast(`Erro ao salvar: ${err.message}`, "error");
@@ -274,6 +276,22 @@ export function AdminWhatsappApiView({
               />
               <p className="text-[11px] text-slate-400 mt-1">
                 Endereço do backend para envio de mensagens, checagem de instâncias e QR Code.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1">
+                Chave API Groq (Opcional - para IA)
+              </label>
+              <input
+                type="password"
+                placeholder="gsk_..."
+                value={groqApiKey}
+                onChange={(e) => setGroqApiKey(e.target.value)}
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Usado para as requisições de Inteligência Artificial via GroqCloud.
               </p>
             </div>
 

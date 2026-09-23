@@ -121,9 +121,11 @@ export function ProfileModal({
   const [sessionJSON, setSessionJSON] = useState("");
 
   const [activeTab, setActiveTab] = useState<"config" | "folgas">("config");
-  const [tipo, setTipo] = useState<"Folga" | "Férias">("Folga");
+  const [tipo, setTipo] = useState<"Folga" | "Férias" | "Saída durante o dia">("Folga");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [horaInicio, setHoraInicio] = useState("08:00");
+  const [horaFim, setHoraFim] = useState("12:00");
   const [justificativa, setJustificativa] = useState("");
   const [submittingFolga, setSubmittingFolga] = useState(false);
   const [folgas, setFolgas] = useState<SolicitacaoFolga[]>([]);
@@ -1692,7 +1694,7 @@ export function ProfileModal({
                         return;
                       }
 
-                      const docData = {
+                      const docData: any = {
                         solicitanteId: profile.uid,
                         solicitanteNome: profile.name,
                         solicitanteEmail: profile.email,
@@ -1705,6 +1707,11 @@ export function ProfileModal({
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp(),
                       };
+
+                      if (tipo === "Saída durante o dia") {
+                        docData.horaInicio = horaInicio;
+                        docData.horaFim = horaFim;
+                      }
 
                       await addDoc(
                         collection(db, COLLECTIONS.SOLICITACAO_FOLGA),
@@ -1732,7 +1739,7 @@ export function ProfileModal({
                   }}
                   className="space-y-4 text-xs text-slate-700"
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">
                         Tipo de Ausência
@@ -1740,39 +1747,75 @@ export function ProfileModal({
                       <select
                         value={tipo}
                         onChange={(e) =>
-                          setTipo(e.target.value as "Folga" | "Férias")
+                          setTipo(e.target.value as any)
                         }
                         className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none font-medium h-[38px]"
                       >
                         <option value="Folga">Folga</option>
                         <option value="Férias">Férias</option>
+                        <option value="Saída durante o dia">Saída durante o dia</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">
-                        Dia de Início
+                        {tipo === "Saída durante o dia" ? "Data da Ausência" : "Dia de Início"}
                       </label>
                       <input
                         type="date"
                         value={dataInicio}
-                        onChange={(e) => setDataInicio(e.target.value)}
-                        className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none h-[38px]"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-1">
-                        Dia de Fim
-                      </label>
-                      <input
-                        type="date"
-                        value={dataFim}
-                        onChange={(e) => setDataFim(e.target.value)}
+                        onChange={(e) => {
+                          setDataInicio(e.target.value);
+                          if (tipo === "Saída durante o dia") setDataFim(e.target.value);
+                        }}
                         className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none h-[38px]"
                         required
                       />
                     </div>
                   </div>
+
+                  {tipo === "Saída durante o dia" ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">
+                          Horário de Início
+                        </label>
+                        <input
+                          type="time"
+                          value={horaInicio}
+                          onChange={(e) => setHoraInicio(e.target.value)}
+                          className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none h-[38px]"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">
+                          Horário de Fim
+                        </label>
+                        <input
+                          type="time"
+                          value={horaFim}
+                          onChange={(e) => setHoraFim(e.target.value)}
+                          className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none h-[38px]"
+                          required
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">
+                          Dia de Fim
+                        </label>
+                        <input
+                          type="date"
+                          value={dataFim}
+                          onChange={(e) => setDataFim(e.target.value)}
+                          className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none h-[38px]"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-1">
@@ -1831,7 +1874,7 @@ export function ProfileModal({
                         >
                           <div className="flex items-center justify-between">
                             <span
-                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${folga.tipo === "Férias" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}
+                              className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${folga.tipo === "Férias" ? "bg-purple-100 text-purple-700" : folga.tipo === "Saída durante o dia" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}
                             >
                               {folga.tipo}
                             </span>
@@ -1854,14 +1897,23 @@ export function ProfileModal({
 
                           <div className="text-slate-700 font-semibold flex justify-between items-center">
                             <span>
-                              Período:{" "}
-                              <strong className="text-slate-950 font-bold">
-                                {formatDateBr(folga.dataInicio)}
-                              </strong>{" "}
-                              a{" "}
-                              <strong className="text-slate-950 font-bold">
-                                {formatDateBr(folga.dataFim)}
-                              </strong>
+                              {folga.tipo === "Saída durante o dia" ? (
+                                <>
+                                  Dia: <strong className="text-slate-950 font-bold">{formatDateBr(folga.dataInicio)}</strong>
+                                  {" "} Horário: <strong className="text-slate-950 font-bold">{folga.horaInicio} às {folga.horaFim}</strong>
+                                </>
+                              ) : (
+                                <>
+                                  Período:{" "}
+                                  <strong className="text-slate-950 font-bold">
+                                    {formatDateBr(folga.dataInicio)}
+                                  </strong>{" "}
+                                  a{" "}
+                                  <strong className="text-slate-950 font-bold">
+                                    {formatDateBr(folga.dataFim)}
+                                  </strong>
+                                </>
+                              )}
                             </span>
                           </div>
 

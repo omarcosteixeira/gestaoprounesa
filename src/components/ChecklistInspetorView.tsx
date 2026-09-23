@@ -6,7 +6,8 @@ import {
   addDoc, 
   serverTimestamp, 
   where,
-  orderBy
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../firebase';
 import { ChecklistInspetor, UserProfile, MapaoAcademicoEntry } from '../types';
@@ -47,13 +48,16 @@ const DIAS_MAPAO = [
 
 export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInspetorViewProps) {
   const [history, setHistory] = useState<ChecklistInspetor[]>([]);
+  const [recentHistory, setRecentHistory] = useState<ChecklistInspetor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRecent, setLoadingRecent] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Local state for the current checklist being filled
   const [currentChecks, setCurrentChecks] = useState<Record<string, Partial<ChecklistInspetor>>>({});
 
+  // History for selected date
   useEffect(() => {
     const q = query(
       collection(db, COLLECTIONS.CHECKLIST_INSPETOR),
@@ -72,6 +76,26 @@ export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInsp
 
     return () => unsub();
   }, [selectedDate]);
+
+  // Recent History (last 20)
+  useEffect(() => {
+    const q = query(
+      collection(db, COLLECTIONS.CHECKLIST_INSPETOR),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const list: ChecklistInspetor[] = [];
+      snap.forEach((d) => {
+        list.push({ id: d.id, ...d.data() } as ChecklistInspetor);
+      });
+      setRecentHistory(list);
+      setLoadingRecent(false);
+    });
+
+    return () => unsub();
+  }, []);
 
   // Determine rooms allocated for the selected date
   const allocatedRooms = useMemo(() => {
@@ -303,7 +327,7 @@ export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInsp
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-bold text-slate-800 flex items-center gap-2">
             <ClipboardList className="text-blue-600" />
-            Histórico de Checklists (Hoje)
+            Histórico dos Últimos Checklists
           </h3>
         </div>
 
@@ -311,6 +335,7 @@ export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInsp
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100">
+                <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Data</th>
                 <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Hora</th>
                 <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Sala</th>
                 <th className="py-4 px-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Inspetor</th>
@@ -318,20 +343,23 @@ export function ChecklistInspetorView({ profile, onToast, mapao }: ChecklistInsp
               </tr>
             </thead>
             <tbody>
-              {history.length === 0 ? (
+              {recentHistory.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-slate-400 text-sm italic">
-                    Nenhum checklist preenchido para hoje.
+                  <td colSpan={5} className="py-8 text-center text-slate-400 text-sm italic">
+                    {loadingRecent ? "Carregando histórico..." : "Nenhum checklist preenchido."}
                   </td>
                 </tr>
               ) : (
-                history.map((h) => {
+                recentHistory.map((h) => {
                   const itemsCount = [h.arDesligado, h.luzDesligada, h.trancada, h.materiaisOk, h.cadeirasOk].filter(v => v).length;
                   const totalItems = 5;
                   const isFullyComplete = itemsCount === totalItems;
 
                   return (
                     <tr key={h.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-4 text-sm text-slate-600 font-bold">
+                        {h.data ? h.data.split('-').reverse().join('/') : '-'}
+                      </td>
                       <td className="py-4 px-4 text-sm text-slate-600 font-medium">
                         {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '...'}
                       </td>

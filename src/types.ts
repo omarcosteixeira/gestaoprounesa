@@ -660,7 +660,9 @@ export interface SolicitacaoFolga {
   solicitanteRole: UserRole;
   dataInicio: string;  // Format YYYY-MM-DD
   dataFim: string;     // Format YYYY-MM-DD
-  tipo: 'Folga' | 'Férias';
+  horaInicio?: string; // Format HH:mm
+  horaFim?: string;    // Format HH:mm
+  tipo: 'Folga' | 'Férias' | 'Saída durante o dia';
   status: 'Pendente' | 'Aprovado' | 'Recusado';
   aprovadoPorId?: string;
   aprovadoPorNome?: string;
