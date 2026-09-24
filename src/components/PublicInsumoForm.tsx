@@ -192,6 +192,12 @@ export function PublicInsumoForm({ onToast }: PublicInsumoFormProps) {
       (f.nome || "").toLowerCase().includes(professorName.toLowerCase()),
   );
 
+  const docenteOptions = funcionarios.filter(
+    (f) =>
+      f.tipo === "docente" &&
+      (f.nome || "").toLowerCase().includes(professorName.toLowerCase()),
+  );
+
   return (
     <div className="flex-1 flex items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-2xl bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100/80">
@@ -351,12 +357,47 @@ export function PublicInsumoForm({ onToast }: PublicInsumoFormProps) {
                           <input
                             type="text"
                             required
-                            placeholder="Ex: Dr. Robson Mendes"
+                            placeholder="Comece a digitar seu nome..."
                             value={professorName}
-                            onChange={(e) => setProfessorName(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all bg-white"
+                            onFocus={() => setShowAutocomplete(true)}
+                            onChange={(e) => {
+                              setProfessorName(e.target.value);
+                              setMatricula("");
+                              setShowAutocomplete(true);
+                            }}
+                            className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all bg-white font-medium"
                           />
                         </div>
+
+                        {/* Autocomplete absolute select list for Docente */}
+                        {showAutocomplete && tipoSolicitante === "docente" &&
+                          professorName.trim().length > 0 && (
+                            <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-[180px] overflow-y-auto divide-y divide-slate-50">
+                              {docenteOptions.length === 0 ? (
+                                <div className="p-3 text-xs text-slate-400 italic">
+                                  Nenhum docente cadastrado com esse nome
+                                </div>
+                              ) : (
+                                docenteOptions.map((f) => (
+                                  <button
+                                    type="button"
+                                    key={f.id}
+                                    onClick={() => {
+                                      setProfessorName(f.nome);
+                                      setMatricula(f.matricula);
+                                      setShowAutocomplete(false);
+                                    }}
+                                    className="w-full p-3 text-left text-xs text-slate-700 hover:bg-slate-50 font-bold transition-all flex justify-between items-center"
+                                  >
+                                    <span>{f.nome}</span>
+                                    <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                      {f.matricula}
+                                    </span>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          )}
                       </div>
 
                       <div>
@@ -609,8 +650,7 @@ export function PublicInsumoForm({ onToast }: PublicInsumoFormProps) {
                             (() => {
                               const filtered = estoque.filter((stockItem) =>
                                 stockItem.material &&
-                                stockItem.material.toLowerCase().includes(it.material.toLowerCase()) &&
-                                stockItem.quantidade > 0
+                                stockItem.material.toLowerCase().includes(it.material.toLowerCase())
                               );
                               if (filtered.length === 0) return null;
                               return (
@@ -626,8 +666,11 @@ export function PublicInsumoForm({ onToast }: PublicInsumoFormProps) {
                                       className="w-full text-left px-4 py-2.5 text-xs hover:bg-slate-50 text-slate-700 font-medium flex justify-between items-center cursor-pointer"
                                     >
                                       <span>{stockItem.material}</span>
-                                      <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold">
-                                        Em estoque: {stockItem.quantidade} {stockItem.unidadeMedida || 'un'}
+                                      <span className={cn(
+                                        "text-[10px] px-2 py-0.5 rounded font-bold",
+                                        stockItem.quantidade > 0 ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                                      )}>
+                                        Estoque: {stockItem.quantidade} {stockItem.unidadeMedida || 'un'}
                                       </span>
                                     </button>
                                   ))}

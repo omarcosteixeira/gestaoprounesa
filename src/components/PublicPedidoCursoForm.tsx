@@ -42,31 +42,36 @@ export function PublicPedidoCursoForm({ onToast }: PublicPedidoCursoFormProps) {
         createdAt: serverTimestamp(),
       });
 
-      // Verifica se o curso solicitado existe na unidade Angra dos Reis
-      const cursosSnap = await getDocs(collection(db, COLLECTIONS.CURSOS));
-      let match = false;
-      cursosSnap.forEach((doc) => {
-        const c = doc.data();
-        if (
-          c.nomeUnidade &&
-          c.nomeUnidade.toLowerCase().includes("angra dos reis") &&
-          c.curso &&
-          c.curso.toLowerCase().trim() === curso.toLowerCase().trim()
-        ) {
-          match = true;
-        }
-      });
-
-      if (match) {
-        // Adiciona automaticamente à lista de leads se der match
-        await addDoc(collection(db, COLLECTIONS.LEADS), {
-          nome,
-          telefone,
-          cursoInteresse: curso,
-          acao: "Formulário VIP",
-          status: "Pendente",
-          createdAt: serverTimestamp(),
+      // Verifica se o curso solicitado existe na unidade Angra dos Reis (Opcional, não deve travar o envio)
+      try {
+        const cursosSnap = await getDocs(collection(db, COLLECTIONS.CURSOS));
+        let match = false;
+        cursosSnap.forEach((doc) => {
+          const c = doc.data();
+          if (
+            c.nomeUnidade &&
+            c.nomeUnidade.toLowerCase().includes("angra dos reis") &&
+            c.curso &&
+            c.curso.toLowerCase().trim() === curso.toLowerCase().trim()
+          ) {
+            match = true;
+          }
         });
+
+        if (match) {
+          // Adiciona automaticamente à lista de leads se der match
+          await addDoc(collection(db, COLLECTIONS.LEADS), {
+            nome,
+            telefone,
+            cursoInteresse: curso,
+            acao: "Formulário VIP",
+            status: "Pendente",
+            createdAt: serverTimestamp(),
+          });
+        }
+      } catch (matchError) {
+        console.warn("Erro ao verificar match de curso ou salvar lead:", matchError);
+        // Não rethrow para não falhar a operação principal de PEDIDO_CURSOS
       }
 
       setSuccess(true);

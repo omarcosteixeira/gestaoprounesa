@@ -145,6 +145,39 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    match /artifacts/{projectId}/public/data/pedido_cursos/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/insumos_pedidos/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/insumos_pedidos_comercial/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/leads/{id} {
+      allow create: if true;
+      allow read, update, delete: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/cursos/{id} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/funcionarios/{id} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/insumos_estoque/{id} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+    match /artifacts/{projectId}/public/data/insumos_estoque_comercial/{id} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     match /{collectionName}/{id} {
       allow read, write: if isAuthenticated() && (isMasterUser() || isLiderSM() || isSalaMatricula() || !isRegional());
     }
