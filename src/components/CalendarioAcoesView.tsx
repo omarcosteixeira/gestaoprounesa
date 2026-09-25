@@ -370,7 +370,7 @@ export function CalendarioAcoesView({
         onToast("Ação agendada com sucesso!");
         if (onSendNotification) {
           const textToSearch = `${payload.nome} ${payload.local} ${payload.observacao} ${payload.colaboradoresNomes?.join(" ")}`;
-          onSendNotification(textToSearch, payload.nome || "Ação", "Plano de Ação", payload.colaboradoresIds);
+          onSendNotification(textToSearch, payload.nome || "Ação", "Plano de Ação");
         }
       }
       setIsModalOpen(false);

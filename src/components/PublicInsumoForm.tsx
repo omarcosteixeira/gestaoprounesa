@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { db, COLLECTIONS } from "../firebase";
 import { addDoc, collection, onSnapshot } from "firebase/firestore";
 import { InsumoItem, InsumoPedido } from "../types";
+import { cn } from "../lib/utils";
 
 interface PublicInsumoFormProps {
   onToast: (msg: string, type?: "success" | "error") => void;
