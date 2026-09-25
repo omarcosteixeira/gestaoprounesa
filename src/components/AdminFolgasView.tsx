@@ -51,6 +51,34 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
   const [justificativa, setJustificativa] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const canUpdateStatus = (f: SolicitacaoFolga) => {
+    return profile.role === "Admin Master" || profile.role === "Líder SM";
+  };
+
+  const hasConflictOnSelectedDates = (() => {
+    if (!dataInicio || !dataFim || !solicitanteId) return null;
+    
+    return folgas.find(appr => {
+      if (appr.status !== "Aprovado") return false;
+      if (appr.solicitanteId === solicitanteId) return false;
+      if (appr.tipo === "Saída durante o dia") return false;
+      
+      const selectedUser = users.find(u => u.uid === solicitanteId);
+      if (selectedUser && selectedUser.unidade !== appr.unidade) return false;
+
+      return (
+        dataInicio <= appr.dataFim &&
+        appr.dataInicio <= dataFim
+      );
+    });
+  })();
+
+  useEffect(() => {
+    if (hasConflictOnSelectedDates && tipo !== "Saída durante o dia") {
+      setTipo("Saída durante o dia");
+    }
+  }, [hasConflictOnSelectedDates]);
+
   useEffect(() => {
     try {
       const q = query(
@@ -132,6 +160,7 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
         dataFim,
         tipo,
         status: "Aprovado",
+        unidade: selectedUser.unidade || "",
         aprovadoPorId: profile.uid,
         aprovadoPorNome: profile.name || profile.nome || profile.email,
         justificativa: justificativa.trim() || "Registrado diretamente pela Administração",
@@ -426,10 +455,10 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
                   <select
                     value={tipo}
                     onChange={(e) => setTipo(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 bg-slate-50 border rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${hasConflictOnSelectedDates && tipo !== "Saída durante o dia" ? "border-amber-500" : "border-slate-200"}`}
                   >
-                    <option value="Folga">Folga</option>
-                    <option value="Férias">Férias</option>
+                    <option value="Folga" disabled={Boolean(hasConflictOnSelectedDates)}>Folga {hasConflictOnSelectedDates ? "(Indisponível)" : ""}</option>
+                    <option value="Férias" disabled={Boolean(hasConflictOnSelectedDates)}>Férias {hasConflictOnSelectedDates ? "(Indisponível)" : ""}</option>
                     <option value="Saída durante o dia">Saída durante o dia</option>
                   </select>
                 </div>
@@ -450,6 +479,16 @@ export function AdminFolgasView({ profile, users = [], onToast }: Props) {
                   />
                 </div>
               </div>
+
+              {hasConflictOnSelectedDates && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-700 flex items-start gap-2 leading-snug">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Conflito Detectado:</strong> Já existe aprovação para <strong>{hasConflictOnSelectedDates.solicitanteNome}</strong> nesta data. 
+                    Neste caso, apenas <strong>"Saída durante o dia"</strong> é permitido para garantir a cobertura da unidade.
+                  </span>
+                </div>
+              )}
 
               {tipo === "Saída durante o dia" ? (
                 <div className="grid grid-cols-2 gap-3">

@@ -129,6 +129,7 @@ export function ProfileModal({
   const [justificativa, setJustificativa] = useState("");
   const [submittingFolga, setSubmittingFolga] = useState(false);
   const [folgas, setFolgas] = useState<SolicitacaoFolga[]>([]);
+  const [allApprovedFolgas, setAllApprovedFolgas] = useState<SolicitacaoFolga[]>([]);
   const [loadingFolgas, setLoadingFolgas] = useState(false);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -169,6 +170,37 @@ export function ProfileModal({
 
     return () => unsubscribe();
   }, [profile?.uid, activeTab, isOpen]);
+
+  // Load ALL approved folgas for the unit to check for conflicts reactively
+  useEffect(() => {
+    if (activeTab !== "folgas" || !isOpen) return;
+
+    const colRef = collection(db, COLLECTIONS.SOLICITACAO_FOLGA);
+    // Fetch only approved ones. We could also fetch pending if we want to be strict.
+    const q = query(colRef, where("status", "==", "Aprovado"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as SolicitacaoFolga[];
+
+        // Filter by unit if the user has one
+        const unitFiltered = profile?.unidade 
+          ? list.filter(f => f.unidade === profile.unidade || !f.unidade)
+          : list;
+
+        setAllApprovedFolgas(unitFiltered);
+      },
+      (error) => {
+        console.error("Error loading all approved folgas:", error);
+      },
+    );
+
+    return () => unsubscribe();
+  }, [activeTab, isOpen, profile?.unidade]);
 
   // Synchronize input with external profile state changes
   useEffect(() => {
@@ -428,6 +460,28 @@ export function ProfileModal({
   ];
   const canRequestFolga =
     profile && allowedRolesForFolga.includes(profile.role);
+
+  // Reactive conflict check for UI feedback
+  const hasConflictOnSelectedDates = (() => {
+    if (!dataInicio || !dataFim) return null;
+    
+    return allApprovedFolgas.find(appr => {
+      if (appr.solicitanteId === profile.uid) return false;
+      if (appr.tipo === "Saída durante o dia") return false;
+      
+      return (
+        dataInicio <= appr.dataFim &&
+        appr.dataInicio <= dataFim
+      );
+    });
+  })();
+
+  // Force "Saída durante o dia" if there is a conflict
+  useEffect(() => {
+    if (hasConflictOnSelectedDates && tipo !== "Saída durante o dia") {
+      setTipo("Saída durante o dia");
+    }
+  }, [hasConflictOnSelectedDates]);
 
   const formatDateBr = (dateStr: string) => {
     if (!dateStr) return "";
@@ -1672,17 +1726,20 @@ export function ProfileModal({
                         (doc) => ({ id: doc.id, ...doc.data() }) as any,
                       );
 
-                      const conflict = existingApprovals.find((appr) => {
+                      const conflictFullDay = existingApprovals.find((appr) => {
                         if (appr.solicitanteId === profile.uid) return false;
+                        // Only full-day absences (Folga/Férias) block other full-day absences
+                        if (appr.tipo === "Saída durante o dia") return false;
+                        
                         return (
                           dataInicio <= appr.dataFim &&
                           appr.dataInicio <= dataFim
                         );
                       });
 
-                      if (conflict) {
+                      if (conflictFullDay && (tipo === "Folga" || tipo === "Férias")) {
                         onToast(
-                          `Atenção: A data selecionada já está aprovada para outro funcionário (${conflict.solicitanteNome}, de ${formatDateBr(conflict.dataInicio)} a ${formatDateBr(conflict.dataFim)}).`,
+                          `Atenção: Já existe um funcionário (${conflictFullDay.solicitanteNome}) em ${conflictFullDay.tipo} neste período (${formatDateBr(conflictFullDay.dataInicio)} a ${formatDateBr(conflictFullDay.dataFim)}). Como a unidade não pode ficar sem cobertura total, você só pode solicitar "Saída durante o dia" para esta data.`,
                           "error",
                         );
                         setSubmittingFolga(false);
@@ -1698,6 +1755,7 @@ export function ProfileModal({
                         dataFim,
                         tipo,
                         status: "Pendente",
+                        unidade: profile.unidade || "",
                         justificativa,
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp(),
@@ -1746,12 +1804,21 @@ export function ProfileModal({
                         onChange={(e) =>
                           setTipo(e.target.value as any)
                         }
-                        className="bg-white w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none font-medium h-[38px]"
+                        className={`bg-white w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none font-medium h-[38px] ${hasConflictOnSelectedDates && tipo !== "Saída durante o dia" ? "border-amber-500 ring-2 ring-amber-100" : "border-slate-200"}`}
                       >
-                        <option value="Folga">Folga</option>
-                        <option value="Férias">Férias</option>
+                        <option value="Folga" disabled={Boolean(hasConflictOnSelectedDates)}>Folga {hasConflictOnSelectedDates ? "(Indisponível)" : ""}</option>
+                        <option value="Férias" disabled={Boolean(hasConflictOnSelectedDates)}>Férias {hasConflictOnSelectedDates ? "(Indisponível)" : ""}</option>
                         <option value="Saída durante o dia">Saída durante o dia</option>
                       </select>
+                      {hasConflictOnSelectedDates && (
+                        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 flex items-start gap-1.5 leading-tight">
+                          <AlertCircle size={12} className="shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Atenção:</strong> Já existe aprovação para <strong>{hasConflictOnSelectedDates.solicitanteNome}</strong> neste período. 
+                            Neste caso, você só pode solicitar <strong>"Saída durante o dia"</strong>.
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1">

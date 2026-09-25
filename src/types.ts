@@ -664,6 +664,7 @@ export interface SolicitacaoFolga {
   horaFim?: string;    // Format HH:mm
   tipo: 'Folga' | 'Férias' | 'Saída durante o dia';
   status: 'Pendente' | 'Aprovado' | 'Recusado';
+  unidade?: string;
   aprovadoPorId?: string;
   aprovadoPorNome?: string;
   justificativa?: string;
