@@ -118,7 +118,10 @@ service cloud.firestore {
     match /qg_ligacoes/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
     match /acao_rua/{id} { allow read, write: if isMasterUser() || isLiderSM(); }
 
-    match /cursos/{id} { allow read, write: if isAuthenticated(); }
+    match /cursos/{id} { 
+      allow read: if true;
+      allow write: if isAuthenticated(); 
+    }
     match /campanhas/{id} { allow read, write: if isAuthenticated(); }
     match /funcionarios/{id} { allow read, write: if isAuthenticated(); }
     match /formularios/{id} { allow read, write: if isAuthenticated(); }

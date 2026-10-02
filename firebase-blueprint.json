@@ -333,6 +333,37 @@
       },
       "required": ["nome", "dataInicio", "dataFim", "local", "unidade", "creatorId", "createdAt"]
     },
+    "CursoDisponivel": {
+      "title": "CursoDisponivel",
+      "description": "Cursos disponíveis para o Catálogo Digital",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nomeUnidade": { "type": "string" },
+        "produto": { "type": "string", "enum": ["Graduação", "Técnico", "Pós-graduação"] },
+        "curso": { "type": "string" },
+        "metodologia": { "type": "string" },
+        "duracao": { "type": "string" },
+        "turno": { "type": "string" },
+        "descricao": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "imagens": { "type": "array", "items": { "type": "string" } },
+        "possuiCoordenador": { "type": "boolean" },
+        "coordenador": {
+          "type": "object",
+          "properties": {
+            "nome": { "type": "string" },
+            "descricao": { "type": "string" },
+            "fotoUrl": { "type": "string" },
+            "lattes": { "type": "string" },
+            "contato": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nomeUnidade", "produto", "curso", "metodologia"]
+    },
     "PrecoInstituicao": {
       "title": "PrecoInstituicao",
       "description": "Institutional Course Pricing",
@@ -452,6 +483,10 @@
     "artifacts/gestaopro-761e1/public/data/calendario_acoes/{acaoId}": {
       "schema": "CalendarioAcao",
       "description": "Team action and event planning data"
+    },
+    "artifacts/gestaopro-761e1/public/data/cursos/{id}": {
+      "schema": "CursoDisponivel",
+      "description": "Digital Catalog Courses"
     },
     "artifacts/gestaopro-761e1/public/data/precos_instituicao/{precoId}": {
       "schema": "PrecoInstituicao",

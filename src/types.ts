@@ -680,7 +680,19 @@ export interface CursoDisponivel {
   metodologia: string;
   duracao: string;
   turno?: string;
+  descricao?: string;
+  observacoes?: string;
+  imagens?: string[];
+  possuiCoordenador: boolean;
+  coordenador?: {
+    nome: string;
+    descricao: string;
+    fotoUrl?: string;
+    lattes: string;
+    contato: string;
+  };
   createdAt: any;
+  updatedAt?: any;
 }
 
 export interface InsumoItem {

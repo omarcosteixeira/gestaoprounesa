@@ -154,7 +154,6 @@ import {
 } from "./lib/utils";
 import { enqueueTeamsAlert, executeDirectTeamsDispatch } from "./lib/teamsService";
 import * as XLSX from "xlsx";
-import { EmailMarketingView } from "./components/EmailMarketingView";
 import { RelatoriosView } from "./components/RelatoriosView";
 import { ControleConcorrenciaView } from "./components/ControleConcorrenciaView";
 import Mapa3D from "./components/Mapa3D";
@@ -222,6 +221,7 @@ import { PublicMaintenanceForm } from "./components/PublicMaintenanceForm";
 import { PublicPedidoCursoForm } from "./components/PublicPedidoCursoForm";
 import { PublicClubeLocalView } from "./components/PublicClubeLocalView";
 import { PublicDocenteForm } from "./components/PublicDocenteForm";
+import { PublicCatalogoDigital } from "./components/PublicCatalogoDigital";
 import { AchadosPerdidosView } from "./components/AchadosPerdidosView";
 import { ChecklistInspetorView } from "./components/ChecklistInspetorView";
 import { AlocacaoDocenteView } from "./components/AlocacaoDocenteView";
@@ -660,18 +660,6 @@ const VIEW_PERMISSIONS: Record<string, UserRole[]> = {
     ROLES.GESTOR_COMERCIAL,
     ROLES.PROMOTOR,
     ROLES.ACADEMICO,
-    ROLES.GESTOR
-  ],
-  emailMarketing: [
-    ROLES.ADMIN_MASTER,
-    ROLES.LIDER_FDV,
-    ROLES.GESTOR_COMERCIAL,
-    ROLES.GESTOR_COMERCIAL_COMERCIAL,
-    ROLES.QG,
-    ROLES.FDV,
-    ROLES.PROMOTOR,
-    ROLES.PROMOTOR_RUA,
-    ROLES.FDV_COMERCIAL,
     ROLES.GESTOR
   ],
   controleConcorrencia: [
@@ -5537,6 +5525,7 @@ export default function App() {
       }
 
       if (path.includes("clubelocal")) return "clubeLocal";
+      if (path.includes("catalogodigital")) return "catalogodigital";
     }
     return "cadastro";
   });
@@ -5579,6 +5568,10 @@ export default function App() {
         window.location.hash.includes("docente")
       ) {
         setCurrentView("docente-publico");
+      }
+      
+      if (path.includes("catalogodigital")) {
+        setCurrentView("catalogodigital");
       }
     };
 
@@ -8113,7 +8106,6 @@ export default function App() {
         "calendario",
         "empresas",
         "calculo",
-        "emailMarketing",
         "admin",
         "controlePagamentos",
       ];
@@ -8181,6 +8173,14 @@ export default function App() {
           )}
         </AnimatePresence>
         <PublicClubeLocalView onToast={showToast} />
+      </div>
+    );
+  }
+
+  if (currentView === "catalogodigital") {
+    return (
+      <div className="min-h-screen bg-[#01112c] flex flex-col justify-between">
+        <PublicCatalogoDigital />
       </div>
     );
   }
@@ -8657,7 +8657,7 @@ export default function App() {
               },
               { id: "fiesProuni", label: "Fies/Prouni", icon: FileText },
               { id: "academico", label: "Acadêmico", icon: GraduationCap },
-              { id: "cursos", label: "Cursos Disponíveis", icon: BookOpen },
+              { id: "cursos", label: "Catálogo Digital", icon: BookOpen },
               { id: "basesDisparo", label: "Bases de Disparo", icon: Globe },
               { id: "basesRenovacao", label: "Base Líquida", icon: Database },
               { id: "campanhas", label: "Campanhas", icon: Megaphone },
@@ -8695,12 +8695,7 @@ export default function App() {
                 label: "Controle de Insumos (Comercial)",
                 icon: Boxes,
               },
-              {
-                id: "emailMarketing",
-                label: "Envio de e-mail Marketing",
-                icon: Mail,
-              },
-                            { id: "checklist", label: "Check list", icon: ListChecks },
+              { id: "checklist", label: "Check list", icon: ListChecks },
               { id: "acompanhamentoTarefas", label: "Acompanhamento de Tarefas", icon: ClipboardList },
               { id: "clubeLocal", label: "Clube Local", icon: Gift },
               { id: "admin", label: "Administração", icon: Settings },
@@ -9024,9 +9019,6 @@ export default function App() {
                 <CampanhasView campanhas={campanhas} onToast={showToast} />
               )}
               {currentView === "calculo" && <CalculoRemuneracaoView />}
-              {currentView === "emailMarketing" && (
-                <EmailMarketingView onToast={showToast} />
-              )}
               {currentView === "controlePagamentos" && (
                 <ControlePagamentosView
                   calendarioAcoes={calendarioAcoes}
