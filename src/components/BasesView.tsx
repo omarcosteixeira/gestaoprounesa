@@ -142,7 +142,6 @@ import {
   matchesUnit,
 } from "../lib/utils";
 import * as XLSX from "xlsx";
-import { EmailMarketingView } from "./EmailMarketingView";
 import { RelatoriosView } from "./RelatoriosView";
 import { ControleConcorrenciaView } from "./ControleConcorrenciaView";
 import Mapa3D from "./Mapa3D";
