@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db, COLLECTIONS } from "../firebase";
-import { CursoDisponivel } from "../types";
+import { CursoDisponivel, MetodologiaInfo } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   BookOpen, 
@@ -15,7 +15,9 @@ import {
   ChevronRight,
   Link as LinkIcon,
   Phone,
-  Maximize2
+  Maximize2,
+  X,
+  Layers
 } from "lucide-react";
 import { cn } from "../lib/utils";
 
@@ -24,6 +26,18 @@ export function PublicCatalogoDigital() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCurso, setSelectedCurso] = useState<CursoDisponivel | null>(null);
+  const [selectedMetodologia, setSelectedMetodologia] = useState<MetodologiaInfo | null>(null);
+
+  useEffect(() => {
+    if (selectedCurso) {
+      const metas = selectedCurso.metodologias && selectedCurso.metodologias.length > 0 
+        ? selectedCurso.metodologias 
+        : [{ nome: selectedCurso.metodologia, observacao: selectedCurso.observacoes || "" }];
+      setSelectedMetodologia(metas[0]);
+    } else {
+      setSelectedMetodologia(null);
+    }
+  }, [selectedCurso]);
 
   useEffect(() => {
     const q = query(collection(db, COLLECTIONS.CURSOS), orderBy("curso", "asc"));
@@ -35,11 +49,39 @@ export function PublicCatalogoDigital() {
     return () => unsubscribe();
   }, []);
 
-  const filteredCursos = cursos.filter(c => 
-    c.curso.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.nomeUnidade.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.produto.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCursos = useMemo(() => {
+    const raw = cursos.filter(c => 
+      c.curso.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.nomeUnidade.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.produto.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    // Grouping logic
+    const groups: Record<string, CursoDisponivel> = {};
+    raw.forEach(c => {
+      const key = `${c.nomeUnidade}|${c.produto}|${c.curso}`.toLowerCase();
+      if (!groups[key]) {
+        groups[key] = { ...c, metodologias: c.metodologias || [{ nome: c.metodologia, observacao: c.observacoes || "" }] };
+      } else {
+        // Merge methodologies from separate records if they exist
+        const existingMetas = groups[key].metodologias || [];
+        const newMetas = c.metodologias || [{ nome: c.metodologia, observacao: c.observacoes || "" }];
+        
+        newMetas.forEach(nm => {
+          if (!existingMetas.some(em => em.nome === nm.nome)) {
+            existingMetas.push(nm);
+          }
+        });
+        groups[key].metodologias = existingMetas;
+        
+        // Use the record with more info (description/images) if current one is sparse
+        if (!groups[key].descricao && c.descricao) groups[key].descricao = c.descricao;
+        if ((!groups[key].imagens || groups[key].imagens?.length === 0) && c.imagens?.length) groups[key].imagens = c.imagens;
+      }
+    });
+
+    return Object.values(groups);
+  }, [cursos, searchTerm]);
 
   if (loading) {
     return (
@@ -137,8 +179,17 @@ export function PublicCatalogoDigital() {
 
                   <div className="grid grid-cols-2 gap-4 mt-auto">
                     <div className="bg-slate-50 p-3 rounded-2xl">
-                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Metodologia</p>
-                      <p className="text-xs font-bold text-slate-700">{curso.metodologia}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Metodologias</p>
+                      <div className="flex flex-wrap gap-1">
+                        {(curso.metodologias || []).slice(0, 2).map((m, i) => (
+                          <span key={i} className="text-[10px] font-bold text-slate-600 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                            {m.nome}
+                          </span>
+                        ))}
+                        {(curso.metodologias?.length || 0) > 2 && (
+                          <span className="text-[10px] font-bold text-indigo-600">+{curso.metodologias!.length - 2}</span>
+                        )}
+                      </div>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-2xl">
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Duração</p>
@@ -226,15 +277,29 @@ export function PublicCatalogoDigital() {
                 </h2>
 
                 <div className="grid grid-cols-2 gap-6 mb-12">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
-                      <Clock size={20} />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Metodologia</p>
-                      <p className="text-sm font-bold text-slate-900">{selectedCurso.metodologia}</p>
+                  <div className="col-span-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Layers size={14} />
+                      Escolha a Metodologia
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                      {(selectedCurso.metodologias || []).map((m, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setSelectedMetodologia(m)}
+                          className={cn(
+                            "px-5 py-2.5 rounded-2xl text-xs font-bold transition-all border-2",
+                            selectedMetodologia?.nome === m.nome
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200"
+                              : "bg-white text-slate-500 border-slate-100 hover:border-indigo-200"
+                          )}
+                        >
+                          {m.nome}
+                        </button>
+                      ))}
                     </div>
                   </div>
+
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
                       <Maximize2 size={20} />
@@ -247,6 +312,23 @@ export function PublicCatalogoDigital() {
                 </div>
 
                 <div className="space-y-8">
+                  {selectedMetodologia?.observacao && (
+                    <motion.div 
+                      key={selectedMetodologia.nome}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="bg-amber-50 p-6 rounded-3xl border border-amber-100"
+                    >
+                      <h4 className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Clock size={14} />
+                        Como funciona o {selectedMetodologia.nome}
+                      </h4>
+                      <p className="text-amber-900/80 text-sm leading-relaxed font-medium">
+                        {selectedMetodologia.observacao}
+                      </p>
+                    </motion.div>
+                  )}
+
                   <div>
                     <h4 className="text-xs font-black text-slate-900 uppercase tracking-[0.2em] mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
                       <span>Descrição do Curso</span>
@@ -260,7 +342,7 @@ export function PublicCatalogoDigital() {
                     <div className="bg-indigo-50/30 p-6 rounded-3xl border border-indigo-100/50">
                       <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <LinkIcon size={14} />
-                        <span>Informações Importantes</span>
+                        <span>Informações Gerais</span>
                       </h4>
                       <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-line">
                         {selectedCurso.observacoes}

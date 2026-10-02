@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from "react";
-import { CursoDisponivel, UserProfile } from "../types";
+import { CursoDisponivel, UserProfile, MetodologiaInfo } from "../types";
 import { db, COLLECTIONS } from "../firebase";
 import {
   collection,
@@ -75,6 +75,7 @@ export function CursosDisponiveisView({
 
   // New Fields
   const [imagens, setImagens] = useState<string[]>([]);
+  const [metodologias, setMetodologias] = useState<MetodologiaInfo[]>([]);
   const [possuiCoordenador, setPossuiCoordenador] = useState(false);
   const [coordNome, setCoordNome] = useState("");
   const [coordDesc, setCoordDesc] = useState("");
@@ -93,6 +94,7 @@ export function CursosDisponiveisView({
     setEditingId(c.id);
     setIsAdding(true);
     setImagens(c.imagens || []);
+    setMetodologias(c.metodologias || (c.metodologia ? [{ nome: c.metodologia, observacao: c.observacoes || "" }] : []));
     setPossuiCoordenador(c.possuiCoordenador || false);
     setCoordNome(c.coordenador?.nome || "");
     setCoordDesc(c.coordenador?.descricao || "");
@@ -105,6 +107,7 @@ export function CursosDisponiveisView({
     setEditingId(null);
     setIsAdding(false);
     setImagens([]);
+    setMetodologias([]);
     setPossuiCoordenador(false);
     setCoordNome("");
     setCoordDesc("");
@@ -132,7 +135,8 @@ export function CursosDisponiveisView({
         | "Técnico"
         | "Pós-graduação",
       curso: (formData.get("curso") as string || "").trim(),
-      metodologia: (formData.get("metodologia") as string || "").trim(),
+      metodologia: metodologias.length > 0 ? metodologias[0].nome : (formData.get("metodologia") as string || "EAD"),
+      metodologias,
       duracao: (formData.get("duracao") as string || "").trim(),
       turno: (formData.get("turno") as string || "").trim(),
       descricao: (formData.get("descricao") as string || "").trim(),
@@ -512,23 +516,6 @@ export function CursosDisponiveisView({
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
-                  Metodologia <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="metodologia"
-                  required
-                  defaultValue={editingCurso?.metodologia || "EAD"}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                >
-                  {METODOLOGIAS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                   Duração <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -549,6 +536,68 @@ export function CursosDisponiveisView({
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   placeholder="Ex: Manhã, Noite, Integral..."
                 />
+              </div>
+            </div>
+
+            <div className="space-y-4 border-t border-slate-100 pt-8">
+              <div className="flex justify-between items-center">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Metodologias Disponíveis <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setMetodologias([...metodologias, { nome: "EAD", observacao: "" }])}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800"
+                >
+                  + Adicionar Metodologia
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {metodologias.map((m, idx) => (
+                  <div key={idx} className="grid grid-cols-1 gap-3 bg-slate-50 p-5 rounded-2xl relative border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setMetodologias(metodologias.filter((_, i) => i !== idx))}
+                      className="absolute -top-2 -right-2 bg-rose-500 text-white w-6 h-6 flex items-center justify-center rounded-full hover:bg-rose-600 shadow-sm"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="col-span-1">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Metodologia</label>
+                        <select
+                          value={m.nome}
+                          onChange={(e) => {
+                            const newM = [...metodologias];
+                            newM[idx].nome = e.target.value;
+                            setMetodologias(newM);
+                          }}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                        >
+                          {METODOLOGIAS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase mb-1">Observação / Como funciona</label>
+                        <input
+                          value={m.observacao}
+                          onChange={(e) => {
+                            const newM = [...metodologias];
+                            newM[idx].observacao = e.target.value;
+                            setMetodologias(newM);
+                          }}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Ex: Encontros semanais..."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {metodologias.length === 0 && (
+                  <p className="text-sm text-rose-500 font-bold italic p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                    ⚠️ Adicione pelo menos uma metodologia para este curso.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -818,6 +867,7 @@ export function CursosDisponiveisView({
                 <th className="px-5 py-4">Unidade</th>
                 <th className="px-5 py-4">Produto</th>
                 <th className="px-5 py-4">Curso</th>
+                <th className="px-5 py-4">Metodologias</th>
                 <th className="px-5 py-4 text-center">Imagens</th>
                 <th className="px-5 py-4 text-center">Coord.</th>
                 <th className="px-5 py-4 text-right">Ações</th>
@@ -846,6 +896,15 @@ export function CursosDisponiveisView({
                     </span>
                   </td>
                   <td className="px-5 py-4 font-medium">{c.curso}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {(c.metodologias || [{ nome: c.metodologia, observacao: "" }]).map((m, i) => (
+                        <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded text-[9px] font-bold border border-slate-200">
+                          {m.nome}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
                   <td className="px-5 py-4 text-center">
                     <div className="flex justify-center -space-x-2">
                       {(c.imagens || []).length > 0 ? (

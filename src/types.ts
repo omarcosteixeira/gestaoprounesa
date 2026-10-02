@@ -672,11 +672,17 @@ export interface SolicitacaoFolga {
   updatedAt?: any;
 }
 
+export interface MetodologiaInfo {
+  nome: string;
+  observacao: string;
+}
+
 export interface CursoDisponivel {
   id: string;
   nomeUnidade: string;
   produto: 'Graduação' | 'Técnico' | 'Pós-graduação';
   curso: string;
+  metodologias?: MetodologiaInfo[];
   metodologia: string;
   duracao: string;
   turno?: string;
