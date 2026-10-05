@@ -14,7 +14,9 @@ import {
   Building2,
   RefreshCw,
   IdCard,
-  GraduationCap
+  GraduationCap,
+  Flame,
+  Snowflake
 } from "lucide-react";
 import { 
   Lead, 
@@ -25,7 +27,7 @@ import {
   FiesProuniEntry,
   GapEntry
 } from "../types";
-import { cn, formatPhone } from "../lib/utils";
+import { cn, formatPhone, getLeadTemperatura } from "../lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 
 interface ControleLigacoesViewProps {
@@ -234,6 +236,8 @@ export default function ControleLigacoesView({
         candidatoTelefone: currentCandidate.telefone,
         origem: sourceType as 'Lead' | 'Base' | 'FiesProuni' | 'Gap',
         origemId: selectedSourceId || (sourceType === "FiesProuni" ? "Fies/Prouni" : "GAP"),
+        canal: 'Ligação',
+        temperatura: getLeadTemperatura(status),
         status: status,
         observacao: observation,
         atendenteId: profile.uid,
@@ -483,27 +487,33 @@ export default function ControleLigacoesView({
                   Histórico de Ligações
                 </h4>
                 <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
-                  {candidateHistory.map((h, i) => (
+                  {candidateHistory.map((h, i) => {
+                    const temp = getLeadTemperatura(h);
+                    return (
                     <div key={h.id} className="flex gap-4 items-start">
                       <div className={cn(
                         "mt-1 p-1 rounded-full",
-                        h.status === 'Convertido' ? "bg-blue-500" :
-                        h.status === 'Interesse' ? "bg-emerald-500" : 
-                        h.status === 'Sem interesse' ? "bg-rose-500" : "bg-amber-500"
+                        temp === 'Quente' ? "bg-amber-500" : "bg-blue-400"
                       )} />
-                      <div>
-                        <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                          <span>{h.atendenteNome}</span>
-                          <span>•</span>
-                          <span>{h.createdAt?.toDate().toLocaleString("pt-BR")}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between gap-2 text-xs font-bold text-slate-500">
+                          <span>{h.atendenteNome} • {h.createdAt?.toDate ? h.createdAt.toDate().toLocaleString("pt-BR") : ""}</span>
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-black uppercase flex items-center gap-0.5",
+                            temp === 'Quente' ? "bg-amber-100 text-amber-800" : "bg-blue-50 text-blue-700"
+                          )}>
+                            {temp === 'Quente' ? <Flame size={10} /> : <Snowflake size={10} />}
+                            Lead {temp}
+                          </span>
                         </div>
-                        <p className="text-sm font-bold text-slate-900">{h.status}</p>
+                        <p className="text-sm font-bold text-slate-900 mt-0.5">{h.status}</p>
                         {h.observacao && (
                           <p className="text-sm text-slate-600 mt-1 italic">"{h.observacao}"</p>
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

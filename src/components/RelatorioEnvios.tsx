@@ -13,8 +13,9 @@ import {
   Cell,
   Legend
 } from "recharts";
-import { Send, Mail, Calendar, Filter, BookOpen, Layers } from "lucide-react";
+import { Send, Mail, Calendar, Filter, BookOpen, Layers, Flame, Snowflake } from "lucide-react";
 import { format } from "date-fns";
+import { cn, getLeadTemperatura } from "../lib/utils";
 
 const COLORS = ["#10b981", "#f59e0b", "#0ea5e9", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#22c55e"];
 
@@ -59,6 +60,12 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
   }, [contacts, startDate, endDate, cursoFilter, origemFilter]);
 
   const totalEnvios = filteredData.length;
+  const leadsQuentes = useMemo(
+    () => filteredData.filter((c) => getLeadTemperatura(c) === "Quente").length,
+    [filteredData]
+  );
+  const leadsFrios = totalEnvios - leadsQuentes;
+
   const totalCursosDistintos = useMemo(
     () => new Set(filteredData.map((c) => c.curso || "Não informado")).size,
     [filteredData]
@@ -176,7 +183,7 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
           <div className={`p-4 rounded-xl ${iconBg}`}>
             <IconComponent size={32} />
@@ -188,7 +195,31 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+          <div className="p-4 bg-amber-50 text-amber-600 rounded-xl">
+            <Flame size={32} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Leads Quentes</p>
+            <p className="text-3xl font-black text-slate-800">
+              {leadsQuentes} <span className="text-xs font-bold text-slate-400">({totalEnvios > 0 ? Math.round((leadsQuentes / totalEnvios) * 100) : 0}%)</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
           <div className="p-4 bg-blue-50 text-blue-600 rounded-xl">
+            <Snowflake size={32} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Leads Frios</p>
+            <p className="text-3xl font-black text-slate-800">
+              {leadsFrios} <span className="text-xs font-bold text-slate-400">({totalEnvios > 0 ? Math.round((leadsFrios / totalEnvios) * 100) : 0}%)</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
+          <div className="p-4 bg-purple-50 text-purple-600 rounded-xl">
             <BookOpen size={32} />
           </div>
           <div>
@@ -198,7 +229,7 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center space-x-4">
-          <div className="p-4 bg-purple-50 text-purple-600 rounded-xl">
+          <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl">
             <Layers size={32} />
           </div>
           <div>
@@ -280,6 +311,7 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
                 <th className="px-6 py-4 font-bold">Telefone</th>
                 <th className="px-6 py-4 font-bold">Curso</th>
                 <th className="px-6 py-4 font-bold">Origem</th>
+                <th className="px-6 py-4 font-bold">Classificação (Lead)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -287,6 +319,7 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
                 const date = contact.createdAt?.toDate
                   ? contact.createdAt.toDate()
                   : new Date(contact.createdAt || 0);
+                const temp = getLeadTemperatura(contact);
                 return (
                   <tr key={contact.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -309,12 +342,21 @@ export function RelatorioEnvios({ title, contacts = [], typeLabel, iconType = "w
                         {contact.origem}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-sm whitespace-nowrap">
+                      <span className={cn(
+                        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider",
+                        temp === 'Quente' ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-700"
+                      )}>
+                        {temp === 'Quente' ? <Flame size={12} className="text-amber-600" /> : <Snowflake size={12} className="text-blue-600" />}
+                        Lead {temp}
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
               {filteredData.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 italic">
                     Nenhum registro de envio encontrado para os filtros selecionados.
                   </td>
                 </tr>

@@ -25,7 +25,12 @@ import {
   ChevronDown, Filter,
   Wrench,
   AlertTriangle,
-  Network
+  Network,
+  Flame,
+  Snowflake,
+  MessageSquare,
+  Mail,
+  Send
 } from "lucide-react";
 import { OrganogramaSmView } from "./OrganogramaSmView";
 import { FuncionarioSM, UnidadeRegional } from "../types";
@@ -43,7 +48,7 @@ import {
   AreaChart,
   Area
 } from "recharts";
-import { cn, matchesUnit } from "../lib/utils";
+import { cn, matchesUnit, getLeadTemperatura } from "../lib/utils";
 import { 
   UserProfile, 
   Lead, 
@@ -71,7 +76,6 @@ import html2canvas from "html2canvas";
 import { InsumosDashboard } from "./InsumosDashboard";
 import { RelatorioSales } from "./RelatorioSales";
 import { RelatorioEnvios } from "./RelatorioEnvios";
-import { Send, Mail } from "lucide-react";
 
 // Reusing StatCard or defining it locally for portability
 const StatCard = ({
@@ -598,6 +602,8 @@ export function RelatoriosView({
   const [ligacoesFiltroAtendente, setLigacoesFiltroAtendente] = useState("");
   const [ligacoesFiltroOrigem, setLigacoesFiltroOrigem] = useState("");
   const [ligacoesFiltroStatus, setLigacoesFiltroStatus] = useState("");
+  const [ligacoesFiltroTemperatura, setLigacoesFiltroTemperatura] = useState("");
+  const [ligacoesFiltroCanal, setLigacoesFiltroCanal] = useState("");
   const [ligacoesSearchTerm, setLigacoesSearchTerm] = useState("");
 
   const filteredLigacoes = useMemo(() => {
@@ -608,6 +614,8 @@ export function RelatoriosView({
       if (ligacoesFiltroAtendente && l.atendenteId !== ligacoesFiltroAtendente) return false;
       if (ligacoesFiltroOrigem && l.origemId !== ligacoesFiltroOrigem) return false;
       if (ligacoesFiltroStatus && l.status !== ligacoesFiltroStatus) return false;
+      if (ligacoesFiltroTemperatura && getLeadTemperatura(l) !== ligacoesFiltroTemperatura) return false;
+      if (ligacoesFiltroCanal && (l.canal || "Ligação") !== ligacoesFiltroCanal) return false;
       
       if (ligacoesSearchTerm) {
         const search = ligacoesSearchTerm.toLowerCase();
@@ -619,14 +627,18 @@ export function RelatoriosView({
       
       return true;
     });
-  }, [ligacoes, profile, isPrivileged, ligacoesDataInicio, ligacoesDataFim, ligacoesFiltroAtendente, ligacoesFiltroOrigem, ligacoesFiltroStatus, ligacoesSearchTerm]);
+  }, [ligacoes, profile, isPrivileged, ligacoesDataInicio, ligacoesDataFim, ligacoesFiltroAtendente, ligacoesFiltroOrigem, ligacoesFiltroStatus, ligacoesFiltroTemperatura, ligacoesFiltroCanal, ligacoesSearchTerm]);
 
   const ligacoesStats = useMemo(() => {
     const total = filteredLigacoes.length;
-    const naoAtendeu = filteredLigacoes.filter(l => l.status === 'Não atendeu').length;
-    const semInteresse = filteredLigacoes.filter(l => l.status === 'Sem interesse').length;
-    const interesse = filteredLigacoes.filter(l => l.status === 'Interesse').length;
+    const naoAtendeu = filteredLigacoes.filter(l => l.status === 'Não atendeu' || l.status === 'Não respondeu').length;
+    const semInteresse = filteredLigacoes.filter(l => l.status === 'Sem interesse' || l.status === 'Não tem interesse').length;
+    const interesse = filteredLigacoes.filter(l => l.status === 'Interesse' || l.status === 'Interessado').length;
     const convertido = filteredLigacoes.filter(l => l.status === 'Convertido').length;
+    const leadsQuentes = filteredLigacoes.filter(l => getLeadTemperatura(l) === 'Quente').length;
+    const leadsFrios = filteredLigacoes.filter(l => getLeadTemperatura(l) === 'Frio').length;
+    const taxaQuentes = total > 0 ? ((leadsQuentes / total) * 100).toFixed(1) : "0";
+    const taxaFrios = total > 0 ? ((leadsFrios / total) * 100).toFixed(1) : "0";
 
     const byStaff: Record<string, number> = {};
     const bySource: Record<string, { total: number, interesse: number, convertido: number }> = {};
@@ -679,7 +691,20 @@ export function RelatoriosView({
       .sort((a, b) => b.conv - a.conv)
       .slice(0, 10);
 
-    return { total, naoAtendeu, semInteresse, interesse, convertido, staffChart, sourceRanking, staffConvRanking };
+    return { 
+      total, 
+      naoAtendeu, 
+      semInteresse, 
+      interesse, 
+      convertido, 
+      leadsQuentes, 
+      leadsFrios, 
+      taxaQuentes, 
+      taxaFrios, 
+      staffChart, 
+      sourceRanking, 
+      staffConvRanking 
+    };
   }, [filteredLigacoes, calendarioAcoes]);
 
   const atendentesUnicos = useMemo(() => {
@@ -869,10 +894,22 @@ export function RelatoriosView({
 
         {activeTab === "bases" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <StatCard title="Total em Bases" value={basesStats.total} icon={Database} color="bg-blue-500" />
-              <StatCard title="Interessados" value={basesStats.byStatus.find(s => s.name === "Interessado")?.count || 0} icon={Target} color="bg-amber-500" />
-              <StatCard title="Convertidos" value={basesStats.byStatus.find(s => s.name === "Convertido")?.count || 0} icon={CheckCircle} color="bg-emerald-500" />
+              <StatCard 
+                title="Leads Quentes" 
+                value={`${bases.filter(b => getLeadTemperatura(b) === 'Quente').length} (${bases.length > 0 ? Math.round((bases.filter(b => getLeadTemperatura(b) === 'Quente').length / bases.length) * 100) : 0}%)`} 
+                icon={Flame} 
+                color="bg-amber-500" 
+              />
+              <StatCard 
+                title="Leads Frios" 
+                value={`${bases.filter(b => getLeadTemperatura(b) === 'Frio').length} (${bases.length > 0 ? Math.round((bases.filter(b => getLeadTemperatura(b) === 'Frio').length / bases.length) * 100) : 0}%)`} 
+                icon={Snowflake} 
+                color="bg-slate-600" 
+              />
+              <StatCard title="Interessados" value={basesStats.byStatus.find(s => s.name === "Interessado")?.count || 0} icon={Target} color="bg-emerald-500" />
+              <StatCard title="Convertidos" value={basesStats.byStatus.find(s => s.name === "Convertido")?.count || 0} icon={CheckCircle} color="bg-blue-600" />
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChartSection title="Distribuição por Status" data={basesStats.byStatus} />
@@ -1094,8 +1131,8 @@ export function RelatoriosView({
 
         {activeTab === "ligacoes" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-white p-4 rounded-xl border border-slate-200">
-              <div className="md:col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 bg-white p-4 rounded-xl border border-slate-200">
+              <div className="lg:col-span-1">
                 <label className="block text-xs font-medium text-slate-500 mb-1">Buscar por Nome</label>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -1104,21 +1141,21 @@ export function RelatoriosView({
                     value={ligacoesSearchTerm} 
                     onChange={e => setLigacoesSearchTerm(e.target.value)} 
                     placeholder="Staff ou Candidato..."
-                    className="w-full text-sm border-slate-200 rounded-lg pl-9 p-2 focus:ring-2 focus:ring-blue-500 transition-all outline-none" 
+                    className="w-full text-xs border-slate-200 rounded-lg pl-8 p-2 focus:ring-2 focus:ring-blue-500 transition-all outline-none" 
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Início</label>
-                <input type="date" value={ligacoesDataInicio} onChange={e => setLigacoesDataInicio(e.target.value)} className="w-full text-sm border-slate-200 rounded-lg p-2" />
+                <input type="date" value={ligacoesDataInicio} onChange={e => setLigacoesDataInicio(e.target.value)} className="w-full text-xs border-slate-200 rounded-lg p-2" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Fim</label>
-                <input type="date" value={ligacoesDataFim} onChange={e => setLigacoesDataFim(e.target.value)} className="w-full text-sm border-slate-200 rounded-lg p-2" />
+                <input type="date" value={ligacoesDataFim} onChange={e => setLigacoesDataFim(e.target.value)} className="w-full text-xs border-slate-200 rounded-lg p-2" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Funcionário</label>
-                <select value={ligacoesFiltroAtendente} onChange={e => setLigacoesFiltroAtendente(e.target.value)} className="w-full text-sm border-slate-200 rounded-lg p-2">
+                <select value={ligacoesFiltroAtendente} onChange={e => setLigacoesFiltroAtendente(e.target.value)} className="w-full text-xs border-slate-200 rounded-lg p-2">
                   <option value="">Todos</option>
                   {atendentesUnicos.map(a => (
                     <option key={a.id} value={a.id}>{a.name}</option>
@@ -1127,7 +1164,7 @@ export function RelatoriosView({
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1">Base / Ação</label>
-                <select value={ligacoesFiltroOrigem} onChange={e => setLigacoesFiltroOrigem(e.target.value)} className="w-full text-sm border-slate-200 rounded-lg p-2">
+                <select value={ligacoesFiltroOrigem} onChange={e => setLigacoesFiltroOrigem(e.target.value)} className="w-full text-xs border-slate-200 rounded-lg p-2">
                   <option value="">Todas</option>
                   {origensUnicas.map(o => (
                     <option key={o.id} value={o.id}>{o.name}</option>
@@ -1135,23 +1172,41 @@ export function RelatoriosView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
-                <select value={ligacoesFiltroStatus} onChange={e => setLigacoesFiltroStatus(e.target.value)} className="w-full text-sm border-slate-200 rounded-lg p-2">
-                  <option value="">Todos</option>
-                  <option value="Convertido">Convertido</option>
-                  <option value="Interesse">Interesse</option>
-                  <option value="Não atendeu">Não atendeu</option>
-                  <option value="Sem interesse">Sem interesse</option>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Canal</label>
+                <select value={ligacoesFiltroCanal} onChange={e => setLigacoesFiltroCanal(e.target.value)} className="w-full text-xs border-slate-200 rounded-lg p-2">
+                  <option value="">Todos Canais</option>
+                  <option value="Ligação">📞 Ligação</option>
+                  <option value="WhatsApp">💬 WhatsApp</option>
+                  <option value="Mala Direta">✉️ Mala Direta</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Temperatura</label>
+                <select value={ligacoesFiltroTemperatura} onChange={e => setLigacoesFiltroTemperatura(e.target.value)} className="w-full text-xs border-slate-200 rounded-lg p-2">
+                  <option value="">Todas</option>
+                  <option value="Quente">🔥 Leads Quentes</option>
+                  <option value="Frio">❄️ Leads Frios</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <StatCard title="Total Ligações" value={ligacoesStats.total} icon={Phone} color="bg-blue-500" />
-              <StatCard title="Não Atendeu" value={ligacoesStats.naoAtendeu} icon={Clock} color="bg-amber-500" />
-              <StatCard title="Sem Interesse" value={ligacoesStats.semInteresse} icon={XCircle} color="bg-rose-500" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+              <StatCard title="Total Registros" value={ligacoesStats.total} icon={Phone} color="bg-blue-500" />
+              <StatCard 
+                title="Leads Quentes" 
+                value={`${ligacoesStats.leadsQuentes} (${ligacoesStats.taxaQuentes}%)`} 
+                icon={Flame} 
+                color="bg-amber-500" 
+              />
+              <StatCard 
+                title="Leads Frios" 
+                value={`${ligacoesStats.leadsFrios} (${ligacoesStats.taxaFrios}%)`} 
+                icon={Snowflake} 
+                color="bg-slate-600" 
+              />
               <StatCard title="Interesse" value={ligacoesStats.interesse} icon={CheckCircle2} color="bg-emerald-500" />
               <StatCard title="Convertido" value={ligacoesStats.convertido} icon={CheckCircle} color="bg-blue-600" />
+              <StatCard title="Sem Interesse / Ausente" value={ligacoesStats.semInteresse + ligacoesStats.naoAtendeu} icon={XCircle} color="bg-rose-500" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1284,22 +1339,38 @@ export function RelatoriosView({
                       <th className="p-4">Data/Hora</th>
                       <th className="p-4">Colaborador</th>
                       <th className="p-4">Candidato</th>
+                      <th className="p-4">Canal</th>
                       <th className="p-4">Base/Ação</th>
                       <th className="p-4">Status</th>
+                      <th className="p-4">Classificação (Lead)</th>
                       <th className="p-4">Observação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLigacoes.length > 0 ? (
-                      filteredLigacoes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((l) => (
+                      filteredLigacoes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).map((l) => {
+                        const temp = getLeadTemperatura(l);
+                        return (
                         <tr key={l.id} className="hover:bg-slate-50 transition-colors">
                           <td className="p-4 font-medium text-slate-500 whitespace-nowrap">
-                            {l.createdAt?.toDate().toLocaleString("pt-BR")}
+                            {l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString("pt-BR") : "-"}
                           </td>
                           <td className="p-4 font-bold text-slate-900">{l.atendenteNome}</td>
                           <td className="p-4">
                             <div className="font-bold text-slate-900">{l.candidatoNome}</div>
                             <div className="text-xs text-slate-500">{l.candidatoTelefone}</div>
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
+                              {l.canal === "WhatsApp" ? (
+                                <MessageSquare size={13} className="text-emerald-600" />
+                              ) : l.canal === "Mala Direta" ? (
+                                <Mail size={13} className="text-amber-600" />
+                              ) : (
+                                <Phone size={13} className="text-blue-600" />
+                              )}
+                              <span>{l.canal || "Ligação"}</span>
+                            </span>
                           </td>
                           <td className="p-4 text-slate-600">
                             {origensUnicas.find(o => o.id === l.origemId)?.name || l.origemId}
@@ -1315,14 +1386,24 @@ export function RelatoriosView({
                               {l.status}
                             </span>
                           </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black uppercase tracking-wider",
+                              temp === 'Quente' ? "bg-amber-100 text-amber-800 border border-amber-200" : "bg-blue-50 text-blue-700 border border-blue-200"
+                            )}>
+                              {temp === 'Quente' ? <Flame size={12} className="text-amber-600" /> : <Snowflake size={12} className="text-blue-600" />}
+                              Lead {temp}
+                            </span>
+                          </td>
                           <td className="p-4 text-slate-500 italic max-w-xs truncate" title={l.observacao}>
                             {l.observacao || "-"}
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-400 italic">
+                        <td colSpan={8} className="p-8 text-center text-slate-400 italic">
                           Nenhum registro encontrado.
                         </td>
                       </tr>

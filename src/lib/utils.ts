@@ -96,3 +96,28 @@ export function matchesUnit(itemUnit?: string | null, userUnit?: string | null):
   // Substring matching: e.g. "Resende" matches "Estácio Resende" or "UNESA Resende"
   return cleanItem.includes(cleanUser) || cleanUser.includes(cleanItem);
 }
+
+export type LeadTemperatura = 'Quente' | 'Frio';
+
+export function getLeadTemperatura(item: { temperatura?: string; status?: string } | string | null | undefined): LeadTemperatura {
+  if (!item) return 'Frio';
+  if (typeof item === 'object') {
+    if (item.temperatura === 'Quente' || item.temperatura === 'Frio') {
+      return item.temperatura as LeadTemperatura;
+    }
+    return getLeadTemperatura(item.status);
+  }
+  const s = String(item).toLowerCase().trim();
+  if (
+    s === 'quente' ||
+    (s.includes('interesse') && !s.includes('sem interesse') && !s.includes('não')) ||
+    s.includes('convertido') ||
+    s.includes('matriculado') ||
+    s.includes('vai enviar') ||
+    s.includes('vai entregar') ||
+    s.includes('documentação')
+  ) {
+    return 'Quente';
+  }
+  return 'Frio';
+}

@@ -120,6 +120,8 @@ import {
   Hash,
   ListChecks,
   ClipboardList,
+  Flame,
+  Snowflake,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -140,6 +142,7 @@ import {
   validateCPF,
   formatCPF,
   matchesUnit,
+  getLeadTemperatura,
 } from "../lib/utils";
 import * as XLSX from "xlsx";
 import { RelatoriosView } from "./RelatoriosView";
@@ -213,6 +216,7 @@ import { MultiSelect } from "./MultiSelect";
 import { EvasaoView } from "./EvasaoView";
 import NovasOportunidadesView from "./NovasOportunidadesView";
 import ControleLigacoesView from "./ControleLigacoesView";
+import ControleWhatsAppMalaDiretaView from "./ControleWhatsAppMalaDiretaView";
 import CRMView from "./CRMView";
 import MetaSMView from "./MetaSMView";
 import MetaCursosView from "./MetaCursosView";
@@ -227,6 +231,10 @@ export function BasesView({
   gap,
   basesRenovacao,
   profile,
+  leads = [],
+  acoes = [],
+  ligacoes = [],
+  fiesProuni = [],
 }: {
   bases: BaseEntry[];
   onToast: (m: string, t?: "success" | "error") => void;
@@ -239,6 +247,10 @@ export function BasesView({
   gap: GapEntry[];
   basesRenovacao: BaseEntry[];
   profile: UserProfile;
+  leads?: Lead[];
+  acoes?: CalendarioAcao[];
+  ligacoes?: Ligacao[];
+  fiesProuni?: FiesProuniEntry[];
 }) {
   const handleContatoViaSales = async (contact: any, origem: string) => {
     try {
@@ -325,8 +337,9 @@ export function BasesView({
 
   // New States for Sub-tabs and Candidates Editing
   const [basesSubTab, setBasesSubTab] = useState<
-    "dashboard" | "lista" | "novo"
+    "dashboard" | "lista" | "novo" | "disparo"
   >("lista");
+  const [targetBaseForDisparo, setTargetBaseForDisparo] = useState<string>("");
   const [editingCandidate, setEditingCandidate] = useState<BaseEntry | null>(
     null,
   );
@@ -1101,6 +1114,18 @@ export function BasesView({
           <span>Bases a Trabalhar</span>
         </button>
         <button
+          onClick={() => setBasesSubTab("disparo")}
+          className={cn(
+            "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap",
+            basesSubTab === "disparo"
+              ? "border-b-2 border-emerald-600 text-emerald-600 font-bold"
+              : "border-b-2 border-transparent text-slate-500 hover:text-slate-800",
+          )}
+        >
+          <Send size={16} />
+          <span>Trabalho WhatsApp & Mala Direta</span>
+        </button>
+        <button
           onClick={() => setBasesSubTab("novo")}
           className={cn(
             "px-5 py-3 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 whitespace-nowrap",
@@ -1113,6 +1138,25 @@ export function BasesView({
           <span>Novo Registro</span>
         </button>
       </div>
+
+      {/* Disparo / WhatsApp & Mala Direta Sub-tab */}
+      {basesSubTab === "disparo" && (
+        <ControleWhatsAppMalaDiretaView
+          bases={bases}
+          leads={leads}
+          acoes={acoes}
+          ligacoes={ligacoes}
+          fiesProuni={fiesProuni}
+          gap={gap}
+          profile={profile}
+          whatsappMessages={whatsappMessages}
+          botConfig={botConfig}
+          onSendBot={onSendBot}
+          onToast={onToast}
+          initialBaseName={targetBaseForDisparo}
+          onClose={() => setBasesSubTab("lista")}
+        />
+      )}
 
       {/* Dashboard Sub-tab */}
       {basesSubTab === "dashboard" && (
@@ -1592,26 +1636,39 @@ export function BasesView({
             </div>
           </div>
 
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-            <span className="text-xs font-bold text-slate-500">
-              {selectedEntries.length > 0 ? `${selectedEntries.length} selecionado(s)` : "Nenhum selecionado"}
-            </span>
-            {selectedEntries.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setMassSelectorOpen(true)}
-                  className="text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5"
-                >
-                  <Bot size={14} /> Disparo em Massa
-                </button>
-                <button
-                  onClick={handleBulkDelete}
-                  className="text-rose-600 font-bold bg-rose-50 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5"
-                >
-                  <Trash2 size={14} /> Excluir Selecionados
-                </button>
-              </div>
-            )}
+          <div className="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-bold text-slate-500">
+                {selectedEntries.length > 0 ? `${selectedEntries.length} selecionado(s)` : "Nenhum selecionado"}
+              </span>
+              {selectedEntries.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMassSelectorOpen(true)}
+                    className="text-blue-600 font-bold bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <Bot size={14} /> Disparo em Massa
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="text-rose-600 font-bold bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 size={14} /> Excluir Selecionados
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                setTargetBaseForDisparo(baseFilter.length === 1 ? baseFilter[0] : "");
+                setBasesSubTab("disparo");
+              }}
+              className="text-emerald-700 font-bold bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ml-auto"
+            >
+              <Send size={14} />
+              <span>Trabalhar em Fila (WhatsApp & Mala Direta)</span>
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -1631,12 +1688,14 @@ export function BasesView({
                   <th className="px-6 py-4">Candidato</th>
                   <th className="px-6 py-4">Base / Produto</th>
                   <th className="px-6 py-4">Curso / Metodologia</th>
-                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4">Status & Temperatura</th>
                   <th className="px-6 py-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredBases.map((item) => (
+                {filteredBases.map((item) => {
+                  const leadTemp = getLeadTemperatura(item);
+                  return (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <input
@@ -1659,21 +1718,43 @@ export function BasesView({
                       <div className="text-xs text-slate-500">{item.metodologia || item.semestre || "-"}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <select
-                        value={item.status || "Pendente"}
-                        onChange={(e) => handleStatusChange(item, e.target.value)}
-                        className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
-                      >
-                        <option value="Pendente">Pendente</option>
-                        <option value="Interessado">Interessado</option>
-                        <option value="Convertido">Convertido</option>
-                        <option value="Sem retorno">Sem retorno</option>
-                        <option value="Não tem interesse">Não tem interesse</option>
-                        <option value="Contato via Sales">Contato via Sales</option>
-                      </select>
+                      <div className="space-y-1">
+                        <select
+                          value={item.status || "Pendente"}
+                          onChange={(e) => handleStatusChange(item, e.target.value)}
+                          className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold w-full"
+                        >
+                          <option value="Pendente">Pendente</option>
+                          <option value="Interessado">Interessado</option>
+                          <option value="Convertido">Convertido</option>
+                          <option value="Sem retorno">Sem retorno</option>
+                          <option value="Não tem interesse">Não tem interesse</option>
+                          <option value="Contato via Sales">Contato via Sales</option>
+                        </select>
+                        <div>
+                          <span className={cn(
+                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider",
+                            leadTemp === "Quente" ? "bg-amber-100 text-amber-800" : "bg-blue-100 text-blue-700"
+                          )}>
+                            {leadTemp === "Quente" ? <Flame size={10} className="text-amber-600" /> : <Snowflake size={10} className="text-blue-600" />}
+                            Lead {leadTemp}
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        <button
+                          onClick={() => {
+                            setTargetBaseForDisparo(item.nomeBase);
+                            setBasesSubTab("disparo");
+                          }}
+                          className="inline-flex items-center space-x-1 text-emerald-700 font-bold text-xs hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="Iniciar fila de WhatsApp/Mala Direta para esta base"
+                        >
+                          <Send size={13} />
+                          <span>Fila Whats/Mala</span>
+                        </button>
                         {item.telefone && (
                           <button
                             onClick={() => {
@@ -1746,7 +1827,8 @@ export function BasesView({
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {filteredBases.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">

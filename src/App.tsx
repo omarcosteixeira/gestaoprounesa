@@ -8952,6 +8952,10 @@ export default function App() {
                   onMassSendBot={handleMassSendBotMessages}
                   gap={gap}
                   basesRenovacao={basesRenovacao}
+                  leads={leads}
+                  acoes={calendarioAcoes}
+                  ligacoes={ligacoes}
+                  fiesProuni={fiesProuni}
                 />
               )}
               {currentView === "gap" && (

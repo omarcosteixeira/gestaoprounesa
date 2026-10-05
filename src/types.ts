@@ -135,6 +135,9 @@ export interface SendContact {
   telefone: string;
   curso: string;
   origem: string;
+  temperatura?: 'Quente' | 'Frio' | string;
+  status?: string;
+  observacao?: string;
   createdAt: any;
   userEmail?: string;
   userName?: string;
@@ -153,6 +156,7 @@ export interface Lead {
   cursoInteresse?: string;
   empresa?: string;
   status: 'Pendente' | 'Sem retorno' | 'Interessado' | 'Não Interessado' | 'Convertido' | 'Contato via Sales';
+  temperatura?: 'Quente' | 'Frio' | string;
   converted?: boolean;
   createdAt: any;
   promotorId: string;
@@ -179,6 +183,7 @@ export interface BaseEntry {
   metodologia: string;
   formaIngresso: string;
   status: 'Pendente' | 'Interessado' | 'Convertido' | 'Não tem interesse' | 'Sem retorno' | 'Contato via Sales';
+  temperatura?: 'Quente' | 'Frio' | string;
   unidade?: string;
   email?: string;
   createdAt: any;
@@ -862,10 +867,13 @@ export interface Ligacao {
   candidatoId: string; // Lead ID or BaseEntry ID
   candidatoNome: string;
   candidatoTelefone: string;
-  origem: 'Lead' | 'Base' | 'FiesProuni' | 'Gap';
+  origem: 'Lead' | 'Base' | 'FiesProuni' | 'Gap' | string;
   origemId: string; // acaoId or baseName
-  status: 'Não atendeu' | 'Sem interesse' | 'Interesse' | 'Convertido' | 'Vai enviar a documentação via whatsapp/email' | 'Vai entregar pessoalmente na unidade';
+  canal?: 'Ligação' | 'WhatsApp' | 'Mala Direta' | string;
+  temperatura?: 'Quente' | 'Frio' | string;
+  status: 'Não atendeu' | 'Sem interesse' | 'Interesse' | 'Convertido' | 'Vai enviar a documentação via whatsapp/email' | 'Vai entregar pessoalmente na unidade' | 'Não respondeu' | string;
   observacao?: string;
+  mensagemEnviada?: string;
   atendenteId: string;
   atendenteNome: string;
   unidade?: string;
