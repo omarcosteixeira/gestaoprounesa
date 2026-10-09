@@ -21,6 +21,8 @@ import {
   Upload,
   Image as ImageIcon,
   User as UserIcon,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { cn, matchesUnit } from "../lib/utils";
 import { motion } from "motion/react";
@@ -89,6 +91,16 @@ export function CursosDisponiveisView({
   const [filterCurso, setFilterCurso] = useState<string[]>([]);
   const [filterProduto, setFilterProduto] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // In-app deletion confirmation modal state
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    type: "single" | "bulk";
+    id?: string;
+    cursoName?: string;
+    count?: number;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEdit = (c: CursoDisponivel) => {
     setEditingId(c.id);
@@ -161,9 +173,9 @@ export function CursosDisponiveisView({
         onToast("Curso adicionado ao catálogo!", "success");
       }
       handleResetForm();
-    } catch (err) {
-      console.error(err);
-      onToast("Erro ao salvar curso", "error");
+    } catch (err: any) {
+      console.error("Erro ao salvar curso:", err);
+      onToast(`Erro ao salvar curso: ${err?.message || "Tente novamente"}`, "error");
     }
   };
 
@@ -179,38 +191,70 @@ export function CursosDisponiveisView({
     setImagens(newImgs);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir este curso?")) return;
-    try {
-      await deleteDoc(doc(db, COLLECTIONS.CURSOS, id));
-      onToast("Curso excluído com sucesso!", "success");
-    } catch (err) {
-      console.error(err);
-      onToast("Erro ao excluir curso", "error");
-    }
+  const handleOpenDeleteSingle = (c: CursoDisponivel) => {
+    setDeleteConfirmModal({
+      isOpen: true,
+      type: "single",
+      id: c.id,
+      cursoName: c.curso,
+    });
   };
 
-  const handleBulkDelete = async () => {
-    if (
-      !window.confirm(
-        `Tem certeza que deseja excluir ${selectedIds.length} curso(s)?`,
-      )
-    )
-      return;
+  const handleOpenDeleteBulk = () => {
+    if (selectedIds.length === 0) return;
+    setDeleteConfirmModal({
+      isOpen: true,
+      type: "bulk",
+      count: selectedIds.length,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmModal) return;
+    setIsDeleting(true);
+
     try {
-      const firestoreBatch = writeBatch(db);
-      selectedIds.forEach((id) => {
-        firestoreBatch.delete(doc(db, COLLECTIONS.CURSOS, id));
-      });
-      await firestoreBatch.commit();
-      onToast(
-        `${selectedIds.length} curso(s) excluído(s) com sucesso!`,
-        "success",
-      );
-      setSelectedIds([]);
-    } catch (err) {
-      console.error(err);
-      onToast("Erro ao excluir cursos.", "error");
+      if (deleteConfirmModal.type === "single" && deleteConfirmModal.id) {
+        const idToDelete = deleteConfirmModal.id;
+        await deleteDoc(doc(db, COLLECTIONS.CURSOS, idToDelete));
+        setSelectedIds((prev) => prev.filter((id) => id !== idToDelete));
+        onToast(
+          deleteConfirmModal.cursoName
+            ? `Curso "${deleteConfirmModal.cursoName}" excluído do catálogo!`
+            : "Curso excluído com sucesso!",
+          "success"
+        );
+      } else if (deleteConfirmModal.type === "bulk") {
+        if (selectedIds.length === 0) {
+          setIsDeleting(false);
+          setDeleteConfirmModal(null);
+          return;
+        }
+
+        // Process in chunks of 400 to comply with Firestore batch limits
+        const chunkSize = 400;
+        for (let i = 0; i < selectedIds.length; i += chunkSize) {
+          const chunk = selectedIds.slice(i, i + chunkSize);
+          const firestoreBatch = writeBatch(db);
+          chunk.forEach((id) => {
+            firestoreBatch.delete(doc(db, COLLECTIONS.CURSOS, id));
+          });
+          await firestoreBatch.commit();
+        }
+
+        const totalDeleted = selectedIds.length;
+        setSelectedIds([]);
+        onToast(
+          `${totalDeleted} curso(s) excluído(s) do catálogo com sucesso!`,
+          "success"
+        );
+      }
+    } catch (err: any) {
+      console.error("Erro ao excluir do catálogo:", err);
+      onToast(`Erro ao excluir: ${err?.message || "Tente novamente"}`, "error");
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmModal(null);
     }
   };
 
@@ -844,7 +888,7 @@ export function CursosDisponiveisView({
           </h3>
           {selectedIds.length > 0 && (
             <button
-              onClick={handleBulkDelete}
+              onClick={handleOpenDeleteBulk}
               className="bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2 rounded-lg font-bold flex items-center space-x-2 text-xs transition-colors"
             >
               <Trash2 size={16} />
@@ -938,7 +982,7 @@ export function CursosDisponiveisView({
                         <Edit2 size={16} />
                       </button>
                       <button
-                        onClick={() => handleDelete(c.id)}
+                        onClick={() => handleOpenDeleteSingle(c)}
                         className="p-1.5 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors"
                         title="Excluir"
                       >
@@ -950,7 +994,7 @@ export function CursosDisponiveisView({
               ))}
               {filteredCursos.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-5 py-12 text-center text-slate-500">
                     <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
                     <p className="font-medium text-lg">Nenhum curso encontrado</p>
                   </td>
@@ -960,6 +1004,76 @@ export function CursosDisponiveisView({
           </table>
         </div>
       </div>
+
+      {/* In-app Deletion Confirmation Modal */}
+      {deleteConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertTriangle size={28} />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-black text-slate-900">
+                {deleteConfirmModal.type === "bulk"
+                  ? "Excluir Cursos Selecionados?"
+                  : "Excluir Curso do Catálogo?"}
+              </h3>
+              <p className="text-sm text-slate-500 font-medium">
+                {deleteConfirmModal.type === "bulk" ? (
+                  <>
+                    Tem certeza que deseja excluir permanentemente os{" "}
+                    <strong className="text-slate-900 font-bold">
+                      {deleteConfirmModal.count} cursos
+                    </strong>{" "}
+                    selecionados do catálogo digital?
+                  </>
+                ) : (
+                  <>
+                    Tem certeza que deseja excluir o curso{" "}
+                    <strong className="text-slate-900 font-bold">
+                      "{deleteConfirmModal.cursoName}"
+                    </strong>{" "}
+                    do catálogo digital?
+                  </>
+                )}
+              </p>
+              <p className="text-xs text-rose-500 font-bold">
+                Esta ação é irreversível e removerá o item da base de dados.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteConfirmModal(null)}
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm transition-colors shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Sim, Excluir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -17,6 +17,9 @@ import {
   Laptop,
   BookOpen,
   Award,
+  Sparkles,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import {
   collection,
@@ -29,6 +32,7 @@ import {
 import * as XLSX from "xlsx";
 import { db, COLLECTIONS } from "../firebase";
 import { MetaDia } from "../types";
+import { cn } from "../lib/utils";
 
 interface MetaDiaViewProps {
   metaDia?: MetaDia[];
@@ -52,6 +56,7 @@ const initialFormData = {
   aaPosGraduacao: "",
   ytdPosGraduacao: "",
   realizadoPosGraduacao: "",
+  superMetaPercent: "",
 };
 
 export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps) {
@@ -61,6 +66,8 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
   const [dataFimFilter, setDataFimFilter] = useState("");
   const [searchDate, setSearchDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deleteItemModal, setDeleteItemModal] = useState<MetaDia | null>(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -133,7 +140,21 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
     const totalMeta = buMeta + tecMeta + posMeta;
     const totalReal = buReal + tecReal + posReal;
 
-    return { buMeta, buReal, totalMeta, totalReal };
+    const superMetaPercentNum = Number(formData.superMetaPercent) || 0;
+    const superMetaValor = superMetaPercentNum > 0 ? Math.round(totalMeta * (1 + superMetaPercentNum / 100)) : totalMeta;
+    const superMetaAlcancada = superMetaPercentNum > 0 && totalReal >= superMetaValor;
+    const superMetaGap = superMetaValor - totalReal;
+
+    return {
+      buMeta,
+      buReal,
+      totalMeta,
+      totalReal,
+      superMetaPercentNum,
+      superMetaValor,
+      superMetaAlcancada,
+      superMetaGap,
+    };
   }, [formData]);
 
   const handleEdit = (item: MetaDia) => {
@@ -155,6 +176,7 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
       aaPosGraduacao: item.aaPosGraduacao?.toString() || "",
       ytdPosGraduacao: item.ytdPosGraduacao?.toString() || "",
       realizadoPosGraduacao: item.realizadoPosGraduacao?.toString() || "",
+      superMetaPercent: item.superMetaPercent !== undefined ? item.superMetaPercent.toString() : "",
     });
 
     if (formRef.current) {
@@ -174,23 +196,34 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
       return;
     }
 
+    const presMeta = Number(formData.ytdPresencial) || 0;
+    const semiMeta = Number(formData.ytdSemipresencial) || 0;
+    const digMeta = Number(formData.ytdDigital) || 0;
+    const tecMeta = Number(formData.ytdTecnico) || 0;
+    const posMeta = Number(formData.ytdPosGraduacao) || 0;
+    const totalNormal = presMeta + semiMeta + digMeta + tecMeta + posMeta;
+    const superPct = Number(formData.superMetaPercent) || 0;
+    const superTarget = superPct > 0 ? Math.round(totalNormal * (1 + superPct / 100)) : totalNormal;
+
     const payload = {
       data: formData.data.trim(),
       aaPresencial: Number(formData.aaPresencial) || 0,
-      ytdPresencial: Number(formData.ytdPresencial) || 0,
+      ytdPresencial: presMeta,
       realizadoPresencial: Number(formData.realizadoPresencial) || 0,
       aaSemipresencial: Number(formData.aaSemipresencial) || 0,
-      ytdSemipresencial: Number(formData.ytdSemipresencial) || 0,
+      ytdSemipresencial: semiMeta,
       realizadoSemipresencial: Number(formData.realizadoSemipresencial) || 0,
       aaDigital: Number(formData.aaDigital) || 0,
-      ytdDigital: Number(formData.ytdDigital) || 0,
+      ytdDigital: digMeta,
       realizadoDigital: Number(formData.realizadoDigital) || 0,
       aaTecnico: Number(formData.aaTecnico) || 0,
-      ytdTecnico: Number(formData.ytdTecnico) || 0,
+      ytdTecnico: tecMeta,
       realizadoTecnico: Number(formData.realizadoTecnico) || 0,
       aaPosGraduacao: Number(formData.aaPosGraduacao) || 0,
-      ytdPosGraduacao: Number(formData.ytdPosGraduacao) || 0,
+      ytdPosGraduacao: posMeta,
       realizadoPosGraduacao: Number(formData.realizadoPosGraduacao) || 0,
+      superMetaPercent: superPct,
+      superMetaValor: superTarget,
       updatedAt: serverTimestamp(),
     };
 
@@ -223,17 +256,25 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
     }
   };
 
-  const handleDelete = async (item: MetaDia) => {
-    if (!window.confirm(`Deseja realmente excluir o registro do dia ${item.data}?`)) return;
+  const handleOpenDelete = (item: MetaDia) => {
+    setDeleteItemModal(item);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteItemModal) return;
+    setIsDeletingItem(true);
     try {
-      await deleteDoc(doc(db, COLLECTIONS.META_DIA, item.id));
-      onToast(`Registro de ${item.data} excluído com sucesso.`);
-      if (editingItem?.id === item.id) {
+      await deleteDoc(doc(db, COLLECTIONS.META_DIA, deleteItemModal.id));
+      onToast(`Registro de ${deleteItemModal.data} excluído com sucesso.`);
+      if (editingItem?.id === deleteItemModal.id) {
         handleCancelEdit();
       }
+      setDeleteItemModal(null);
     } catch (error: any) {
       console.error("Erro ao excluir:", error);
       onToast(`Erro ao excluir: ${error.message}`, "error");
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -257,6 +298,7 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
         "Pos-Graduacao AA": 40,
         "Pos-Graduacao Meta Dia": 50,
         "Pos-Graduacao Realizado": 45,
+        "Super Meta (%)": 15,
       },
     ];
 
@@ -286,6 +328,9 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
       const digMeta = m.ytdDigital || 0;
       const tecMeta = m.ytdTecnico || 0;
       const posMeta = m.ytdPosGraduacao || 0;
+      const totalMeta = presMeta + semiMeta + digMeta + tecMeta + posMeta;
+      const superPct = m.superMetaPercent || 0;
+      const superTot = m.superMetaValor || (superPct > 0 ? Math.round(totalMeta * (1 + superPct / 100)) : totalMeta);
 
       return {
         Data: m.data,
@@ -304,8 +349,10 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
         "Pos-Graduacao AA": m.aaPosGraduacao || 0,
         "Pos-Graduacao Meta Dia": posMeta,
         "Pos-Graduacao Realizado": posReal,
-        "Total Meta": presMeta + semiMeta + digMeta + tecMeta + posMeta,
+        "Total Meta": totalMeta,
         "Total Realizado": presReal + semiReal + digReal + tecReal + posReal,
+        "Super Meta (%)": superPct,
+        "Super Meta Total": superTot,
       };
     });
 
@@ -358,23 +405,35 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
 
           if (!rawDate) continue;
 
+          const presM = Number(row["Presencial Meta Dia"] ?? row["Presencial Meta"] ?? row.ytdPresencial ?? 0);
+          const semiM = Number(row["Semipresencial Meta Dia"] ?? row["Semipresencial Meta"] ?? row.ytdSemipresencial ?? 0);
+          const digM = Number(row["Digital Meta Dia"] ?? row["Digital Meta"] ?? row.ytdDigital ?? 0);
+          const tecM = Number(row["Tecnico Meta Dia"] ?? row["Tecnico Meta"] ?? row.ytdTecnico ?? 0);
+          const posM = Number(row["Pos-Graduacao Meta Dia"] ?? row["Pos-Graduacao Meta"] ?? row.ytdPosGraduacao ?? 0);
+          const totNormalImport = presM + semiM + digM + tecM + posM;
+
+          const superPctImport = Number(row["Super Meta (%)"] ?? row["Super Meta"] ?? row.superMetaPercent ?? 0);
+          const superTotImport = Number(row["Super Meta Total"] ?? (superPctImport > 0 ? Math.round(totNormalImport * (1 + superPctImport / 100)) : totNormalImport));
+
           const payload = {
             data: rawDate,
             aaPresencial: Number(row["Presencial AA"] ?? row.aaPresencial ?? 0),
-            ytdPresencial: Number(row["Presencial Meta Dia"] ?? row["Presencial Meta"] ?? row.ytdPresencial ?? 0),
+            ytdPresencial: presM,
             realizadoPresencial: Number(row["Presencial Realizado"] ?? row.realizadoPresencial ?? 0),
             aaSemipresencial: Number(row["Semipresencial AA"] ?? row.aaSemipresencial ?? 0),
-            ytdSemipresencial: Number(row["Semipresencial Meta Dia"] ?? row["Semipresencial Meta"] ?? row.ytdSemipresencial ?? 0),
+            ytdSemipresencial: semiM,
             realizadoSemipresencial: Number(row["Semipresencial Realizado"] ?? row.realizadoSemipresencial ?? 0),
             aaDigital: Number(row["Digital AA"] ?? row.aaDigital ?? 0),
-            ytdDigital: Number(row["Digital Meta Dia"] ?? row["Digital Meta"] ?? row.ytdDigital ?? 0),
+            ytdDigital: digM,
             realizadoDigital: Number(row["Digital Realizado"] ?? row.realizadoDigital ?? 0),
             aaTecnico: Number(row["Tecnico AA"] ?? row.aaTecnico ?? 0),
-            ytdTecnico: Number(row["Tecnico Meta Dia"] ?? row["Tecnico Meta"] ?? row.ytdTecnico ?? 0),
+            ytdTecnico: tecM,
             realizadoTecnico: Number(row["Tecnico Realizado"] ?? row.realizadoTecnico ?? 0),
             aaPosGraduacao: Number(row["Pos-Graduacao AA"] ?? row["Pos Graduacao AA"] ?? row.aaPosGraduacao ?? 0),
-            ytdPosGraduacao: Number(row["Pos-Graduacao Meta Dia"] ?? row["Pos-Graduacao Meta"] ?? row.ytdPosGraduacao ?? 0),
+            ytdPosGraduacao: posM,
             realizadoPosGraduacao: Number(row["Pos-Graduacao Realizado"] ?? row.realizadoPosGraduacao ?? 0),
+            superMetaPercent: superPctImport,
+            superMetaValor: superTotImport,
             updatedAt: serverTimestamp(),
           };
 
@@ -509,38 +568,91 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
 
         {/* Form */}
         <form onSubmit={handleSave} className="p-6 space-y-6">
-          {/* Top row: Date selection & status preview */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 p-4 bg-blue-50/40 rounded-2xl border border-blue-100/60">
-            <div className="w-full sm:w-72">
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                <Calendar size={14} className="text-blue-600" />
-                Data da Meta <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                value={formData.data}
-                onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
-              />
+          {/* Top row: Date selection, Super Meta % & status preview */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4 p-5 bg-gradient-to-r from-blue-50/60 to-indigo-50/40 rounded-2xl border border-blue-100">
+            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+              <div className="w-full sm:w-60">
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
+                  <Calendar size={14} className="text-blue-600" />
+                  Data da Meta <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={formData.data}
+                  onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                />
+              </div>
+
+              {/* Super Meta % Input */}
+              <div className="w-full sm:w-56">
+                <label className="block text-xs font-bold text-indigo-900 uppercase mb-1.5 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-amber-500" />
+                  Super Meta (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    placeholder="Ex: 10"
+                    value={formData.superMetaPercent}
+                    onChange={(e) => setFormData({ ...formData, superMetaPercent: e.target.value })}
+                    className="w-full bg-white border-2 border-indigo-200 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm font-black text-indigo-950 outline-none focus:ring-2 focus:ring-indigo-100 transition-all pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-400">
+                    %
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium block mt-1">
+                  Acréscimo sobre a meta normal
+                </span>
+              </div>
             </div>
 
             {/* Quick real-time totals preview */}
-            <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600">
+            <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-slate-600">
               <div className="bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-slate-400 font-semibold uppercase">Total Meta: </span>
+                <span className="text-slate-400 font-semibold uppercase">Meta Normal: </span>
                 <span className="text-blue-600 font-black">{formTotals.totalMeta}</span>
               </div>
               <div className="bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-slate-400 font-semibold uppercase">Total Realizado: </span>
+                <span className="text-slate-400 font-semibold uppercase">Realizado: </span>
                 <span className="text-emerald-600 font-black">{formTotals.totalReal}</span>
               </div>
-              <div className="bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-slate-400 font-semibold uppercase">GAP: </span>
-                <span className={formTotals.totalMeta - formTotals.totalReal > 0 ? "text-amber-600 font-black" : "text-emerald-600 font-black"}>
-                  {formTotals.totalMeta - formTotals.totalReal}
-                </span>
-              </div>
+
+              {formTotals.superMetaPercentNum > 0 && (
+                <div className="bg-gradient-to-r from-amber-50 to-indigo-50 px-3.5 py-2 rounded-xl border border-amber-200 shadow-2xs">
+                  <span className="text-amber-700 font-bold uppercase">Super Meta (+{formTotals.superMetaPercentNum}%): </span>
+                  <span className="text-indigo-950 font-black text-sm">{formTotals.superMetaValor}</span>
+                </div>
+              )}
+
+              {formTotals.superMetaPercentNum > 0 ? (
+                <div className={cn(
+                  "px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs",
+                  formTotals.superMetaAlcancada
+                    ? "bg-emerald-100 text-emerald-900 border border-emerald-200"
+                    : "bg-amber-100 text-amber-950 border border-amber-200"
+                )}>
+                  {formTotals.superMetaAlcancada ? (
+                    <>
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      <span>🚀 Super Meta Alcançada!</span>
+                    </>
+                  ) : (
+                    <span>Faltam {formTotals.superMetaGap} para Super Meta</span>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-slate-400 font-semibold uppercase">GAP: </span>
+                  <span className={formTotals.totalMeta - formTotals.totalReal > 0 ? "text-amber-600 font-black" : "text-emerald-600 font-black"}>
+                    {formTotals.totalMeta - formTotals.totalReal}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -855,14 +967,15 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
                 <th className="py-3.5 px-3">Pós (M / R)</th>
                 <th className="py-3.5 px-4 text-center">Total Meta</th>
                 <th className="py-3.5 px-4 text-center">Total Realizado</th>
-                <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 text-center">Meta Normal</th>
+                <th className="py-3.5 px-4 text-center">Super Meta</th>
                 <th className="py-3.5 px-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-400">
+                  <td colSpan={11} className="py-12 text-center text-slate-400">
                     <Target size={36} className="mx-auto mb-2 opacity-40" />
                     <p className="font-semibold text-sm">Nenhuma meta diária encontrada.</p>
                     <p className="text-xs text-slate-400 mt-1">
@@ -887,6 +1000,12 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
                   const totalR = presR + semiR + digR + tecR + posR;
                   const atingiu = totalM > 0 && totalR >= totalM;
                   const isCurrentEditing = editingItem?.id === item.id;
+
+                  const superPct = item.superMetaPercent || 0;
+                  const hasSuperMeta = superPct > 0 || !!item.superMetaValor;
+                  const superTarget = item.superMetaValor || (superPct > 0 ? Math.round(totalM * (1 + superPct / 100)) : totalM);
+                  const superAlcancada = hasSuperMeta && totalR >= superTarget;
+                  const superGap = superTarget - totalR;
 
                   return (
                     <tr
@@ -952,6 +1071,27 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
                         )}
                       </td>
 
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        {hasSuperMeta ? (
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-black text-slate-900 text-xs">
+                              {superTarget} <span className="text-[10px] text-indigo-600 font-black">({superPct > 0 ? `+${superPct}%` : ""})</span>
+                            </span>
+                            {superAlcancada ? (
+                              <span className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                                🚀 Alcançada!
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                Faltam {superGap}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300 font-medium">-</span>
+                        )}
+                      </td>
+
                       <td className="py-3 px-4 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
@@ -964,7 +1104,7 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(item)}
+                            onClick={() => handleOpenDelete(item)}
                             title="Excluir"
                             className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition cursor-pointer"
                           >
@@ -980,6 +1120,61 @@ export default function MetaDiaView({ metaDia = [], onToast }: MetaDiaViewProps)
           </table>
         </div>
       </section>
+
+      {/* In-app Deletion Confirmation Modal for Meta Dia */}
+      {deleteItemModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertTriangle size={28} />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-black text-slate-900">
+                Excluir Registro de Meta Dia?
+              </h3>
+              <p className="text-sm text-slate-500 font-medium">
+                Tem certeza que deseja excluir o registro do dia{" "}
+                <strong className="text-slate-900 font-bold">
+                  {deleteItemModal.data}
+                </strong>?
+              </p>
+              <p className="text-xs text-rose-500 font-bold">
+                Esta ação é irreversível e removerá as metas e realizados deste dia.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingItem}
+                onClick={() => setDeleteItemModal(null)}
+                className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingItem}
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm transition-colors shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {isDeletingItem ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Excluindo...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} />
+                    <span>Sim, Excluir</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

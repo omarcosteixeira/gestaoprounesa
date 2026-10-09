@@ -23,7 +23,13 @@ import {
   ExternalLink,
   Sparkles,
   ArrowRight,
-  Phone
+  Phone,
+  Users,
+  CheckSquare,
+  Square,
+  Eye,
+  Edit3,
+  AlertTriangle
 } from "lucide-react";
 import { 
   Lead, 
@@ -82,6 +88,11 @@ export default function ControleWhatsAppMalaDiretaView({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [customMessage, setCustomMessage] = useState<string>("");
   const [activeChannel, setActiveChannel] = useState<"WhatsApp" | "Mala Direta">("WhatsApp");
+  const [editingTemplateText, setEditingTemplateText] = useState<boolean>(false);
+
+  // Candidate Selection & Filter states
+  const [excludedCandidateIds, setExcludedCandidateIds] = useState<Set<string>>(new Set());
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState<string>("");
 
   // Outcome registration
   const [isSaving, setIsSaving] = useState(false);
@@ -148,36 +159,135 @@ export default function ControleWhatsAppMalaDiretaView({
     return filtered;
   }, [sourceType, selectedSourceId, selectedCurso, selectedMetodologia, bases, leads, fiesProuni, gap]);
 
-  // Count available candidates not yet contacted today via this channel/interaction
-  const availableCount = useMemo(() => {
-    if (candidatePool.length === 0) return 0;
+  // Available candidates not yet contacted today with their history and temperature
+  const availableCandidatesWithInfo = useMemo(() => {
+    if (candidatePool.length === 0) return [];
     const today = new Date().toISOString().split('T')[0];
 
-    const available = candidatePool.filter(c => {
+    const withContactInfo = candidatePool.map(c => {
       const lastContact = ligacoes
         .filter(l => l.candidatoId === c.id)
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
-      
-      if (!lastContact || !lastContact.createdAt) return true;
-      const contactDate = new Date(lastContact.createdAt.seconds * 1000).toISOString().split('T')[0];
+      const temperatura = getLeadTemperatura(c);
+      return { candidate: c, lastContact, temperatura };
+    });
+
+    const available = withContactInfo.filter(item => {
+      if (!item.lastContact || !item.lastContact.createdAt) return true;
+      const contactDate = new Date(item.lastContact.createdAt.seconds * 1000).toISOString().split('T')[0];
       return contactDate !== today;
     });
 
-    return available.length;
+    // Sort: never contacted first, then older contacts first
+    available.sort((a, b) => {
+      if (!a.lastContact) return -1;
+      if (!b.lastContact) return 1;
+      return (a.lastContact.createdAt?.seconds || 0) - (b.lastContact.createdAt?.seconds || 0);
+    });
+
+    return available;
   }, [candidatePool, ligacoes]);
 
-  // Interpolate message variables
+  // Impacted candidates (excluding those the user unchecked / removed)
+  const impactedCandidates = useMemo(() => {
+    return availableCandidatesWithInfo.filter(
+      item => !excludedCandidateIds.has(item.candidate.id)
+    );
+  }, [availableCandidatesWithInfo, excludedCandidateIds]);
+
+  // Candidates filtered by the in-table search box
+  const filteredCandidateList = useMemo(() => {
+    if (!candidateSearchQuery.trim()) return availableCandidatesWithInfo;
+    const query = candidateSearchQuery.toLowerCase().trim();
+    return availableCandidatesWithInfo.filter(item => {
+      const nome = (item.candidate.nome || "").toLowerCase();
+      const tel = (item.candidate.telefone || "").toLowerCase();
+      const curso = ((item.candidate as any).curso || (item.candidate as any).cursoInteresse || "").toLowerCase();
+      return nome.includes(query) || tel.includes(query) || curso.includes(query);
+    });
+  }, [availableCandidatesWithInfo, candidateSearchQuery]);
+
+  // Selection toggle handlers
+  const toggleCandidateSelection = (id: string) => {
+    setExcludedCandidateIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const removeCandidateFromSelection = (id: string) => {
+    setExcludedCandidateIds(prev => new Set(prev).add(id));
+    onToast("Candidato retirado da seleção de envio.", "success");
+  };
+
+  const handleSelectAllCandidates = () => {
+    setExcludedCandidateIds(new Set());
+  };
+
+  const handleDeselectAllCandidates = () => {
+    const all = new Set(availableCandidatesWithInfo.map(a => a.candidate.id));
+    setExcludedCandidateIds(all);
+  };
+
+  const handleFilterByTemp = (temp: 'Quente' | 'Frio') => {
+    const excluded = new Set<string>();
+    availableCandidatesWithInfo.forEach(item => {
+      if (item.temperatura !== temp) {
+        excluded.add(item.candidate.id);
+      }
+    });
+    setExcludedCandidateIds(excluded);
+    onToast(`Seleção ajustada: apenas Leads ${temp}s incluídos.`, "success");
+  };
+
+  // Selected template details
+  const selectedTemplateObj = useMemo(() => {
+    return whatsappMessages.find(m => m.id === selectedTemplateId) || null;
+  }, [selectedTemplateId, whatsappMessages]);
+
+  const selectedTemplateName = useMemo(() => {
+    if (selectedTemplateObj) return selectedTemplateObj.nome;
+    return "Mensagem Padrão (Saudação + Curso)";
+  }, [selectedTemplateObj]);
+
+  const currentTemplateRawText = useMemo(() => {
+    if (selectedTemplateObj) return selectedTemplateObj.texto;
+    return "Olá, {nome}! Tudo bem? Entramos em contato a respeito do seu interesse no curso de {curso} na nossa unidade. Como podemos te ajudar?";
+  }, [selectedTemplateObj]);
+
+  // Sample candidate for preview interpolation
+  const sampleCandidate = useMemo(() => {
+    return impactedCandidates[0]?.candidate || availableCandidatesWithInfo[0]?.candidate || null;
+  }, [impactedCandidates, availableCandidatesWithInfo]);
+
+  // Preview message generated for display before sending
+  const previewMessage = useMemo(() => {
+    let templateText = customMessage.trim() || currentTemplateRawText;
+
+    const cNome = sampleCandidate?.nome || "Exemplo: Maria da Silva";
+    const cCurso = (sampleCandidate as any)?.curso || (sampleCandidate as any)?.cursoInteresse || "Administração";
+    const cUnidade = (sampleCandidate as any)?.unidade || profile.unidade || "Unidade Centro";
+
+    return templateText
+      .replace(/{nome}/gi, cNome)
+      .replace(/{curso}/gi, cCurso)
+      .replace(/{unidade}/gi, cUnidade);
+  }, [customMessage, currentTemplateRawText, sampleCandidate, profile]);
+
+  const handleCopyPreviewMessage = () => {
+    navigator.clipboard.writeText(previewMessage);
+    onToast("Texto da mensagem copiado para a área de transferência!", "success");
+  };
+
+  // Interpolate message variables for active candidate
   const computedMessage = useMemo(() => {
     if (!currentCandidate) return "";
-    let templateText = customMessage;
-    if (selectedTemplateId) {
-      const t = whatsappMessages.find(m => m.id === selectedTemplateId);
-      if (t) templateText = t.texto;
-    }
-
-    if (!templateText) {
-      templateText = "Olá, {nome}! Tudo bem? Entramos em contato a respeito do seu interesse no curso de {curso} na nossa unidade. Como podemos te ajudar?";
-    }
+    let templateText = customMessage.trim() || currentTemplateRawText;
 
     const cNome = currentCandidate.nome || "Candidato(a)";
     const cCurso = (currentCandidate as any).curso || (currentCandidate as any).cursoInteresse || "Curso Superior";
@@ -187,7 +297,7 @@ export default function ControleWhatsAppMalaDiretaView({
       .replace(/{nome}/gi, cNome)
       .replace(/{curso}/gi, cCurso)
       .replace(/{unidade}/gi, cUnidade);
-  }, [currentCandidate, selectedTemplateId, customMessage, whatsappMessages, profile]);
+  }, [currentCandidate, customMessage, currentTemplateRawText, profile]);
 
   const handleStartWorkflow = (ignoreId?: string | React.MouseEvent) => {
     if ((sourceType === "Base" || sourceType === "Lead") && !selectedSourceId) {
@@ -195,42 +305,25 @@ export default function ControleWhatsAppMalaDiretaView({
       return;
     }
 
-    if (candidatePool.length === 0) {
-      onToast("Não há candidatos disponíveis nesta seleção.", "error");
+    if (impactedCandidates.length === 0) {
+      onToast("Selecione ao menos um candidato na lista para iniciar o atendimento.", "error");
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    const withContactInfo = candidatePool.map(c => {
-      const lastContact = ligacoes
-        .filter(l => l.candidatoId === c.id)
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
-      return { candidate: c, lastContact };
-    });
-
-    const available = withContactInfo.filter(item => {
+    const available = impactedCandidates.filter(item => {
       if (typeof ignoreId === 'string' && item.candidate.id === ignoreId) return false;
-      if (!item.lastContact || !item.lastContact.createdAt) return true;
-      const contactDate = new Date(item.lastContact.createdAt.seconds * 1000).toISOString().split('T')[0];
-      return contactDate !== today;
+      return true;
     });
 
     if (available.length === 0) {
       if (typeof ignoreId === 'string') {
-        onToast("Fim da fila! Todos os candidatos selecionados já foram contatados hoje.", "success");
+        onToast("Fim da fila! Todos os candidatos selecionados foram atendidos.", "success");
         setCurrentCandidate(null);
       } else {
-        onToast("Todos os candidatos desta seleção já foram contatados hoje.", "error");
+        onToast("Nenhum candidato restante na seleção atual.", "error");
       }
       return;
     }
-
-    // Sort: never contacted first, then older contacts first
-    available.sort((a, b) => {
-      if (!a.lastContact) return -1;
-      if (!b.lastContact) return 1;
-      return (a.lastContact.createdAt?.seconds || 0) - (b.lastContact.createdAt?.seconds || 0);
-    });
 
     setCurrentCandidate(available[0].candidate);
     setObservation("");
@@ -555,24 +648,26 @@ export default function ControleWhatsAppMalaDiretaView({
 
             {/* Default Channel & Template Selector */}
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">Canal Padrão de Trabalho:</span>
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setActiveChannel("WhatsApp")}
                     className={cn(
-                      "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all",
-                      activeChannel === "WhatsApp" ? "bg-emerald-600 text-white shadow-sm" : "bg-white text-slate-600 border border-slate-200"
+                      "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer",
+                      activeChannel === "WhatsApp" ? "bg-emerald-600 text-white shadow-sm" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
                     )}
                   >
                     <MessageSquare size={14} />
                     WhatsApp
                   </button>
                   <button
+                    type="button"
                     onClick={() => setActiveChannel("Mala Direta")}
                     className={cn(
-                      "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all",
-                      activeChannel === "Mala Direta" ? "bg-amber-600 text-white shadow-sm" : "bg-white text-slate-600 border border-slate-200"
+                      "px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer",
+                      activeChannel === "Mala Direta" ? "bg-amber-600 text-white shadow-sm" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
                     )}
                   >
                     <Mail size={14} />
@@ -586,8 +681,11 @@ export default function ControleWhatsAppMalaDiretaView({
                   <label className="block text-xs font-semibold text-slate-500">Modelo de Mensagem Pré-definido:</label>
                   <select
                     value={selectedTemplateId}
-                    onChange={(e) => setSelectedTemplateId(e.target.value)}
-                    className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm font-medium outline-none focus:border-emerald-500"
+                    onChange={(e) => {
+                      setSelectedTemplateId(e.target.value);
+                      setCustomMessage(""); // Reset custom message to pick up new template
+                    }}
+                    className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm font-medium outline-none focus:border-emerald-500 cursor-pointer"
                   >
                     <option value="">Mensagem Padrão (Saudação + Curso)</option>
                     {whatsappMessages.map(m => (
@@ -598,30 +696,279 @@ export default function ControleWhatsAppMalaDiretaView({
               )}
             </div>
 
-            {/* Counter status */}
-            <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex items-center justify-between">
+            {/* Visualização Prévia da Mensagem Antes do Envio */}
+            <div className="p-5 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-slate-50 rounded-2xl border border-emerald-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+                <div className="flex items-center gap-2 text-emerald-950 font-black text-sm">
+                  <Eye size={18} className="text-emerald-600" />
+                  <span>Mensagem que será enviada aos candidatos:</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-1 rounded-full">
+                    {selectedTemplateName}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTemplateText(!editingTemplateText)}
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs hover:bg-emerald-50 transition-colors"
+                  >
+                    <Edit3 size={13} />
+                    {editingTemplateText ? "Fechar Edição" : "Editar / Personalizar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyPreviewMessage}
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs hover:bg-emerald-50 transition-colors"
+                  >
+                    <Copy size={13} />
+                    Copiar
+                  </button>
+                </div>
+              </div>
+
+              {editingTemplateText ? (
+                <div className="space-y-1.5">
+                  <textarea
+                    value={customMessage || currentTemplateRawText}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    rows={4}
+                    className="w-full p-3.5 rounded-xl border-2 border-emerald-300 bg-white text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-200 text-slate-800"
+                    placeholder="Digite o texto da mensagem... Use {nome}, {curso}, {unidade} para variáveis dinâmicas."
+                  />
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium">
+                    <span>Variáveis: <b>{"{nome}"}</b>, <b>{"{curso}"}</b>, <b>{"{unidade}"}</b></span>
+                    {customMessage && (
+                      <button
+                        type="button"
+                        onClick={() => setCustomMessage("")}
+                        className="text-emerald-700 font-bold hover:underline"
+                      >
+                        Restaurar texto original do modelo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white p-4 rounded-xl border border-emerald-100 shadow-2xs space-y-2">
+                  <p className="text-sm text-slate-800 whitespace-pre-wrap font-medium leading-relaxed">
+                    {previewMessage}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-100 font-medium">
+                    <span>
+                      Exemplo com dados reais: <b>{sampleCandidate?.nome || "Candidato"}</b> ({(sampleCandidate as any)?.curso || (sampleCandidate as any)?.cursoInteresse || "Curso"})
+                    </span>
+                    <span>{previewMessage.length} caracteres • Canal: <b>{activeChannel}</b></span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pessoas que Serão Impactadas com Opção de Tirar da Seleção */}
+            <div className="space-y-3 pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <Users size={18} className="text-emerald-600" />
+                    Pessoas que serão impactadas ({impactedCandidates.length} de {availableCandidatesWithInfo.length} contatos)
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Revise os contatos abaixo. Você pode desmarcar individualmente ou usar os filtros para definir quem receberá a mensagem.
+                  </p>
+                </div>
+
+                {/* Quick selection controls */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSelectAllCandidates}
+                    className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Marcar Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeselectAllCandidates}
+                    className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Desmarcar Todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFilterByTemp('Quente')}
+                    className="px-2.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Impactar apenas leads quentes"
+                  >
+                    <Flame size={12} /> Apenas Quentes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFilterByTemp('Frio')}
+                    className="px-2.5 py-1.5 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Impactar apenas leads frios"
+                  >
+                    <Snowflake size={12} /> Apenas Frios
+                  </button>
+                </div>
+              </div>
+
+              {/* In-table Search */}
+              <div className="relative">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Filtrar contatos da lista por nome, telefone ou curso..."
+                  value={candidateSearchQuery}
+                  onChange={(e) => setCandidateSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                />
+              </div>
+
+              {/* Impacted Candidates Table */}
+              <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white max-h-80 overflow-y-auto shadow-2xs">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider sticky top-0 z-10">
+                    <tr>
+                      <th className="p-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={impactedCandidates.length === availableCandidatesWithInfo.length && availableCandidatesWithInfo.length > 0}
+                          onChange={(e) => e.target.checked ? handleSelectAllCandidates() : handleDeselectAllCandidates()}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                      </th>
+                      <th className="p-3">Candidato / Telefone</th>
+                      <th className="p-3">Curso & Modalidade</th>
+                      <th className="p-3">Temperatura</th>
+                      <th className="p-3">Último Contato</th>
+                      <th className="p-3 text-right">Opção</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredCandidateList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-slate-400">
+                          Nenhum candidato encontrado nesta seleção.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCandidateList.map((item) => {
+                        const isSelected = !excludedCandidateIds.has(item.candidate.id);
+                        const c = item.candidate;
+                        const cCurso = (c as any).curso || (c as any).cursoInteresse || "Não informado";
+                        const cMeto = (c as any).metodologia || "";
+
+                        return (
+                          <tr
+                            key={c.id}
+                            className={cn(
+                              "hover:bg-slate-50/80 transition-colors",
+                              !isSelected && "bg-slate-50/40 opacity-55"
+                            )}
+                          >
+                            <td className="p-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleCandidateSelection(c.id)}
+                                className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-3 font-semibold text-slate-800">
+                              <div className="flex flex-col">
+                                <span className={cn("font-bold", isSelected ? "text-slate-900" : "text-slate-500 line-through")}>
+                                  {c.nome}
+                                </span>
+                                <span className="text-[11px] text-slate-500 flex items-center gap-1 font-mono">
+                                  <Phone size={11} className="text-emerald-600" />
+                                  {formatPhone(c.telefone)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3 text-slate-600">
+                              <div className="flex flex-col">
+                                <span className="font-medium">{cCurso}</span>
+                                {cMeto && (
+                                  <span className="text-[10px] text-slate-400 font-semibold">{cMeto}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1",
+                                item.temperatura === "Quente" ? "bg-amber-100 text-amber-800" : "bg-blue-50 text-blue-700"
+                              )}>
+                                {item.temperatura === "Quente" ? <Flame size={10} /> : <Snowflake size={10} />}
+                                Lead {item.temperatura}
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-500 text-[11px] whitespace-nowrap">
+                              {item.lastContact ? (
+                                <span>
+                                  {item.lastContact.canal || "Contato"}: {item.lastContact.status}
+                                </span>
+                              ) : (
+                                <span className="text-emerald-600 font-medium">Novo (Sem contato)</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-right whitespace-nowrap">
+                              {isSelected ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeCandidateFromSelection(c.id)}
+                                  className="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors border border-rose-200 cursor-pointer"
+                                  title="Tirar da seleção de envio"
+                                >
+                                  Tirar da Seleção
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleCandidateSelection(c.id)}
+                                  className="px-2.5 py-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors border border-emerald-200 cursor-pointer"
+                                  title="Incluir novamente na seleção"
+                                >
+                                  Incluir
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Counter status & Iniciar Atendimento */}
+            <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Status da Fila</span>
+                <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Impacto da Ação</span>
                 <span className="text-base font-black text-emerald-950">
                   {selectedSourceId || (sourceType !== "Base" && sourceType !== "Lead")
-                    ? `${availableCount} candidato(s) disponível(eis) para atendimento hoje`
+                    ? `${impactedCandidates.length} pessoa(s) selecionada(s) para receber mensagem`
                     : "Aguardando seleção da base..."}
                 </span>
+                {excludedCandidateIds.size > 0 && (
+                  <span className="text-xs text-rose-600 font-semibold block mt-0.5">
+                    ({excludedCandidateIds.size} contato(s) retirado(s) da seleção)
+                  </span>
+                )}
               </div>
               <div className="text-right">
                 <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
-                  Fila Inteligente
+                  Fila Inteligente • {activeChannel}
                 </span>
               </div>
             </div>
 
             <button
-              disabled={availableCount === 0}
+              disabled={impactedCandidates.length === 0}
               onClick={handleStartWorkflow}
-              className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.99]"
+              className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white py-4 rounded-2xl font-black text-base shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] cursor-pointer"
             >
               <Send size={22} />
-              Iniciar Atendimento em Fila ({availableCount})
+              Iniciar Atendimento em Fila ({impactedCandidates.length} Selecionados)
             </button>
           </div>
         </motion.div>
@@ -685,8 +1032,21 @@ export default function ControleWhatsAppMalaDiretaView({
               {/* Progress counter & Skip button */}
               <div className="flex items-center gap-2 self-start md:self-auto">
                 <button
+                  type="button"
+                  onClick={() => {
+                    removeCandidateFromSelection(currentCandidate.id);
+                    handleStartWorkflow(currentCandidate.id);
+                  }}
+                  className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Tirar este candidato da seleção e passar para o próximo"
+                >
+                  <XCircle size={14} />
+                  <span>Tirar da Seleção</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleStartWorkflow(currentCandidate.id)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                   title="Pular este candidato para o próximo"
                 >
                   <span>Pular</span>

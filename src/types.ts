@@ -574,6 +574,8 @@ export interface MetaDia {
   aaPosGraduacao?: number;
   ytdPosGraduacao?: number;
   realizadoPosGraduacao?: number;
+  superMetaPercent?: number; // % acrescida em cima do total da meta dia normal
+  superMetaValor?: number; // Total calculado da super meta
   createdAt: any;
 }
 

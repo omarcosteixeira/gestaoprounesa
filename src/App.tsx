@@ -128,10 +128,21 @@ import {
   Gift,
   Ticket,
   Award,
+  Sparkles,
   Image as ImageIcon,
   Paperclip,
   DoorClosed,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { motion, AnimatePresence } from "motion/react";
 import {
   auth,
@@ -10713,6 +10724,98 @@ function DashboardView({
       : null;
   const activeMeta = todayEntry || latestEntry;
 
+  const [historicoChartMode, setHistoricoChartMode] = useState<"valores" | "percentual">("valores");
+
+  const metaDiaHistorico30Dias = useMemo(() => {
+    if (!metaDia || metaDia.length === 0) return [];
+
+    // Sort chronologically ascending
+    const sorted = [...metaDia].sort((a, b) => a.data.localeCompare(b.data));
+
+    // Calculate window of last 30 days from today
+    const now = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+    // Filter within 30 days or take up to last 30 recorded entries
+    let windowEntries = sorted.filter((m) => m.data >= thirtyDaysAgoStr && m.data <= today);
+    if (windowEntries.length < 5) {
+      windowEntries = sorted.slice(-30);
+    }
+
+    return windowEntries.map((item) => {
+      const metaNormal =
+        (item.ytdPresencial || 0) +
+        (item.ytdSemipresencial || 0) +
+        (item.ytdDigital || 0) +
+        (item.ytdTecnico || 0) +
+        (item.ytdPosGraduacao || 0);
+
+      const realizado =
+        (item.realizadoPresencial || 0) +
+        (item.realizadoSemipresencial || 0) +
+        (item.realizadoDigital || 0) +
+        (item.realizadoTecnico || 0) +
+        (item.realizadoPosGraduacao || 0);
+
+      const superPct = item.superMetaPercent || 0;
+      const superMeta =
+        item.superMetaValor !== undefined && item.superMetaValor > 0
+          ? item.superMetaValor
+          : superPct > 0
+          ? Math.round(metaNormal * (1 + superPct / 100))
+          : metaNormal;
+
+      const atingimentoNormal = metaNormal > 0 ? (realizado / metaNormal) * 100 : 0;
+      const atingimentoSuper = superMeta > 0 ? (realizado / superMeta) * 100 : 0;
+
+      let labelData = item.data;
+      try {
+        const parts = item.data.split("-");
+        if (parts.length === 3) {
+          labelData = `${parts[2]}/${parts[1]}`;
+        }
+      } catch (_) {}
+
+      return {
+        dataOriginal: item.data,
+        data: labelData,
+        metaNormal,
+        realizado,
+        superMeta,
+        superPct,
+        atingimentoNormal: Number(atingimentoNormal.toFixed(1)),
+        atingimentoSuper: Number(atingimentoSuper.toFixed(1)),
+        atingiuMetaNormal: realizado >= metaNormal,
+        atingiuSuperMeta: realizado >= superMeta,
+      };
+    });
+  }, [metaDia, today]);
+
+  const historicoSummary = useMemo(() => {
+    if (!metaDiaHistorico30Dias.length) return null;
+    const totalRealizado = metaDiaHistorico30Dias.reduce((acc, d) => acc + d.realizado, 0);
+    const totalMetaNormal = metaDiaHistorico30Dias.reduce((acc, d) => acc + d.metaNormal, 0);
+    const totalSuperMeta = metaDiaHistorico30Dias.reduce((acc, d) => acc + d.superMeta, 0);
+    const diasMetaBatida = metaDiaHistorico30Dias.filter((d) => d.atingiuMetaNormal).length;
+    const diasSuperMetaBatida = metaDiaHistorico30Dias.filter((d) => d.atingiuSuperMeta).length;
+    const totalDias = metaDiaHistorico30Dias.length;
+    const percMetaGeral = totalMetaNormal > 0 ? (totalRealizado / totalMetaNormal) * 100 : 0;
+    const percSuperGeral = totalSuperMeta > 0 ? (totalRealizado / totalSuperMeta) * 100 : 0;
+
+    return {
+      totalRealizado,
+      totalMetaNormal,
+      totalSuperMeta,
+      diasMetaBatida,
+      diasSuperMetaBatida,
+      totalDias,
+      percMetaGeral: Number(percMetaGeral.toFixed(1)),
+      percSuperGeral: Number(percSuperGeral.toFixed(1)),
+    };
+  }, [metaDiaHistorico30Dias]);
+
   const days = [
     "Segunda-feira",
     "Terça-feira",
@@ -11080,6 +11183,21 @@ function DashboardView({
                 activeMeta.realizadoSemipresencial +
                 activeMeta.realizadoDigital;
 
+              const superPct = activeMeta.superMetaPercent || 0;
+              const totNormalYTD =
+                totYTD +
+                (activeMeta.ytdTecnico || 0) +
+                (activeMeta.ytdPosGraduacao || 0);
+              const totRealAll =
+                totReal +
+                (activeMeta.realizadoTecnico || 0) +
+                (activeMeta.realizadoPosGraduacao || 0);
+
+              const hasSuperMeta = superPct > 0 || (activeMeta.superMetaValor !== undefined && activeMeta.superMetaValor > 0);
+              const superTarget = activeMeta.superMetaValor || (superPct > 0 ? Math.round(totNormalYTD * (1 + superPct / 100)) : totNormalYTD);
+              const superAlcancada = hasSuperMeta && totRealAll >= superTarget;
+              const superGap = superTarget - totRealAll;
+
               let statusText = "Abaixo da Meta";
               let statusColor = "bg-rose-50 text-rose-600 border-rose-100";
               if (totReal > totYTD) {
@@ -11092,17 +11210,117 @@ function DashboardView({
               }
 
               return (
-                <span
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-bold border mt-2 sm:mt-0",
-                    statusColor,
+                <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+                  <span
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-bold border",
+                      statusColor,
+                    )}
+                  >
+                    {statusText}
+                  </span>
+
+                  {hasSuperMeta && (
+                    <span
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-black border flex items-center gap-1.5 shadow-2xs",
+                        superAlcancada
+                          ? "bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-900 border-emerald-300"
+                          : "bg-amber-50 text-amber-900 border-amber-200"
+                      )}
+                    >
+                      <Sparkles size={13} className={superAlcancada ? "text-emerald-600" : "text-amber-500"} />
+                      {superAlcancada
+                        ? `🚀 Super Meta Alcançada! (+${superPct}%)`
+                        : `Super Meta: Faltam ${superGap}`}
+                    </span>
                   )}
-                >
-                  {statusText}
-                </span>
+                </div>
               );
             })()}
           </div>
+
+          {/* Super Meta Section Card */}
+          {(() => {
+            const superPct = activeMeta.superMetaPercent || 0;
+            const totNormalYTD =
+              activeMeta.ytdPresencial +
+              activeMeta.ytdSemipresencial +
+              activeMeta.ytdDigital +
+              (activeMeta.ytdTecnico || 0) +
+              (activeMeta.ytdPosGraduacao || 0);
+            const totRealAll =
+              activeMeta.realizadoPresencial +
+              activeMeta.realizadoSemipresencial +
+              activeMeta.realizadoDigital +
+              (activeMeta.realizadoTecnico || 0) +
+              (activeMeta.realizadoPosGraduacao || 0);
+
+            const hasSuperMeta = superPct > 0 || (activeMeta.superMetaValor !== undefined && activeMeta.superMetaValor > 0);
+            if (!hasSuperMeta) return null;
+
+            const superTarget = activeMeta.superMetaValor || (superPct > 0 ? Math.round(totNormalYTD * (1 + superPct / 100)) : totNormalYTD);
+            const superAlcancada = totRealAll >= superTarget;
+            const superGap = superTarget - totRealAll;
+            const superPctAtingido = superTarget > 0 ? (totRealAll / superTarget) * 100 : 0;
+
+            return (
+              <div className={cn(
+                "p-5 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4",
+                superAlcancada
+                  ? "bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-amber-500/15 border-emerald-300 shadow-sm"
+                  : "bg-gradient-to-r from-amber-500/10 via-indigo-500/5 to-slate-50 border-amber-200"
+              )}>
+                <div className="flex items-center gap-3.5">
+                  <div className={cn(
+                    "w-12 h-12 rounded-2xl flex items-center justify-center font-bold shadow-sm",
+                    superAlcancada ? "bg-emerald-600 text-white shadow-emerald-500/30" : "bg-amber-500 text-white shadow-amber-500/30"
+                  )}>
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        Super Meta do Dia {superPct > 0 ? `(+${superPct}%)` : ""}
+                      </span>
+                      <span className={cn(
+                        "px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider",
+                        superAlcancada
+                          ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                          : "bg-amber-100 text-amber-950 border border-amber-300"
+                      )}>
+                        {superAlcancada ? "🚀 ALCANÇADA COM SUCESSO!" : `NÃO ALCANÇADA (Faltam ${superGap})`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                      Meta Normal: <b className="text-slate-700">{totNormalYTD}</b> • Super Meta Definida: <b className="text-indigo-950 font-black">{superTarget}</b> • Realizado Total: <b className={superAlcancada ? "text-emerald-700 font-black" : "text-slate-800 font-bold"}>{totRealAll}</b>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 self-end md:self-auto bg-white/70 p-3 rounded-xl border border-slate-200/60">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Aproveitamento Super Meta</span>
+                    <span className={cn(
+                      "text-xl font-black",
+                      superAlcancada ? "text-emerald-700" : "text-amber-700"
+                    )}>
+                      {superPctAtingido.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="w-28 sm:w-36 bg-slate-200 rounded-full h-3 overflow-hidden shadow-inner">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-500",
+                        superAlcancada ? "bg-emerald-500" : "bg-amber-500"
+                      )}
+                      style={{ width: `${Math.min(100, superPctAtingido)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
             <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between">
@@ -11256,6 +11474,268 @@ function DashboardView({
             })}
           </div>
         </div>
+      )}
+
+      {/* Gráfico de Linha: Evolução Histórica do Atingimento da Meta (Últimos 30 Dias) */}
+      {!isRegional && metaDiaHistorico30Dias.length > 0 && (
+        <section className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <div className="flex items-center space-x-2 text-slate-900">
+                <TrendingUp size={22} className="text-blue-600" />
+                <h3 className="text-lg font-bold">
+                  Evolução Histórica da Meta (Últimos 30 Dias)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 font-medium mt-1">
+                Comparativo diário entre Realizado vs. Meta Normal vs. Super Meta
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 self-stretch sm:self-auto justify-between sm:justify-end">
+              {/* Toggle Valores vs Percentual */}
+              <div className="inline-flex p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setHistoricoChartMode("valores")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all",
+                    historicoChartMode === "valores"
+                      ? "bg-white text-slate-900 shadow-xs font-bold"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  Valores Absolutos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoricoChartMode("percentual")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg transition-all",
+                    historicoChartMode === "percentual"
+                      ? "bg-white text-slate-900 shadow-xs font-bold"
+                      : "text-slate-500 hover:text-slate-700"
+                  )}
+                >
+                  % de Atingimento
+                </button>
+              </div>
+
+              <span className="text-[11px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200">
+                {metaDiaHistorico30Dias.length} {metaDiaHistorico30Dias.length === 1 ? "dia" : "dias"}
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Metrics KPI Bar */}
+          {historicoSummary && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+              <div className="bg-emerald-50/50 border border-emerald-100 p-3.5 rounded-2xl">
+                <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider block">
+                  Total Realizado (30d)
+                </span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-xl font-black text-emerald-950">
+                    {historicoSummary.totalRealizado}
+                  </span>
+                  <span className="text-xs font-bold text-emerald-800">
+                    ({historicoSummary.percMetaGeral}% da meta)
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-blue-50/50 border border-blue-100 p-3.5 rounded-2xl">
+                <span className="text-[10px] font-bold uppercase text-blue-800 tracking-wider block">
+                  Meta Normal Total
+                </span>
+                <span className="text-xl font-black text-blue-950 mt-1 block">
+                  {historicoSummary.totalMetaNormal}
+                </span>
+              </div>
+
+              <div className="bg-amber-50/50 border border-amber-100 p-3.5 rounded-2xl">
+                <span className="text-[10px] font-bold uppercase text-amber-800 tracking-wider block">
+                  Super Meta Total
+                </span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className="text-xl font-black text-amber-950">
+                    {historicoSummary.totalSuperMeta}
+                  </span>
+                  <span className="text-xs font-bold text-amber-800">
+                    ({historicoSummary.percSuperGeral}%)
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-2xl">
+                <span className="text-[10px] font-bold uppercase text-slate-700 tracking-wider block">
+                  Super Metas Batidas
+                </span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-xl font-black text-slate-900">
+                    {historicoSummary.diasSuperMetaBatida} / {historicoSummary.totalDias}
+                  </span>
+                  <span className="text-xs font-bold text-amber-800">
+                    🚀 {Math.round((historicoSummary.diasSuperMetaBatida / historicoSummary.totalDias) * 100)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Line Chart */}
+          <div className="h-[340px] w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={metaDiaHistorico30Dias}
+                margin={{ top: 10, right: 15, left: -15, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="data"
+                  axisLine={{ stroke: "#e2e8f0" }}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#64748b", fontWeight: 600 }}
+                />
+                <YAxis
+                  axisLine={{ stroke: "#e2e8f0" }}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  unit={historicoChartMode === "percentual" ? "%" : ""}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-100 text-xs space-y-2 min-w-[200px]">
+                        <div className="border-b border-slate-100 pb-2">
+                          <span className="font-bold text-slate-800 block text-sm">
+                            {data.dataOriginal}
+                          </span>
+                          <span
+                            className={cn(
+                              "inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider",
+                              data.atingiuSuperMeta
+                                ? "bg-emerald-100 text-emerald-900"
+                                : data.atingiuMetaNormal
+                                ? "bg-blue-100 text-blue-900"
+                                : "bg-amber-100 text-amber-950"
+                            )}
+                          >
+                            {data.atingiuSuperMeta
+                              ? "🚀 Super Meta Batida!"
+                              : data.atingiuMetaNormal
+                              ? "✅ Meta Normal Atingida"
+                              : "⚠️ Abaixo da Meta"}
+                          </span>
+                        </div>
+
+                        {historicoChartMode === "valores" ? (
+                          <div className="space-y-1.5 font-medium">
+                            <div className="flex justify-between items-center text-emerald-800">
+                              <span className="flex items-center gap-1.5 font-bold">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                                Realizado:
+                              </span>
+                              <span className="font-black text-sm">{data.realizado}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-blue-700">
+                              <span className="flex items-center gap-1.5 font-bold">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" />
+                                Meta Normal:
+                              </span>
+                              <span className="font-bold">{data.metaNormal}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-amber-700">
+                              <span className="flex items-center gap-1.5 font-bold">
+                                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+                                Super Meta:
+                              </span>
+                              <span className="font-black">{data.superMeta}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5 font-medium">
+                            <div className="flex justify-between items-center text-blue-700">
+                              <span className="font-bold">Ating. Meta Normal:</span>
+                              <span className="font-black text-sm">{data.atingimentoNormal}%</span>
+                            </div>
+                            <div className="flex justify-between items-center text-amber-700">
+                              <span className="font-bold">Ating. Super Meta:</span>
+                              <span className="font-black text-sm">{data.atingimentoSuper}%</span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-500 text-[11px] pt-1 border-t border-slate-100">
+                              <span>Realizado:</span>
+                              <span className="font-bold text-slate-800">{data.realizado}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{ paddingTop: "14px", fontSize: "12px", fontWeight: 700 }}
+                />
+
+                {historicoChartMode === "valores" ? (
+                  <>
+                    <Line
+                      type="monotone"
+                      name="Realizado"
+                      dataKey="realizado"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#ffffff", stroke: "#10b981", strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: "#10b981" }}
+                    />
+                    <Line
+                      type="monotone"
+                      name="Meta Normal"
+                      dataKey="metaNormal"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      strokeDasharray="4 4"
+                      dot={{ r: 3, fill: "#ffffff", stroke: "#3b82f6", strokeWidth: 2 }}
+                      activeDot={{ r: 5, fill: "#3b82f6" }}
+                    />
+                    <Line
+                      type="monotone"
+                      name="Super Meta"
+                      dataKey="superMeta"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#ffffff", stroke: "#f59e0b", strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: "#f59e0b" }}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Line
+                      type="monotone"
+                      name="Atingimento Meta Normal (%)"
+                      dataKey="atingimentoNormal"
+                      stroke="#3b82f6"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#ffffff", stroke: "#3b82f6", strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: "#3b82f6" }}
+                    />
+                    <Line
+                      type="monotone"
+                      name="Atingimento Super Meta (%)"
+                      dataKey="atingimentoSuper"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      dot={{ r: 4, fill: "#ffffff", stroke: "#f59e0b", strokeWidth: 2 }}
+                      activeDot={{ r: 6, fill: "#f59e0b" }}
+                    />
+                  </>
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
       )}
 
       {/* Aniversariantes do Mês Widget */}
