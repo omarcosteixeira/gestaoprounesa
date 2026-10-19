@@ -1,6 +1,6 @@
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 
@@ -44,14 +44,25 @@ const app = initializeApp(activeConfig);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
 
-// Enable robust native offline persistence for Android and PWA standalone apps
-export const db = typeof window !== 'undefined'
-  ? initializeFirestore(app, {
+// Enable robust native offline persistence for multi-tab web, Android and PWA standalone apps
+function initializeAppFirestore() {
+  const databaseId = (activeConfig as any).firestoreDatabaseId || undefined;
+  if (typeof window === 'undefined') {
+    return getFirestore(app, databaseId);
+  }
+  try {
+    return initializeFirestore(app, {
       localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager({ forceOwnership: true })
+        tabManager: persistentMultipleTabManager()
       })
-    }, (activeConfig as any).firestoreDatabaseId || undefined)
-  : getFirestore(app, (activeConfig as any).firestoreDatabaseId || undefined);
+    }, databaseId);
+  } catch (error) {
+    console.warn("Could not initialize persistentLocalCache (multi-tab), falling back to default getFirestore:", error);
+    return getFirestore(app, databaseId);
+  }
+}
+
+export const db = initializeAppFirestore();
 
 // Secondary app for creating users without signing out the current admin
 export const secondaryApp = getApps().length > 1 

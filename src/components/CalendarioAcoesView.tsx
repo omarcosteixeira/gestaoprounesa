@@ -21,7 +21,7 @@ import {
   Eye,
   ExternalLink,
 } from "lucide-react";
-import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db, COLLECTIONS } from "../firebase";
 import { CalendarioAcao, UserProfile, Lead, GapEntry, EmpresaParceira } from "../types";
 import * as XLSX from "xlsx";
@@ -273,13 +273,13 @@ export function CalendarioAcoesView({
 
       const finalLeadsFeitos =
         formData.leadsFeitos !== undefined && formData.leadsFeitos !== null
-          ? Number(formData.leadsFeitos)
-          : linkedStats.leadsCount;
+          ? Number(formData.leadsFeitos) || 0
+          : linkedStats.leadsCount || 0;
 
       const finalBoletosFeitos =
         formData.boletosFeitos !== undefined && formData.boletosFeitos !== null
-          ? Number(formData.boletosFeitos)
-          : linkedStats.boletosCount;
+          ? Number(formData.boletosFeitos) || 0
+          : linkedStats.boletosCount || 0;
 
       const payload: Partial<CalendarioAcao> = {
         nome: (formData.nome || "").trim(),
@@ -320,7 +320,7 @@ export function CalendarioAcoesView({
             await updateDoc(doc(db, COLLECTIONS.TAREFAS, editingAcao.linkedTaskId), {
               titulo: `[Plano de Ação] ${payload.nome}`,
               descricao: `Atividade do Plano de Ação em ${payload.local}. ${payload.observacao || ""}`,
-              unidade: profile.unidade || "",
+              unidade: profile?.unidade || "",
               responsavelNome: payload.colaboradorNome || "",
               envolvidosIds: payload.colaboradoresIds || [],
               envolvidosNomes: payload.colaboradoresNomes || [],
@@ -334,38 +334,41 @@ export function CalendarioAcoesView({
 
         onToast("Ação atualizada com sucesso!");
       } else {
-        const acaoRef = await addDoc(collection(db, COLLECTIONS.CALENDARIO_ACOES), {
+        // Atomic batch write to create both action and task simultaneously
+        // This eliminates race conditions, multi-mutation conflicts and prevents Firestore INTERNAL ASSERTION FAILED
+        const batch = writeBatch(db);
+        const acaoRef = doc(collection(db, COLLECTIONS.CALENDARIO_ACOES));
+        const taskRef = doc(collection(db, COLLECTIONS.TAREFAS));
+
+        const actionData = {
           ...payload,
-          creatorId: profile.uid,
-          creatorRole: profile.role,
-          unidade: profile.unidade || "",
+          linkedTaskId: taskRef.id,
+          creatorId: profile?.uid || "",
+          creatorRole: profile?.role || "",
+          unidade: profile?.unidade || "",
           concluida: false,
           createdAt: serverTimestamp(),
-        });
+        };
 
-        // Automatically create a task for this action plan
-        try {
-          const taskRef = await addDoc(collection(db, COLLECTIONS.TAREFAS), {
-            titulo: `[Plano de Ação] ${payload.nome}`,
-            descricao: `Atividade do Plano de Ação em ${payload.local}. ${payload.observacao || ""}`,
-            unidade: profile.unidade || "",
-            responsavelNome: payload.colaboradorNome || "",
-            envolvidosIds: payload.colaboradoresIds || [],
-            envolvidosNomes: payload.colaboradoresNomes || [],
-            dataPrazo: payload.dataInicio || "",
-            status: "Em Andamento",
-            creatorId: profile.uid,
-            creatorNome: profile.name || profile.nome,
-            servidor: profile.servidor || "unesa",
-            linkedAcaoId: acaoRef.id,
-            createdAt: serverTimestamp(),
-          });
+        const taskData = {
+          titulo: `[Plano de Ação] ${payload.nome}`,
+          descricao: `Atividade do Plano de Ação em ${payload.local}. ${payload.observacao || ""}`.trim(),
+          unidade: profile?.unidade || "",
+          responsavelNome: payload.colaboradorNome || "",
+          envolvidosIds: payload.colaboradoresIds || [],
+          envolvidosNomes: payload.colaboradoresNomes || [],
+          dataPrazo: payload.dataInicio || "",
+          status: "Em Andamento",
+          creatorId: profile?.uid || "",
+          creatorNome: profile?.name || profile?.nome || "Colaborador",
+          servidor: profile?.servidor || "unesa",
+          linkedAcaoId: acaoRef.id,
+          createdAt: serverTimestamp(),
+        };
 
-          // Update action with linkedTaskId
-          await updateDoc(acaoRef, { linkedTaskId: taskRef.id });
-        } catch (e) {
-          console.error("Erro ao criar tarefa automática para o plano de ação:", e);
-        }
+        batch.set(acaoRef, actionData);
+        batch.set(taskRef, taskData);
+        await batch.commit();
 
         onToast("Ação agendada com sucesso!");
         if (onSendNotification) {
@@ -377,6 +380,18 @@ export function CalendarioAcoesView({
       setEditingAcao(null);
       if (onClearInitialData) onClearInitialData();
     } catch (err: any) {
+      console.error("Erro ao salvar ação:", err);
+      if (
+        err?.message?.includes("INTERNAL ASSERTION FAILED") ||
+        err?.message?.includes("b815") ||
+        err?.message?.includes("b7de")
+      ) {
+        onToast("Sincronização do Firestore reinicializada. Recarregando página...", "error");
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+        return;
+      }
       onToast(err.message || "Erro ao salvar ação", "error");
     }
   };
